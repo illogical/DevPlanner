@@ -8,11 +8,11 @@ Status key: `[ ]` = not started, `[~]` = in progress, `[x]` = complete
 
 ## Phase 1: Project Scaffolding
 
-- [ ] 1.1 Initialize root `package.json` with Bun, add backend dependencies (`elysia`, `gray-matter`), dev dependencies (`@types/bun`, `typescript`)
-- [ ] 1.2 Create `tsconfig.json` for the backend
-- [ ] 1.3 Scaffold frontend with `bun create vite frontend --template react-ts`
-- [ ] 1.4 Install frontend dependencies (`marked`, `zustand`, `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`)
-- [ ] 1.5 Install frontend dev dependencies (`tailwindcss`, `@tailwindcss/vite`)
+- [x] 1.1 Initialize root `package.json` with Bun, add backend dependencies (`elysia`, `gray-matter`), dev dependencies (`@types/bun`, `typescript`)
+- [x] 1.2 Create `tsconfig.json` for the backend
+- [x] 1.3 Scaffold frontend with `bun create vite frontend --template react-ts`
+- [x] 1.4 Install frontend dependencies (`marked`, `zustand`, `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`)
+- [x] 1.5 Install frontend dev dependencies (`tailwindcss`, `@tailwindcss/vite`)
 - [ ] 1.6 Configure Tailwind CSS (dark mode palette from spec section 5.5)
 - [ ] 1.7 Configure Vite proxy (`/api` → `http://localhost:17103`)
 - [ ] 1.8 Add `package.json` scripts: `dev`, `test`, `seed`, `frontend`
