@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, rename, mkdir } from 'fs/promises';
+import { readdir, readFile, writeFile, rename, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import type { Card, CardSummary, CardFrontmatter, CreateCardInput } from '../types';
 import { MarkdownService } from './markdown.service';
@@ -261,15 +261,14 @@ export class CardService {
     // Write to target location
     await writeFile(targetPath, updatedContent);
 
-    // Remove from source order
+    // Remove from source order and delete source file if moving between lanes
     if (sourceLane !== targetLane) {
       const sourceOrder = await this.readOrderFile(projectSlug, sourceLane);
       const newSourceOrder = sourceOrder.filter((f) => f !== filename);
       await this.writeOrderFile(projectSlug, sourceLane, newSourceOrder);
 
       // Delete source file
-      await Bun.file(sourcePath).writer().end();
-      await Bun.file(sourcePath).delete?.();
+      await unlink(sourcePath);
     }
 
     // Add to target order at the specified position

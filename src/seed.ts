@@ -3,6 +3,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { ProjectService } from './services/project.service';
 import { CardService } from './services/card.service';
+import { slugify } from './utils/slug';
 
 const workspacePath = process.env.DEVPLANNER_WORKSPACE;
 
@@ -188,10 +189,7 @@ async function seed() {
   let totalCards = 0;
 
   for (const projectData of seedProjects) {
-    const slug = projectData.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    const slug = slugify(projectData.name);
 
     // Delete existing project if it exists
     const projectPath = join(workspacePath, slug);
