@@ -157,14 +157,34 @@ status: in-progress      # or: blocked, review, testing
 
 ---
 
-## Web Frontend Features
+## Backend API Features
 
 ### MVP Features
 
+#### Create API endpoints and a service class layer for modifying markdown files
+- [ ] Run on port 17103
+- [ ] List all projects found in an environment variable workspace/base path
+- [ ] Create new project (creates folder + `_project.json`) in the workspace path
+- [ ] Delete/archive projects
+- [ ] Add new card with just a title (creates the markdown file)
+- [ ] Add a new task to a card
+- [ ] Set task status to in-progress
+- [ ] Set task status to complete
+
+#### Create Unit Tests for modifying markdown files
+- [ ] Units tests for each endpoint's service layer logic
+
+#### Create Typescript script to generate seed sample/test/verifcation data
+- [ ] Create seed Projects: ["Media Manager", "LM API, Memory API"]
+- [ ] Add sample cards with checklist TODOs for each project to verify frontend's ability to check off items
+
+
+## Web Frontend Features
+
 #### Project Management
 - [ ] List all projects from the base path
-- [ ] Create new project (creates folder + `_project.json`)
-- [ ] Project settings panel (edit metadata, configure lanes)
+- [ ] Create new project 
+- [ ] Project settings panel (edit metadata)
 - [ ] Delete/archive projects
 
 #### Kanban Board View
@@ -178,21 +198,8 @@ status: in-progress      # or: blocked, review, testing
 - [ ] Click card to open detail/edit view
 - [ ] Quick-add card (title only, creates minimal .md file)
 - [ ] Inline checkbox toggling (updates the .md file)
-- [ ] Delete card (moves to archive or deletes file)
+- [ ] Delete card (moves to archive)
 - [ ] Status indicator/badge on card preview
-
-#### Markdown Editor
-- [ ] Rich Markdown rendering (using `marked` or similar)
-- [ ] Edit mode with live preview or split view
-- [ ] Keyboard shortcut for adding checklist item (`Ctrl/Cmd + Shift + C`?)
-- [ ] Button/shortcut to insert code block with language picker
-- [ ] Auto-save on blur or after typing pause
-
-#### Reference Management
-- [ ] Panel showing project-level references (files + links)
-- [ ] Add link via URL paste
-- [ ] Browse/upload file to `_references/` folder
-- [ ] Associate references with specific cards via frontmatter
 
 ### Future Features
 
@@ -208,15 +215,26 @@ status: in-progress      # or: blocked, review, testing
 - [ ] Filter by status/priority
 - [ ] Search within a single project
 
-#### Views
-- [ ] List view (alternative to Kanban)
-- [ ] Calendar view (if cards have due dates)
-- [ ] Timeline/Gantt view for dependencies
-
 #### Collaboration Indicators
 - [ ] Show "last modified by" (human vs AI agent)
 - [ ] Activity log/history for cards
 - [ ] Visual diff when card was modified externally
+
+#### Reference Management
+- [ ] Panel showing project-level references (files + links)
+- [ ] Add link via URL paste
+- [ ] Browse/upload file to `_references/` folder
+- [ ] Associate references with specific cards via frontmatter
+
+#### Views
+- [ ] List view (alternative to Kanban)
+
+#### Markdown Editor
+- [ ] Rich Markdown rendering (using `marked` or similar) 
+- [ ] Edit mode with live preview or split view
+- [ ] Keyboard shortcut for adding checklist item (`Ctrl/Cmd + Shift + C`?)
+- [ ] Button/shortcut to insert code block with language picker
+- [ ] Auto-save on save button click or checkbox check
 
 ---
 
@@ -411,29 +429,46 @@ If you want cards to be openable/editable in Obsidian:
 
 ### Architecture
 1. **Base path configuration**: Should this be a single hardcoded path, user-configurable, or support multiple base paths (workspaces)?
+user-configurable
 2. **File naming convention**: Should card filenames be auto-generated from title (slugified), timestamps, or user-specified?
+Auto-generated from title and creation date. Store the title in metadata as the source of truth. No need to keep it in sync if the title changes.
 3. **Conflict handling**: What happens if the same card is edited in the web UI and by an AI agent simultaneously?
+I imagine this being an edge case but I am open to suggestions. My initial thought is: locking it from the agent editing it while the user is actively in an edit mode for the card. Ideally queue up the changes for review after the user is done editing the card.
 
 ### MVP Scope
 4. **Initial lanes**: Start with the 3 core lanes (Upcoming, In Progress, Complete), or include Archive from day one?
+Yes, include an Archive as well. For the frontend, the Complete and Archive lanes could be hidden by default to save screen realestate
 5. **Reference files**: MVP must-have, or defer file attachments to post-MVP?
+Post-MVP is a good idea
 6. **Mobile support**: Is responsive design a priority, or desktop-first?
+Responsive would be ideal
 
 ### AI Integration
 7. **MCP server priority**: Build MCP server alongside MVP, or after web UI is functional?
+After the web UI is functional
 8. **Which AI features first**: Search? Status updates? Card creation? What's most valuable initially?
+Card creation, then status updates, then search.
 9. **Validation strictness**: Should AI operations be permissive (auto-fix malformed input) or strict (reject and explain)?
+What are the pros and cons of each?
 10. **Context loading scope**: When AI requests card context, should it auto-fetch URL contents (potential latency/cost), or return URLs for the agent to fetch selectively?
+Return URLs for the agent to fetch selectively
+
 
 ### Technical
 11. **Offline-first**: Should the web app work fully offline with a service worker?
+No thank you
 12. **Multi-user**: Any need for multiple users, or single-user only?
+Single user only. Assignments will either be for me or for an agent.
 13. **Version control**: Should the tool auto-commit changes to git, or leave that to the user?
+Leave that to the user
 
 ### UX
 14. **Quick-add flow**: Add card to which lane by default? Always "Upcoming", or the currently viewed lane?
+The UI could have a plus button at the top of each lane.
 15. **Keyboard-first**: Priority on keyboard shortcuts, or mouse-friendly first?
+Mouse-friendly first, and no need for the keyboard shortcuts for the MVP.
 16. **Dark mode**: Essential from the start, or add later?
+Dark mode from the start with a modern interface.
 
 ---
 
@@ -442,7 +477,7 @@ If you want cards to be openable/editable in Obsidian:
 1. Answer follow-up questions to refine requirements
 2. Define MVP feature set with clear boundaries
 3. Create technical specification for file formats
-4. Set up project scaffolding (Bun + Vite + React + Elysia?)
+4. Set up project scaffolding (Bun + Vite + React + Elysia)
 5. Implement core file I/O layer
 6. Build basic Kanban UI
-7. Add MCP server in parallel or immediately after
+7. Add MCP server
