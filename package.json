@@ -1,4 +1,10 @@
 {
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "test": "bun test",
+    "seed": "bun src/seed.ts",
+    "frontend": "cd frontend && bun run dev"
+  },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
