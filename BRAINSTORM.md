@@ -9,46 +9,63 @@ A file-based Kanban board web app designed for iterative software development wi
 - **Plain-text first**: All data stored as Markdown and JSON files - no database required
 - **AI-native**: Designed from the ground up for AI agents to read, search, and update
 - **Human-readable**: File structure that makes sense when browsing in a file manager or code editor and versioned with git
-- **Obsidian-compatible patterns**: Leverage familiar conventions from the knowledge management ecosystem
+- **Convention-based**: YAML frontmatter and folder structure follow industry-standard patterns (Jekyll, Hugo, static site generators)
 
 ---
 
 ## File Structure Architecture
 
+The **workspace base path** is user-configurable via environment variable (`DEVPLANNER_WORKSPACE`). All projects live under this path.
+
 ```
-<base-path>/
-├── .devplanner/                    # Global configuration
-│   └── config.json                 # Base path settings, defaults
-│
-└── projects/
-    └── <project-name>/             # Each folder is a project
-        ├── _project.json           # Project metadata & lane configuration
-        ├── _references/            # Project-level files and links
-        │   ├── links.json          # Referenced URLs with descriptions
-        │   └── <attached files>    # Copied/linked reference files
-        │
-        ├── 01-upcoming/            # Kanban lanes as numbered folders
-        │   ├── feature-auth.md     # Individual cards as Markdown files
-        │   └── feature-api.md
-        │
-        ├── 02-in-progress/
-        │   └── feature-ui.md
-        │
-        ├── 03-complete/
-        │   └── feature-setup.md
-        │
-        └── 04-archive/             # Optional: archived/closed cards
+$DEVPLANNER_WORKSPACE/
+└── <project-name>/                         # Each folder is a project
+    ├── _project.json                       # Project metadata & lane configuration
+    │
+    ├── 01-upcoming/                        # Kanban lanes as numbered folders
+    │   ├── user-auth.md                    # Cards: slugified title
+    │   └── api-endpoints.md
+    │
+    ├── 02-in-progress/
+    │   └── ui-layout.md
+    │
+    ├── 03-complete/
+    │   └── project-setup.md
+    │
+    ├── 04-archive/                         # Archived/closed cards
+    │
+    └── _references/                        # (Post-MVP) Project-level files and links
+        ├── links.json
+        └── <attached files>
 ```
+
+### Card Filename Convention
+
+Format: `slugified-title.md`
+
+- **Slugified title**: Lowercase, hyphens for spaces, alphanumeric only - provides human-readable browsing
+- **Title in frontmatter is source of truth**: If the card title changes, the filename does NOT need to change. This avoids broken references and unnecessary file renames.
+- Example: A card titled "User Authentication System" → `user-authentication-system.md`
 
 ### Lane Ordering Strategy
 
-**Recommendation**: Use numbered prefixes on lane folders (e.g., `01-upcoming`, `02-in-progress`).
+Numbered prefixes on lane folders (e.g., `01-upcoming`, `02-in-progress`).
 
-**Rationale**:
 - Natural sort order works in file managers, terminals, and code
-- No need for a separate config file to track order
-- Easy to insert new lanes (e.g., `02.5-review` or renumber)
-- The `_project.json` can store display names that hide the numbers in the UI
+- No separate config file needed to track order
+- Easy to insert new lanes by renumbering or adding e.g. `05-review`
+- `_project.json` stores display names, colors, and visibility so the UI hides the numeric prefixes
+
+### Default Lanes (MVP)
+
+| Folder | Display Name | Default Visibility |
+|--------|-------------|-------------------|
+| `01-upcoming` | Upcoming | Visible |
+| `02-in-progress` | In Progress | Visible |
+| `03-complete` | Complete | Hidden by default |
+| `04-archive` | Archive | Hidden by default |
+
+Complete and Archive lanes are hidden by default to save screen space. Users can toggle their visibility.
 
 ---
 
@@ -81,59 +98,45 @@ A file-based Kanban board web app designed for iterative software development wi
 
 ## Card Format (Markdown with YAML Frontmatter)
 
-Individual cards use **YAML frontmatter** (the Obsidian/Jekyll convention) rather than JSON code blocks.
+Individual cards use **YAML frontmatter** for structured metadata, with free-form Markdown below. Frontmatter is the industry standard used by Jekyll, Hugo, Astro, and most static site generators. `gray-matter` provides mature parsing support.
+
+### Example Card: `user-authentication-system.md`
 
 ```markdown
 ---
 title: User Authentication System
 status: in-progress
 priority: high
+assignee: user
 created: 2024-01-15T10:30:00Z
 updated: 2024-01-20T14:22:00Z
 tags:
   - feature
   - security
-references:
-  - auth-flow-diagram.png
-  - https://docs.example.com/oauth
 ---
-
-## Overview
 
 Implement OAuth2 authentication flow with support for Google and GitHub providers.
 
-## Requirements
+## Tasks
 
 - [ ] Set up OAuth2 client configuration
 - [ ] Implement login redirect flow
 - [x] Create user session management
 - [ ] Add logout functionality
-
-## Technical Notes
-
-```typescript
-// Example session interface
-interface UserSession {
-  userId: string;
-  provider: 'google' | 'github';
-  accessToken: string;
-  expiresAt: Date;
-}
 ```
 
-## Related Files
+### Frontmatter Fields
 
-- `src/auth/oauth.ts` - OAuth client implementation
-- `src/middleware/session.ts` - Session middleware
-```
-
-### Why YAML Frontmatter (not JSON code blocks)
-
-1. **Obsidian compatibility**: Obsidian uses YAML frontmatter for properties/metadata
-2. **Industry standard**: Used by Jekyll, Hugo, Astro, MDX, and most static site generators
-3. **Cleaner syntax**: More readable than JSON for simple key-value pairs
-4. **Library support**: `gray-matter` and similar parsers are mature and well-tested
-5. **Separation of concerns**: Metadata at top, content below - clear boundary
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | Yes | Display title (source of truth, filename may differ) |
+| `status` | string | No | Sub-state within a lane: `blocked`, `review`, `testing` |
+| `priority` | string | No | `low`, `medium`, `high` |
+| `assignee` | string | No | `user` or `agent` - who is responsible for this card |
+| `created` | ISO 8601 | Yes | Auto-set on card creation |
+| `updated` | ISO 8601 | Yes | Auto-set on any modification |
+| `tags` | string[] | No | Categorization tags |
+| `references` | string[] | No | (Post-MVP) Associated files and URLs |
 
 ---
 
@@ -157,84 +160,116 @@ status: in-progress      # or: blocked, review, testing
 
 ---
 
-## Backend API Features
+## Backend API
 
-### MVP Features
+**Runtime**: Bun + Elysia on port `17103`
+**Architecture**: REST API → Service layer → File I/O. The service layer is the core logic for reading/writing Markdown and JSON. Both the REST API and the future MCP server will use the same service layer.
 
-#### Create API endpoints and a service class layer for modifying markdown files
-- [ ] Run on port 17103
-- [ ] List all projects found in an environment variable workspace/base path
-- [ ] Create new project (creates folder + `_project.json`) in the workspace path
-- [ ] Delete/archive projects
-- [ ] Add new card with just a title (creates the markdown file)
-- [ ] Add a new task to a card
-- [ ] Set task status to in-progress
-- [ ] Set task status to complete
+### MVP Endpoints
 
-#### Create Unit Tests for modifying markdown files
-- [ ] Units tests for each endpoint's service layer logic
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/projects` | List all projects in `$DEVPLANNER_WORKSPACE` |
+| `POST` | `/api/projects` | Create new project (folder + `_project.json`) |
+| `DELETE` | `/api/projects/:project` | Archive a project |
+| `GET` | `/api/projects/:project/cards` | List all cards across all lanes |
+| `POST` | `/api/projects/:project/cards` | Add new card (title only → creates .md file) |
+| `GET` | `/api/projects/:project/cards/:card` | Get card content and parsed frontmatter |
+| `DELETE` | `/api/projects/:project/cards/:card` | Move card to archive lane |
+| `POST` | `/api/projects/:project/cards/:card/tasks` | Add a new checklist item to a card |
+| `PATCH` | `/api/projects/:project/cards/:card/tasks/:index` | Set task status (unchecked / in-progress / complete) |
+| `PATCH` | `/api/projects/:project/cards/:card/move` | Move card to a different lane |
 
-#### Create Typescript script to generate seed sample/test/verifcation data
-- [ ] Create seed Projects: ["Media Manager", "LM API, Memory API"]
-- [ ] Add sample cards with checklist TODOs for each project to verify frontend's ability to check off items
+### Service Layer
+
+The service layer handles all file I/O and Markdown parsing. Key responsibilities:
+- Parse YAML frontmatter with `gray-matter`
+- Read/write Markdown files with checklist manipulation
+- Create folder structures for new projects and lanes
+- Move files between lane directories
+- Auto-update the `updated` timestamp in frontmatter on any write
+
+### Unit Tests
+
+- Unit tests for each service layer method
+- Test Markdown parsing, frontmatter extraction, checklist toggling
+- Test file creation, file moves between lanes, project scaffolding
+- Test edge cases: special characters in titles, empty cards, missing frontmatter
+
+### Seed Data Script
+
+TypeScript script to generate sample data for development and manual verification:
+- Creates seed projects: "Media Manager", "LM API", "Memory API"
+- Adds sample cards with checklist items in various lanes
+- Provides realistic data to verify frontend rendering and checkbox toggling
+
+### Conflict Handling
+
+For the edge case where a card is edited in the web UI and by an AI agent simultaneously:
+- **Optimistic locking**: When a user opens a card for editing, the UI holds the `updated` timestamp. On save, the backend checks if the file's timestamp has changed. If it has, the user is shown a conflict notice with the option to review the external changes before saving.
+- **Future enhancement**: Queue up agent changes for review when the user has a card open in edit mode.
 
 
 ## Web Frontend Features
 
-#### Project Management
-- [ ] List all projects from the base path
-- [ ] Create new project 
-- [ ] Project settings panel (edit metadata)
+**Design**: Dark mode from the start, modern interface, responsive layout, mouse-friendly (no keyboard shortcuts for MVP).
+
+### MVP Features
+
+#### Project Sidebar / Navigation
+- [ ] List all projects from the workspace
+- [ ] Create new project (title + optional description)
 - [ ] Delete/archive projects
 
 #### Kanban Board View
 - [ ] Display lanes left-to-right based on folder order
-- [ ] Render cards within each lane
-- [ ] Collapse/expand lanes (especially useful for "Complete")
-- [ ] Drag-and-drop cards between lanes (moves the .md file)
-- [ ] Drag-and-drop to reorder cards within a lane
+- [ ] Render card previews within each lane (title, task progress indicator, assignee badge)
+- [ ] Complete and Archive lanes hidden by default, toggleable
+- [ ] Drag-and-drop cards between lanes (moves the .md file via API)
+- [ ] Plus button at the top of each lane to quick-add a card to that lane
 
 #### Card Interactions
-- [ ] Click card to open detail/edit view
-- [ ] Quick-add card (title only, creates minimal .md file)
-- [ ] Inline checkbox toggling (updates the .md file)
-- [ ] Delete card (moves to archive)
-- [ ] Status indicator/badge on card preview
+- [ ] Click card to open a detail/read view (rendered Markdown via `marked`)
+- [ ] Quick-add card: enter title only, card created in that lane via API
+- [ ] Checkbox toggling directly on the card detail view (calls `PATCH .../tasks/:index`)
+- [ ] Move card to a different lane (dropdown or drag-and-drop)
+- [ ] Delete card (moves to archive lane)
+- [ ] Card preview shows: title, checklist progress (e.g., "3/5"), assignee icon
+
+#### Card Detail View (Read + Task Toggle)
+- [ ] Render card Markdown content as read-only HTML
+- [ ] Interactive checkboxes that toggle task status via API
+- [ ] Display frontmatter metadata (assignee, priority, tags, dates)
+- [ ] Card content is edited externally (in a code editor or by an AI agent) for now
 
 ### Future Features
 
-#### Enhanced Editor
+#### Markdown Editor (Post-MVP)
+- [ ] Rich Markdown editing with live preview or split view
+- [ ] Button to add checklist item
+- [ ] Button to insert code block with language picker
 - [ ] Syntax highlighting in code blocks (Prism.js or highlight.js)
-- [ ] Drag-and-drop image upload (stores in `_references/`)
-- [ ] `[[wiki-link]]` style linking between cards
-- [ ] `@mention` syntax for referencing files in the codebase
+- [ ] Auto-save on save button click
 
 #### Search & Filter
 - [ ] Full-text search across all cards
-- [ ] Filter by tags
-- [ ] Filter by status/priority
+- [ ] Filter by tags, assignee, priority
+- [ ] Filter by status/lane
 - [ ] Search within a single project
 
-#### Collaboration Indicators
-- [ ] Show "last modified by" (human vs AI agent)
-- [ ] Activity log/history for cards
-- [ ] Visual diff when card was modified externally
-
-#### Reference Management
+#### Reference Management (Post-MVP)
 - [ ] Panel showing project-level references (files + links)
 - [ ] Add link via URL paste
 - [ ] Browse/upload file to `_references/` folder
 - [ ] Associate references with specific cards via frontmatter
 
-#### Views
-- [ ] List view (alternative to Kanban)
+#### Collaboration Indicators
+- [ ] Show "last modified by" (user vs agent) based on assignee or commit info
+- [ ] Activity log/history for cards
+- [ ] Visual indicator when card was modified externally since last viewed
 
-#### Markdown Editor
-- [ ] Rich Markdown rendering (using `marked` or similar) 
-- [ ] Edit mode with live preview or split view
-- [ ] Keyboard shortcut for adding checklist item (`Ctrl/Cmd + Shift + C`?)
-- [ ] Button/shortcut to insert code block with language picker
-- [ ] Auto-save on save button click or checkbox check
+#### Additional Views
+- [ ] List view (alternative to Kanban)
 
 ---
 
@@ -369,115 +404,131 @@ A key capability for AI-assisted development: the agent should be able to **revi
 
 ---
 
-## Technical Stack Suggestions
+## Technical Stack
+
+### Backend
+- **Runtime**: Bun
+- **Framework**: Elysia
+- **Markdown parsing**: `gray-matter` (frontmatter), raw string manipulation for checklists
+- **File watching**: Bun native watch or `chokidar` (for pushing live updates to frontend)
 
 ### Frontend
-- **Framework**: React or Preact (lightweight)
+- **Framework**: React (via Vite)
 - **Styling**: Tailwind CSS
-- **Markdown**: `marked` for rendering, `gray-matter` for frontmatter parsing
-- **Drag-and-drop**: `@dnd-kit/core` or `react-beautiful-dnd`
-- **Code highlighting**: Prism.js or highlight.js (deferred)
-- **State management**: Zustand or Jotai (lightweight)
+- **Markdown rendering**: `marked` (read-only card detail view)
+- **Drag-and-drop**: `@dnd-kit/core` (actively maintained, accessible)
+- **State management**: Zustand (lightweight, minimal boilerplate)
 
-### Backend (Minimal)
-- **Runtime**: Bun or Node.js
-- **Framework**: Elysia (Bun) or Express/Fastify
-- **File watching**: `chokidar` for real-time updates
-- **API**: REST endpoints that map to file operations
-
-### MCP Server
+### MCP Server (Post-MVP)
 - TypeScript-based MCP server
-- Uses same file I/O logic as backend
-- Exposes tools for AI agent interaction
-
----
-
-## Obsidian Compatibility Notes
-
-### What Obsidian Uses
-- **YAML frontmatter** for properties (not JSON code blocks)
-- **`[[wikilinks]]`** for internal linking
-- **Tags** as `#tag` in content or `tags:` array in frontmatter
-- **Folder structure** as organizational hierarchy
-
-### Compatibility Considerations
-If you want cards to be openable/editable in Obsidian:
-- Use YAML frontmatter (we are)
-- Consider supporting `[[wikilinks]]` syntax for card-to-card links
-- The folder structure already aligns with Obsidian's model
-- Could add `.obsidian/` config to make the projects folder an Obsidian vault
+- Reuses the same service layer as the Elysia backend
+- No duplicated file I/O logic
 
 ---
 
 ## Summary of Suggestions
 
-1. **Use numbered folder prefixes for lane ordering** - simpler than config files, natural sort order
-2. **YAML frontmatter over JSON code blocks** - Obsidian-compatible, industry standard, cleaner
-3. **Dual status tracking** - lane location for primary status, frontmatter for sub-states
-4. **MCP server as primary AI integration** - structured, validated, works across agents
-5. **`_project.json` for project config** - keeps structured data separate from content
-6. **`_references/` folder pattern** - clean separation of attachments
-7. **Archive lane instead of deletion** - preserve history, allow restoration
-8. **File watching for real-time sync** - external edits (by AI or editor) appear instantly
-9. **Hybrid AI approach** - MCP + direct file access + skill for maximum flexibility
-10. **Consider Obsidian vault compatibility** - opens up ecosystem of plugins and mobile apps
-11. **AI context loading for cards** - agent can fetch all referenced files and links before working on a task
+1. **Numbered folder prefixes for lane ordering** - natural sort, no config file needed
+2. **YAML frontmatter** - industry standard, cleaner than JSON code blocks, mature library support
+3. **Dual status tracking** - lane = primary status, frontmatter `status` = sub-states (blocked, review)
+4. **`_project.json` for project config** - structured data separate from content
+5. **Archive lane instead of deletion** - preserve history, allow restoration
+6. **Slugified filenames** - `slugified-title.md` with title in frontmatter as source of truth
+7. **Assignee field** - `user` or `agent` to track who owns each card
+8. **API-first architecture** - service layer shared between REST API and future MCP server
+9. **Optimistic locking** - timestamp-based conflict detection for concurrent edits
+10. **AI context loading** - agent can fetch all referenced files and links before working on a task
+11. **Shared service layer for MCP** - MCP server reuses the same service classes as the REST API, no duplicated logic
+
+### Additional Suggestions Based on Feedback
+
+12. **Checklist task states**: Consider supporting three checklist states in Markdown: `- [ ]` (unchecked), `- [~]` or `- [/]` (in-progress), `- [x]` (complete). This maps to the three states you want for task tracking. Standard Markdown renderers only know `[ ]` and `[x]`, so the in-progress marker would need custom rendering in the frontend. Alternative: use `- [ ] 🔄 Task description` with an emoji prefix, or track in-progress state separately in frontmatter.
+
+13. **Card progress on board view**: Show a progress indicator on each card preview in the Kanban board (e.g., "3/5 tasks" or a small progress bar). This gives at-a-glance visibility without opening the card.
+
+14. **Seed script as dev tool**: The seed script should be idempotent (safe to re-run) and should clean up before recreating. Consider making it a `bun run seed` command in package.json.
+
+15. **File watching for live reload**: Use `chokidar` or Bun's native `watch` to detect external file changes (AI agent edits, manual file edits). Push updates to the frontend via WebSocket or Server-Sent Events so the board reflects changes in real time without manual refresh.
 
 ---
 
-## Follow-Up Questions for Planning
+## Resolved Decisions
 
-### Architecture
-1. **Base path configuration**: Should this be a single hardcoded path, user-configurable, or support multiple base paths (workspaces)?
-user-configurable
-2. **File naming convention**: Should card filenames be auto-generated from title (slugified), timestamps, or user-specified?
-Auto-generated from title and creation date. Store the title in metadata as the source of truth. No need to keep it in sync if the title changes.
-3. **Conflict handling**: What happens if the same card is edited in the web UI and by an AI agent simultaneously?
-I imagine this being an edge case but I am open to suggestions. My initial thought is: locking it from the agent editing it while the user is actively in an edit mode for the card. Ideally queue up the changes for review after the user is done editing the card.
+| # | Decision | Resolution |
+|---|----------|------------|
+| 1 | Base path config | User-configurable via `DEVPLANNER_WORKSPACE` env var |
+| 2 | File naming | Auto-generated slugified filename from title, title in frontmatter is source of truth |
+| 3 | Conflict handling | Optimistic locking with timestamp check; future: queue agent changes during user edits |
+| 4 | Initial lanes | 4 lanes: Upcoming, In Progress, Complete (hidden), Archive (hidden) |
+| 5 | Reference files | Post-MVP |
+| 6 | Mobile support | Responsive design from the start |
+| 7 | MCP server timing | After web UI is functional |
+| 8 | AI feature priority | Card creation → status updates → search |
+| 9 | Context loading | Return URLs for agent to fetch selectively (no auto-fetch) |
+| 10 | Offline support | Not needed |
+| 11 | Multi-user | Single user; assignee is `user` or `agent` |
+| 12 | Version control | Manual (user manages git) |
+| 13 | Quick-add flow | Plus button at top of each lane, card added to that lane |
+| 14 | Keyboard shortcuts | Not needed for MVP; mouse-friendly first |
+| 15 | Dark mode | From the start, modern interface |
+| 16 | Markdown editor | Post-MVP; card content edited externally for now; UI provides read view + task toggling |
 
-### MVP Scope
-4. **Initial lanes**: Start with the 3 core lanes (Upcoming, In Progress, Complete), or include Archive from day one?
-Yes, include an Archive as well. For the frontend, the Complete and Archive lanes could be hidden by default to save screen realestate
-5. **Reference files**: MVP must-have, or defer file attachments to post-MVP?
-Post-MVP is a good idea
-6. **Mobile support**: Is responsive design a priority, or desktop-first?
-Responsive would be ideal
+---
 
-### AI Integration
-7. **MCP server priority**: Build MCP server alongside MVP, or after web UI is functional?
-After the web UI is functional
-8. **Which AI features first**: Search? Status updates? Card creation? What's most valuable initially?
-Card creation, then status updates, then search.
-9. **Validation strictness**: Should AI operations be permissive (auto-fix malformed input) or strict (reject and explain)?
-What are the pros and cons of each?
-10. **Context loading scope**: When AI requests card context, should it auto-fetch URL contents (potential latency/cost), or return URLs for the agent to fetch selectively?
-Return URLs for the agent to fetch selectively
+## Open Question: Validation Strictness for AI Operations
 
+**Permissive (auto-fix malformed input)**:
+- Pros: Less friction for AI, faster operations, graceful degradation
+- Cons: May mask bugs in AI integration, silent corrections could produce unexpected data, harder to debug
 
-### Technical
-11. **Offline-first**: Should the web app work fully offline with a service worker?
-No thank you
-12. **Multi-user**: Any need for multiple users, or single-user only?
-Single user only. Assignments will either be for me or for an agent.
-13. **Version control**: Should the tool auto-commit changes to git, or leave that to the user?
-Leave that to the user
+**Strict (reject and explain)**:
+- Pros: Catches integration bugs early, maintains data integrity, clear error messages help the AI self-correct on retry
+- Cons: More round-trips if the AI makes formatting mistakes
 
-### UX
-14. **Quick-add flow**: Add card to which lane by default? Always "Upcoming", or the currently viewed lane?
-The UI could have a plus button at the top of each lane.
-15. **Keyboard-first**: Priority on keyboard shortcuts, or mouse-friendly first?
-Mouse-friendly first, and no need for the keyboard shortcuts for the MVP.
-16. **Dark mode**: Essential from the start, or add later?
-Dark mode from the start with a modern interface.
+**Recommendation**: Strict with helpful error messages. AI agents (especially Claude) are good at self-correcting when they get a clear error explaining what went wrong. This catches malformed data early and keeps the files clean. The error responses should include what was wrong and what the expected format is.
+
+---
+
+## Follow-Up Questions for Specification
+
+### API Design
+1. **Task status representation in Markdown**: For in-progress tasks, which convention do you prefer?
+   - Option A: `- [~] Task description` (custom marker, needs custom rendering)
+   - Option B: `- [-] Task description` (another common convention)
+   - Option C: Track in-progress at the card level only (frontmatter), keep checkboxes binary `[ ]`/`[x]`
+
+Use option C
+
+2. **Card ordering within a lane**: Should cards have a sort order? Options: explicit order in a lane config, or drag-and-drop order stored somewhere?
+
+We could use either a JSON file for this or a hidden Markdown file to track the order of the cards and support drag and drop.
+
+3. **Project deletion**: Hard delete vs soft delete (rename folder with a `_deleted_` prefix or move to a top-level archive)?
+No need for a delete; instead, make it an archive feature and move the card to the archive lane.
+
+### Frontend
+4. **Card detail view**: Should it be a modal/overlay on the Kanban board, or a full-page view (navigates away from the board)?
+It should be an overlay, ideally a panel that slides in from the right side
+5. **Lane visibility toggle**: Should the hidden lanes (Complete, Archive) appear as collapsed columns or be completely absent until toggled on via a button in the header?
+They should be collapsed, and their titles should be out of the way until clicked, and then their lane will be added as the right-most lane. It will need a small glyph button to be able to minimize it out of the way again.
+
+6. **Project switching**: Sidebar that's always visible, or a dropdown/selector in the top nav?
+A sidebar that is displayed by default but can be toggled to be hidden away on the left side
+
+### AI Agent
+7. **Agent assignment flow**: When an AI agent is assigned a card, should the card auto-move to "In Progress", or should the agent explicitly move it?
+Wait for the agent to move the card to In Progress.
+8. **Validation strictness**: Based on the pros/cons above, do you want strict (recommended) or permissive?
+Strict
 
 ---
 
 ## Next Steps
 
-1. Answer follow-up questions to refine requirements
-2. Define MVP feature set with clear boundaries
-3. Create technical specification for file formats
-4. Set up project scaffolding (Bun + Vite + React + Elysia)
-5. Implement core file I/O layer
-6. Build basic Kanban UI
-7. Add MCP server
+1. Resolve remaining follow-up questions
+2. Create `SPECIFICATION.md` with exact file formats, API contracts, and component structure
+3. Set up project scaffolding (Bun + Vite + React + Elysia)
+4. Implement service layer + API endpoints with unit tests
+5. Run seed script to generate test data
+6. Build Kanban frontend against the API
+7. Add MCP server (post-MVP, reusing service layer)
