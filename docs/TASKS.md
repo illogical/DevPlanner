@@ -13,59 +13,59 @@ Status key: `[ ]` = not started, `[~]` = in progress, `[x]` = complete
 - [x] 1.3 Scaffold frontend with `bun create vite frontend --template react-ts`
 - [x] 1.4 Install frontend dependencies (`marked`, `zustand`, `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`)
 - [x] 1.5 Install frontend dev dependencies (`tailwindcss`, `@tailwindcss/vite`)
-- [ ] 1.6 Configure Tailwind CSS (dark mode palette from spec section 5.5)
-- [ ] 1.7 Configure Vite proxy (`/api` → `http://localhost:17103`)
-- [ ] 1.8 Add `package.json` scripts: `dev`, `test`, `seed`, `frontend`
-- [ ] 1.9 Create `workspace/` directory, add to `.gitignore`
-- [ ] 1.10 Create backend directory structure (`src/routes/`, `src/services/`, `src/types/`, `src/utils/`, `src/__tests__/`)
+- [x] 1.6 Configure Tailwind CSS (dark mode palette from spec section 5.5)
+- [x] 1.7 Configure Vite proxy (`/api` → `http://localhost:17103`)
+- [x] 1.8 Add `package.json` scripts: `dev`, `test`, `seed`, `frontend`
+- [x] 1.9 Create `workspace/` directory, add to `.gitignore`
+- [x] 1.10 Create backend directory structure (`src/routes/`, `src/services/`, `src/types/`, `src/utils/`, `src/__tests__/`)
 
 ## Phase 2: Shared Types & Utilities
 
-- [ ] 2.1 Define shared TypeScript interfaces in `src/types/index.ts` (`ProjectConfig`, `LaneConfig`, `CardFrontmatter`, `Card`, `CardSummary`, `TaskItem`, `ApiError`, etc.)
-- [ ] 2.2 Implement `slugify()` in `src/utils/slug.ts` with unit tests
+- [x] 2.1 Define shared TypeScript interfaces in `src/types/index.ts` (`ProjectConfig`, `LaneConfig`, `CardFrontmatter`, `Card`, `CardSummary`, `TaskItem`, `ApiError`, etc.)
+- [x] 2.2 Implement `slugify()` in `src/utils/slug.ts` with unit tests
 
 ## Phase 3: Backend Services
 
 Build from the bottom up — `MarkdownService` has no dependencies, then `ProjectService`, `CardService`, and `TaskService` layer on top.
 
-- [ ] 3.1 Implement `MarkdownService.parse()` — parse frontmatter + content + tasks from raw Markdown string
-- [ ] 3.2 Implement `MarkdownService.serialize()` — serialize frontmatter + content back to Markdown string
-- [ ] 3.3 Implement `MarkdownService.parseTasks()` — extract `TaskItem[]` from Markdown content
-- [ ] 3.4 Implement `MarkdownService.setTaskChecked()` — toggle a task's checked state in Markdown content
-- [ ] 3.5 Implement `MarkdownService.appendTask()` — add a new checklist item to Markdown content
-- [ ] 3.6 Implement `MarkdownService.taskProgress()` — compute `{ total, checked }` summary
-- [ ] 3.7 Write unit tests for `MarkdownService` (parsing, serialization, task manipulation, edge cases)
-- [ ] 3.8 Implement `ProjectService.listProjects()` — scan workspace, read `_project.json` files, compute card counts
-- [ ] 3.9 Implement `ProjectService.getProject()` — read single project config
-- [ ] 3.10 Implement `ProjectService.createProject()` — create folder, `_project.json`, lane subfolders with `_order.json`
-- [ ] 3.11 Implement `ProjectService.updateProject()` — update `_project.json` fields
-- [ ] 3.12 Implement `ProjectService.archiveProject()` — set `archived: true`
-- [ ] 3.13 Write unit tests for `ProjectService`
-- [ ] 3.14 Implement `CardService.listCards()` — read all lanes, parse frontmatter, respect `_order.json` ordering
-- [ ] 3.15 Implement `CardService.getCard()` — find card across lanes, return full parsed content
-- [ ] 3.16 Implement `CardService.createCard()` — slugify title, handle duplicate slugs, write `.md` file, update `_order.json`
-- [ ] 3.17 Implement `CardService.moveCard()` — move file between lane folders, update both `_order.json` files
-- [ ] 3.18 Implement `CardService.archiveCard()` — move card to `04-archive/`
-- [ ] 3.19 Implement `CardService.reorderCards()` — replace `_order.json` for a lane
-- [ ] 3.20 Write unit tests for `CardService`
-- [ ] 3.21 Implement `TaskService.addTask()` — append checklist item to card
-- [ ] 3.22 Implement `TaskService.setTaskChecked()` — toggle task checked state
-- [ ] 3.23 Write unit tests for `TaskService`
+- [x] 3.1 Implement `MarkdownService.parse()` — parse frontmatter + content + tasks from raw Markdown string
+- [x] 3.2 Implement `MarkdownService.serialize()` — serialize frontmatter + content back to Markdown string
+- [x] 3.3 Implement `MarkdownService.parseTasks()` — extract `TaskItem[]` from Markdown content
+- [x] 3.4 Implement `MarkdownService.setTaskChecked()` — toggle a task's checked state in Markdown content
+- [x] 3.5 Implement `MarkdownService.appendTask()` — add a new checklist item to Markdown content
+- [x] 3.6 Implement `MarkdownService.taskProgress()` — compute `{ total, checked }` summary
+- [x] 3.7 Write unit tests for `MarkdownService` (parsing, serialization, task manipulation, edge cases)
+- [x] 3.8 Implement `ProjectService.listProjects()` — scan workspace, read `_project.json` files, compute card counts
+- [x] 3.9 Implement `ProjectService.getProject()` — read single project config
+- [x] 3.10 Implement `ProjectService.createProject()` — create folder, `_project.json`, lane subfolders with `_order.json`
+- [x] 3.11 Implement `ProjectService.updateProject()` — update `_project.json` fields
+- [x] 3.12 Implement `ProjectService.archiveProject()` — set `archived: true`
+- [x] 3.13 Write unit tests for `ProjectService`
+- [x] 3.14 Implement `CardService.listCards()` — read all lanes, parse frontmatter, respect `_order.json` ordering
+- [x] 3.15 Implement `CardService.getCard()` — find card across lanes, return full parsed content
+- [x] 3.16 Implement `CardService.createCard()` — slugify title, handle duplicate slugs, write `.md` file, update `_order.json`
+- [x] 3.17 Implement `CardService.moveCard()` — move file between lane folders, update both `_order.json` files
+- [x] 3.18 Implement `CardService.archiveCard()` — move card to `04-archive/`
+- [x] 3.19 Implement `CardService.reorderCards()` — replace `_order.json` for a lane
+- [x] 3.20 Write unit tests for `CardService`
+- [x] 3.21 Implement `TaskService.addTask()` — append checklist item to card
+- [x] 3.22 Implement `TaskService.setTaskChecked()` — toggle task checked state
+- [x] 3.23 Write unit tests for `TaskService`
 
 ## Phase 4: Backend API Routes & Server
 
-- [ ] 4.1 Set up Elysia server in `src/server.ts` with `DEVPLANNER_WORKSPACE` validation and CORS
-- [ ] 4.2 Implement project routes in `src/routes/projects.ts` (`GET /api/projects`, `POST /api/projects`, `PATCH /api/projects/:projectSlug`, `DELETE /api/projects/:projectSlug`)
-- [ ] 4.3 Implement card routes in `src/routes/cards.ts` (`GET /api/projects/:projectSlug/cards`, `POST /api/projects/:projectSlug/cards`, `GET /api/projects/:projectSlug/cards/:cardSlug`, `DELETE /api/projects/:projectSlug/cards/:cardSlug`, `PATCH /api/projects/:projectSlug/cards/:cardSlug/move`)
-- [ ] 4.4 Implement task routes in `src/routes/tasks.ts` (`POST /api/projects/:projectSlug/cards/:cardSlug/tasks`, `PATCH /api/projects/:projectSlug/cards/:cardSlug/tasks/:taskIndex`)
-- [ ] 4.5 Implement reorder route (`PATCH /api/projects/:projectSlug/lanes/:laneSlug/order`)
-- [ ] 4.6 Add input validation with descriptive error responses (`ApiError` with `message` + `expected`)
-- [ ] 4.7 Verify all endpoints work end-to-end with manual testing or a quick smoke test
+- [x] 4.1 Set up Elysia server in `src/server.ts` with `DEVPLANNER_WORKSPACE` validation and CORS
+- [x] 4.2 Implement project routes in `src/routes/projects.ts` (`GET /api/projects`, `POST /api/projects`, `PATCH /api/projects/:projectSlug`, `DELETE /api/projects/:projectSlug`)
+- [x] 4.3 Implement card routes in `src/routes/cards.ts` (`GET /api/projects/:projectSlug/cards`, `POST /api/projects/:projectSlug/cards`, `GET /api/projects/:projectSlug/cards/:cardSlug`, `DELETE /api/projects/:projectSlug/cards/:cardSlug`, `PATCH /api/projects/:projectSlug/cards/:cardSlug/move`)
+- [x] 4.4 Implement task routes in `src/routes/tasks.ts` (`POST /api/projects/:projectSlug/cards/:cardSlug/tasks`, `PATCH /api/projects/:projectSlug/cards/:cardSlug/tasks/:taskIndex`)
+- [x] 4.5 Implement reorder route (`PATCH /api/projects/:projectSlug/lanes/:laneSlug/order`)
+- [x] 4.6 Add input validation with descriptive error responses (`ApiError` with `message` + `expected`)
+- [x] 4.7 Verify all endpoints work end-to-end with manual testing or a quick smoke test
 
 ## Phase 5: Seed Data
 
-- [ ] 5.1 Implement `src/seed.ts` — idempotent script that creates the 3 seed projects (Media Manager, LM API, Memory API) with all cards and tasks from the spec
-- [ ] 5.2 Run seed script and verify data structure on disk
+- [x] 5.1 Implement `src/seed.ts` — idempotent script that creates the 3 seed projects (Media Manager, LM API, Memory API) with all cards and tasks from the spec
+- [x] 5.2 Run seed script and verify data structure on disk
 
 ## Phase 6: Frontend Foundation
 
