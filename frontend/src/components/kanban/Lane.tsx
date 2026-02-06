@@ -1,0 +1,56 @@
+import { useState } from 'react';
+import { LaneHeader } from './LaneHeader';
+import { CardList } from './CardList';
+import { QuickAddCard } from './QuickAddCard';
+import { cn } from '../../utils/cn';
+import type { CardSummary, LaneConfig } from '../../types';
+
+interface LaneProps {
+  slug: string;
+  config: LaneConfig;
+  cards: CardSummary[];
+  projectSlug: string;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+}
+
+export function Lane({
+  slug,
+  config,
+  cards,
+  projectSlug,
+  isCollapsed,
+  onToggleCollapse,
+}: LaneProps) {
+  const [isAddingCard, setIsAddingCard] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col h-full',
+        'bg-gray-900/50 rounded-lg border border-gray-800',
+        'transition-all duration-300 ease-out',
+        isCollapsed ? 'w-0 opacity-0 overflow-hidden p-0 border-0' : 'w-80 min-w-[320px] p-3'
+      )}
+    >
+      <LaneHeader
+        displayName={config.displayName}
+        color={config.color}
+        cardCount={cards.length}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse}
+        onAddCard={() => setIsAddingCard(true)}
+      />
+
+      {/* Quick add card form */}
+      {isAddingCard && (
+        <div className="mb-2">
+          <QuickAddCard lane={slug} onClose={() => setIsAddingCard(false)} />
+        </div>
+      )}
+
+      {/* Card list */}
+      <CardList cards={cards} projectSlug={projectSlug} />
+    </div>
+  );
+}

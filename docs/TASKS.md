@@ -69,35 +69,50 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 6: Frontend Foundation
 
-- [ ] 6.1 Set up `frontend/src/api/client.ts` — API client functions for all backend endpoints
-- [ ] 6.2 Set up Zustand store in `frontend/src/store/index.ts` — full `DevPlannerStore` interface from spec section 5.4
-- [ ] 6.3 Set up base styles in `frontend/src/styles/index.css` — Tailwind imports, dark mode defaults, custom colors
-- [ ] 6.4 Set up `App.tsx` with top-level layout structure (Header + Sidebar + Board + DetailPanel)
+- [ ] 6.0 Set up unified dev script — add `concurrently`, update `package.json` scripts
+- [ ] 6.1 Set up `frontend/src/api/client.ts` — typed API client for all endpoints
+- [ ] 6.2 Set up `frontend/src/types/index.ts` — mirror backend types
+- [ ] 6.3 Set up `frontend/src/utils/cn.ts` — Tailwind classname merge utility
+- [ ] 6.4 Install additional dependencies (`framer-motion`, `clsx`, `tailwind-merge`)
+- [ ] 6.5 Set up Zustand store in `frontend/src/store/index.ts` — full `DevPlannerStore`
+- [ ] 6.6 Update `frontend/src/index.css` — custom scrollbars, checkbox styles, focus rings
+- [ ] 6.7 Update `frontend/tailwind.config.ts` — lane colors, animations, custom timing
+- [ ] 6.8 Set up `App.tsx` with `MainLayout` structure
 
-## Phase 7: Frontend Components — Shell & Navigation
+## Phase 7: UI Components & Layout Shell
 
-- [ ] 7.1 Build `Header` component (logo/title, sidebar toggle button)
-- [ ] 7.2 Build `ProjectSidebar` component (project list, active project highlight, collapsible)
-- [ ] 7.3 Build `CreateProjectModal` (name + description form, calls store action)
-- [ ] 7.4 Wire up project loading on mount, project switching via sidebar
+- [ ] 7.1 Build `ui/Collapsible.tsx` — animated expand/collapse container (CSS grid technique)
+- [ ] 7.2 Build `ui/Badge.tsx` — reusable badge for tags, priority, assignee
+- [ ] 7.3 Build `ui/Button.tsx` and `ui/IconButton.tsx` — styled button variants
+- [ ] 7.4 Build `layout/Header.tsx` — logo/title, sidebar toggle with animation
+- [ ] 7.5 Build `layout/ProjectSidebar.tsx` — collapsible project list, active highlight
+- [ ] 7.6 Build `layout/MainLayout.tsx` — CSS grid layout wrapper
+- [ ] 7.7 Wire up project loading on mount, project switching
 
-## Phase 8: Frontend Components — Kanban Board
+## Phase 8: Kanban Board & Cards
 
-- [ ] 8.1 Build `KanbanBoard` component (renders lanes from active project, handles layout)
-- [ ] 8.2 Build `Lane` component (header with color bar + add button, card list area)
-- [ ] 8.3 Build `CardPreview` component (title, task progress bar, assignee badge, tags)
-- [ ] 8.4 Build `CollapsedLaneTab` component (vertical text label, click to expand)
-- [ ] 8.5 Build `QuickAddCard` component (inline title input, appears on lane [+] click)
-- [ ] 8.6 Wire up card loading when active project changes, display cards in correct lanes with `_order.json` ordering
+- [ ] 8.1 Build `kanban/LaneHeader.tsx` — color bar, display name, add button
+- [ ] 8.2 Build `tasks/TaskProgressBar.tsx` — visual progress with animation
+- [ ] 8.3 Build `tasks/TaskCheckbox.tsx` — interactive checkbox with check animation
+- [ ] 8.4 Build `kanban/CardPreviewTasks.tsx` — collapsible pending tasks list
+- [ ] 8.5 Build `kanban/CardPreview.tsx` — full card with collapsible tasks, hover effects
+- [ ] 8.6 Build `kanban/CollapsedLaneTab.tsx` — vertical text label, click to expand
+- [ ] 8.7 Build `kanban/CardList.tsx` — card container within lane
+- [ ] 8.8 Build `kanban/Lane.tsx` — combines header + card list
+- [ ] 8.9 Build `kanban/KanbanBoard.tsx` — renders lanes, handles collapsed state
+- [ ] 8.10 Build `kanban/QuickAddCard.tsx` — inline title input with animation
+- [ ] 8.11 Wire up card loading, display in lanes with `_order.json` ordering
 
-## Phase 9: Frontend Components — Card Detail Panel
+## Phase 9: Card Detail Panel
 
-- [ ] 9.1 Build `CardDetailPanel` (slide-in from right, overlay)
-- [ ] 9.2 Build `CardDetailHeader` (title, metadata badges)
-- [ ] 9.3 Build `CardMetadata` (assignee, priority, tags, dates display)
-- [ ] 9.4 Build `CardContent` (render Markdown body via `marked`)
-- [ ] 9.5 Build `TaskList` and `TaskCheckbox` (interactive checkboxes, calls toggle API)
-- [ ] 9.6 Wire up opening panel on card click, closing on X or clicking outside
+- [ ] 9.1 Build `card-detail/CardDetailPanel.tsx` — slide-in panel with Framer Motion
+- [ ] 9.2 Build `card-detail/CardDetailHeader.tsx` — title, close button, lane indicator
+- [ ] 9.3 Build `card-detail/CardMetadata.tsx` — assignee, priority, tags, dates
+- [ ] 9.4 Build `card-detail/CardContent.tsx` — render Markdown via `marked`
+- [ ] 9.5 Build `tasks/TaskList.tsx` — full task list with add/remove animations
+- [ ] 9.6 Build `tasks/AddTaskInput.tsx` — inline task creation
+- [ ] 9.7 Add placeholder section for future attachments
+- [ ] 9.8 Wire up panel open on card click, close on X/Escape/outside click
 
 ## Phase 10: Drag-and-Drop
 

@@ -856,6 +856,41 @@ Each card in the Kanban lane shows a compact preview:
 - **Assignee icon**: User or robot icon for `user` / `agent`
 - **Tags**: Shown as small chips at the bottom (optional, hide if space is tight)
 
+### 5.6.1 Collapsible Task Preview
+
+Each card preview includes an expandable section showing pending (unchecked) tasks:
+
+- **Collapsed state**: Shows task progress bar + count (e.g., "3/5") with chevron toggle
+- **Expanded state**: Lists up to 5 pending tasks with interactive checkboxes
+- **Behavior**: Checking a task updates immediately via API, progress bar animates
+- **"All done"**: When all tasks complete, shows celebratory message
+
+```
+┌──────────────────────────┐
+│ User Authentication      │
+│                          │
+│ ██████░░░░  3/5    ▼     │  ← Chevron toggles expansion
+├──────────────────────────┤
+│ ☐ Set up OAuth2 config   │  ← Pending tasks (expandable)
+│ ☐ Implement login flow   │
+│ ☐ Add logout             │
+├──────────────────────────┤
+│ #feature  #security  👤  │
+└──────────────────────────┘
+```
+
+### 5.6.2 Animation Specifications
+
+| Element | Animation | Duration | Easing |
+|---------|-----------|----------|--------|
+| Task area expand/collapse | Height + opacity | 300ms | ease-out |
+| Chevron rotation | Transform rotate | 200ms | ease-out |
+| Checkbox check | Scale bounce | 200ms | ease-out |
+| Task text strikethrough | Color + decoration | 200ms | ease |
+| Card hover | Translate Y + shadow | 150ms | ease-out |
+| Detail panel slide | Transform X | 300ms | spring |
+| Task add/remove | Height + opacity + X | 200ms | ease-out |
+
 ### 5.7 Responsive Behavior
 
 | Breakpoint | Sidebar | Lanes | Detail Panel |
@@ -863,6 +898,18 @@ Each card in the Kanban lane shows a compact preview:
 | Desktop (≥1280px) | Visible, collapsible | All visible lanes side by side | Slides in from right, overlays board |
 | Tablet (768–1279px) | Hidden by default, overlay | Horizontal scroll | Full-width overlay |
 | Mobile (<768px) | Hidden, hamburger menu | Stacked vertically or swipeable | Full-screen overlay |
+
+### 5.8 Attachments (Future)
+
+**Card Detail Panel - Attachments Section:**
+- Collapsible section between metadata and content
+- Lists linked files with icons by type
+- "Add attachment" with autocomplete search of project files
+- Click to open file in editor or preview
+
+**CardPreview - Attachment Indicator:**
+- Small paperclip icon with count when attachments exist
+- Shown in card footer alongside tags
 
 ---
 
