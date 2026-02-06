@@ -1,25 +1,13 @@
 import { Elysia } from 'elysia';
-import { existsSync } from 'fs';
 import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
 import { taskRoutes } from './routes/tasks';
+import { ConfigService } from './services/config.service';
 
-// Validate workspace path
-const workspacePath = process.env.DEVPLANNER_WORKSPACE;
-
-if (!workspacePath) {
-  console.error('Error: DEVPLANNER_WORKSPACE environment variable is not set');
-  console.error('Please set it to the absolute path of your workspace directory');
-  process.exit(1);
-}
-
-if (!existsSync(workspacePath)) {
-  console.error(`Error: Workspace directory does not exist: ${workspacePath}`);
-  console.error('Please create the directory or set DEVPLANNER_WORKSPACE to a valid path');
-  process.exit(1);
-}
-
-const port = process.env.PORT ? parseInt(process.env.PORT) : 17103;
+// Load and validate configuration
+const config = ConfigService.getInstance();
+const workspacePath = config.workspacePath;
+const port = config.port;
 
 const app = new Elysia()
   .onError(({ code, error, set }) => {

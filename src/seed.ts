@@ -4,13 +4,10 @@ import { existsSync } from 'fs';
 import { ProjectService } from './services/project.service';
 import { CardService } from './services/card.service';
 import { slugify } from './utils/slug';
+import { ConfigService } from './services/config.service';
 
-const workspacePath = process.env.DEVPLANNER_WORKSPACE;
-
-if (!workspacePath) {
-  console.error('Error: DEVPLANNER_WORKSPACE environment variable is not set');
-  process.exit(1);
-}
+const config = ConfigService.getInstance();
+const workspacePath = config.workspacePath;
 
 const projectService = new ProjectService(workspacePath);
 const cardService = new CardService(workspacePath);

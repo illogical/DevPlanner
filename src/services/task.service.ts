@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { TaskItem } from '../types';
 import { MarkdownService } from './markdown.service';
+import { ALL_LANES } from '../constants';
 
 /**
  * Service for managing tasks within cards.
@@ -20,9 +21,7 @@ export class TaskService {
     projectSlug: string,
     cardSlug: string
   ): Promise<string | null> {
-    const laneNames = ['01-upcoming', '02-in-progress', '03-complete', '04-archive'];
-
-    for (const laneName of laneNames) {
+    for (const laneName of ALL_LANES) {
       const cardPath = join(
         this.workspacePath,
         projectSlug,

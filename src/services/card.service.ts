@@ -3,6 +3,7 @@ import { join } from 'path';
 import type { Card, CardSummary, CardFrontmatter, CreateCardInput } from '../types';
 import { MarkdownService } from './markdown.service';
 import { slugify } from '../utils/slug';
+import { ALL_LANES, LANE_NAMES } from '../constants';
 
 /**
  * Service for managing cards within projects.
@@ -22,9 +23,8 @@ export class CardService {
     cardSlug: string
   ): Promise<string | null> {
     const projectPath = join(this.workspacePath, projectSlug);
-    const laneNames = ['01-upcoming', '02-in-progress', '03-complete', '04-archive'];
 
-    for (const laneName of laneNames) {
+    for (const laneName of ALL_LANES) {
       const cardPath = join(projectPath, laneName, `${cardSlug}.md`);
       try {
         await readFile(cardPath);
@@ -115,9 +115,7 @@ export class CardService {
    * List all cards in a project, optionally filtered by lane
    */
   async listCards(projectSlug: string, lane?: string): Promise<CardSummary[]> {
-    const lanes = lane
-      ? [lane]
-      : ['01-upcoming', '02-in-progress', '03-complete', '04-archive'];
+    const lanes = lane ? [lane] : ALL_LANES;
 
     const cards: CardSummary[] = [];
 
@@ -179,7 +177,7 @@ export class CardService {
       throw new Error('Card title is required');
     }
 
-    const lane = data.lane || '01-upcoming';
+    const lane = data.lane || LANE_NAMES.UPCOMING;
     const baseSlug = slugify(data.title);
     const slug = await this.generateUniqueSlug(projectSlug, baseSlug);
     const filename = `${slug}.md`;
@@ -222,10 +220,10 @@ export class CardService {
   }
 
   /**
-   * Archive a card (move to 04-archive lane)
+   * Archive a card (move to archive lane)
    */
   async archiveCard(projectSlug: string, cardSlug: string): Promise<void> {
-    await this.moveCard(projectSlug, cardSlug, '04-archive');
+    await this.moveCard(projectSlug, cardSlug, LANE_NAMES.ARCHIVE);
   }
 
   /**

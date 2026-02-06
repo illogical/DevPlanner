@@ -2,6 +2,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join } from 'path';
 import type { ProjectConfig, ProjectSummary, LaneConfig } from '../types';
 import { slugify } from '../utils/slug';
+import { DEFAULT_LANE_CONFIG } from '../constants';
 
 /**
  * Service for managing projects in the workspace.
@@ -17,28 +18,7 @@ export class ProjectService {
    * Get default lane configuration for new projects
    */
   private getDefaultLanes(): Record<string, LaneConfig> {
-    return {
-      '01-upcoming': {
-        displayName: 'Upcoming',
-        color: '#6b7280',
-        collapsed: false,
-      },
-      '02-in-progress': {
-        displayName: 'In Progress',
-        color: '#3b82f6',
-        collapsed: false,
-      },
-      '03-complete': {
-        displayName: 'Complete',
-        color: '#22c55e',
-        collapsed: true,
-      },
-      '04-archive': {
-        displayName: 'Archive',
-        color: '#9ca3af',
-        collapsed: true,
-      },
-    };
+    return DEFAULT_LANE_CONFIG;
   }
 
   /**
