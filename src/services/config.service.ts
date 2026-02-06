@@ -1,4 +1,5 @@
 import { existsSync } from 'fs';
+import { DEFAULT_PORT } from '../constants';
 
 /**
  * Configuration service that centralizes environment variable loading and validation
@@ -27,8 +28,19 @@ export class ConfigService {
 
     this.workspacePath = workspacePath;
 
-    // Load PORT with default value
-    this.port = process.env.PORT ? parseInt(process.env.PORT) : 17103;
+    // Load and validate PORT with default value
+    const portEnv = process.env.PORT;
+    if (portEnv) {
+      const parsedPort = parseInt(portEnv, 10);
+      if (isNaN(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+        console.warn(`Warning: Invalid PORT value "${portEnv}". Using default port ${DEFAULT_PORT}`);
+        this.port = DEFAULT_PORT;
+      } else {
+        this.port = parsedPort;
+      }
+    } else {
+      this.port = DEFAULT_PORT;
+    }
   }
 
   /**

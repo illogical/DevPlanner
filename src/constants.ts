@@ -21,8 +21,9 @@ export const ALL_LANES = [
 ] as const;
 
 /**
- * Default lane configuration for new projects
+ * Default server port
  */
+export const DEFAULT_PORT = 17103;
 export const DEFAULT_LANE_CONFIG: Record<string, LaneConfig> = {
   [LANE_NAMES.UPCOMING]: {
     displayName: 'Upcoming',
