@@ -1,10 +1,12 @@
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { Badge, AssigneeBadge } from '../ui/Badge';
 import { Collapsible } from '../ui/Collapsible';
 import { TaskProgressBar } from '../tasks/TaskProgressBar';
 import { CardPreviewTasks } from './CardPreviewTasks';
-import type { CardSummary, CardFrontmatter } from '../../types';
+import type { CardSummary } from '../../types';
 
 function getPriorityBorderClass(priority?: 'low' | 'medium' | 'high'): string {
   switch (priority) {
@@ -18,18 +20,37 @@ function getPriorityBorderClass(priority?: 'low' | 'medium' | 'high'): string {
 interface CardPreviewProps {
   card: CardSummary;
   projectSlug: string;
+  laneSlug?: string;
   isDragging?: boolean;
 }
 
 export function CardPreview({
   card,
   projectSlug,
-  isDragging,
+  isDragging: isDraggingOverlay,
 }: CardPreviewProps) {
   const { expandedCardTasks, toggleCardTaskExpansion, openCardDetail } =
     useStore();
   const isExpanded = expandedCardTasks.has(card.slug);
   const hasTasks = card.taskProgress.total > 0;
+
+  // Set up sortable functionality (only if not in drag overlay)
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: card.slug,
+    disabled: isDraggingOverlay, // Disable sorting for the overlay instance
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't open detail if clicking on interactive elements
@@ -51,13 +72,18 @@ export function CardPreview({
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       onClick={handleCardClick}
       className={cn(
         'group relative rounded-lg border border-gray-700 p-3 cursor-pointer',
         'bg-gray-800',
         'hover:bg-gray-750 card-hover',
-        !isDragging && getPriorityBorderClass(card.frontmatter.priority),
-        isDragging && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500'
+        !isDragging && !isDraggingOverlay && getPriorityBorderClass(card.frontmatter.priority),
+        (isDragging || isDraggingOverlay) && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500',
+        isDragging && 'opacity-50' // Reduce opacity of the original card while dragging
       )}
     >
       {/* Header: Title + Task Count */}

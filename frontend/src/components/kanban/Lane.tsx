@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import { LaneHeader } from './LaneHeader';
 import { CardList } from './CardList';
 import { QuickAddCard } from './QuickAddCard';
@@ -24,8 +25,14 @@ export function Lane({
 }: LaneProps) {
   const [isAddingCard, setIsAddingCard] = useState(false);
 
+  // Make lane droppable - uses slug as the ID so we can identify which lane
+  const { setNodeRef } = useDroppable({
+    id: slug,
+  });
+
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         'flex flex-col h-full',
         'bg-gray-900/50 rounded-lg border border-gray-800',
@@ -50,7 +57,7 @@ export function Lane({
       )}
 
       {/* Card list */}
-      <CardList cards={cards} projectSlug={projectSlug} />
+      <CardList cards={cards} projectSlug={projectSlug} laneSlug={slug} />
     </div>
   );
 }

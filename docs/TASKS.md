@@ -124,10 +124,10 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 10: Drag-and-Drop
 
-- [ ] 10.1 Integrate `@dnd-kit/core` and `@dnd-kit/sortable` into `KanbanBoard` and `Lane`
-- [ ] 10.2 Implement within-lane reordering (calls `reorderCards` API)
-- [ ] 10.3 Implement cross-lane card moves (calls `moveCard` API)
-- [ ] 10.4 Add visual drag feedback (placeholder, drag overlay)
+- [x] 10.1 Integrate `@dnd-kit/core` and `@dnd-kit/sortable` into `KanbanBoard` and `Lane`
+- [x] 10.2 Implement within-lane reordering (calls `reorderCards` API)
+- [x] 10.3 Implement cross-lane card moves (calls `moveCard` API)
+- [x] 10.4 Add visual drag feedback (placeholder, drag overlay)
 
 ## Phase 11: Responsive Design & Polish
 
@@ -136,6 +136,7 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] 11.3 Detail panel: full-width on tablet, full-screen on mobile
 - [ ] 11.4 Lanes: horizontal scroll on tablet, stacked on mobile
 - [ ] 11.5 Visual polish pass — hover states, transitions, focus rings, loading states
+- [ ] 11.6 Remember the last project selected
 
 ## Phase 12: Backend WebSocket Infrastructure
 
@@ -179,18 +180,6 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] 15.9 Wire all WebSocket message handlers to store actions in `useWebSocket` hook
 - [ ] 15.10 Test delta updates end-to-end — edit card file externally, verify UI updates correctly without refresh
 
-## Phase 16: Real-Time Activity History
-
-- [ ] 16.1 Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action, description, metadata
-- [ ] 16.2 Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
-- [ ] 16.3 Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
-- [ ] 16.4 Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
-- [ ] 16.5 Broadcast `history:event` via WebSocket when new events are recorded
-- [ ] 16.6 Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
-- [ ] 16.7 Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
-- [ ] 16.8 Implement `history:event` WebSocket handler to append events to store in real-time
-- [ ] 16.9 Render ActivityLog in sidebar or collapsible panel
-- [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified
 
 ---
 
@@ -204,7 +193,21 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] Add identifier to each card for a shortcut for referring to cards in conversation
 
 
-## Production Optimization & Testing
+## Phase 16: Real-Time Activity History
+
+- [ ] 16.1 Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action, description, metadata
+- [ ] 16.2 Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
+- [ ] 16.3 Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
+- [ ] 16.4 Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
+- [ ] 16.5 Broadcast `history:event` via WebSocket when new events are recorded
+- [ ] 16.6 Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
+- [ ] 16.7 Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
+- [ ] 16.8 Implement `history:event` WebSocket handler to append events to store in real-time
+- [ ] 16.9 Render ActivityLog in sidebar or collapsible panel
+- [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified
+
+
+## Phase 17: Production Optimization & Testing
 
 - [ ] 17.1 Implement message batching for rapid changes (200ms window, send single combined update)
 - [ ] 17.2 Add environment variable for WebSocket URL (`VITE_WS_URL`) with sensible default
