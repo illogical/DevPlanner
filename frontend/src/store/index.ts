@@ -97,7 +97,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   createProject: async (name, description) => {
     const project = await projectsApi.create(name, description);
     set((state) => ({
-      projects: [...state.projects, project],
+      projects: [project, ...state.projects],
     }));
     get().setActiveProject(project.slug);
   },

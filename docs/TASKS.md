@@ -116,9 +116,14 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 9.5: UI Refinements
 
-- [ ] 9.5.1 Implement inline "New Project" form in ProjectSidebar — Collapsible expand, name + description inputs, create/cancel with keyboard support
-- [ ] 9.5.2 Replace PriorityBadge in CardPreview with colored left border accent (red/amber/green by priority level)
-- [ ] 9.5.3 Add status-based visual cues to CardPreview — subtle ring + brighter background for in-progress, blocked, review, testing cards
+- [x] 9.5.1 Implement inline "New Project" form in ProjectSidebar — Collapsible expand, name + description inputs, create/cancel with keyboard support
+- [x] 9.5.2 Replace PriorityBadge in CardPreview with colored left border accent (red/amber/green by priority level)
+- [x] 9.5.3 Add status-based visual cues to CardPreview — subtle ring + brighter background for in-progress, blocked, review, testing cards
+    -[x] 9.5.4 The style being used for this is fairly ugly. Remove this style since there is already a separate lane indicating in-progress cards.
+    -[x] 9.5.5 Give the task completion graph and counts more visual weight style/layout to make it more obvious that a card has tasks started instead of adjusting the background color of the card when in-progress
+
+## Phase 9.6: IDs for quick communication
+- [ ] 9.5.6 Add an identifier to each card when added for a shortcut for communication about cards.
 
 ## Phase 10: Drag-and-Drop
 

@@ -19,9 +19,21 @@ export const projectRoutes = (workspacePath: string) => {
         const slug = slugify(body.name);
         set.status = 201;
 
+        // Return ProjectSummary format with cardCounts
         return {
           slug,
-          ...project,
+          name: project.name,
+          description: project.description,
+          created: project.created,
+          updated: project.updated,
+          archived: project.archived,
+          lanes: project.lanes,
+          cardCounts: {
+            '01-upcoming': 0,
+            '02-in-progress': 0,
+            '03-complete': 0,
+            '04-archive': 0,
+          },
         };
       },
       {

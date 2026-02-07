@@ -15,16 +15,6 @@ function getPriorityBorderClass(priority?: 'low' | 'medium' | 'high'): string {
   }
 }
 
-function getStatusClasses(status?: CardFrontmatter['status']): string {
-  switch (status) {
-    case 'in-progress': return 'bg-gray-750 ring-1 ring-blue-500/15';
-    case 'blocked':     return 'bg-gray-750 ring-1 ring-red-500/20';
-    case 'review':      return 'bg-gray-750 ring-1 ring-purple-500/15';
-    case 'testing':     return 'bg-gray-750 ring-1 ring-amber-500/15';
-    default:            return 'bg-gray-800';
-  }
-}
-
 interface CardPreviewProps {
   card: CardSummary;
   projectSlug: string;
@@ -64,54 +54,61 @@ export function CardPreview({
       onClick={handleCardClick}
       className={cn(
         'group relative rounded-lg border border-gray-700 p-3 cursor-pointer',
-        getStatusClasses(card.frontmatter.status),
+        'bg-gray-800',
         'hover:bg-gray-750 card-hover',
         !isDragging && getPriorityBorderClass(card.frontmatter.priority),
         isDragging && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500'
       )}
     >
       {/* Card Title */}
-      <h3 className="text-sm font-medium text-gray-100 mb-2 line-clamp-2 pr-2">
+      <h3 className="text-sm font-medium text-gray-100 mb-3 line-clamp-2 pr-2">
         {card.frontmatter.title}
       </h3>
 
       {/* Task Progress Row */}
       {hasTasks && (
-        <div className="flex items-center gap-2 mb-2">
-          <TaskProgressBar
-            checked={card.taskProgress.checked}
-            total={card.taskProgress.total}
-          />
-          <span className="text-xs text-gray-400">
-            {card.taskProgress.checked}/{card.taskProgress.total}
-          </span>
-
-          {/* Expand/Collapse Button */}
-          <button
-            onClick={handleChevronClick}
-            className={cn(
-              'ml-auto p-1 rounded hover:bg-gray-700 transition-colors',
-              'text-gray-400 hover:text-gray-200'
-            )}
-            aria-label={isExpanded ? 'Collapse tasks' : 'Expand tasks'}
-          >
-            <svg
+        <div className="flex flex-col gap-1.5 mb-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400 font-medium">Progress</span>
+            <span className="text-gray-300 font-medium">
+              {card.taskProgress.checked}/{card.taskProgress.total}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <TaskProgressBar
+              checked={card.taskProgress.checked}
+              total={card.taskProgress.total}
+              size="md"
+              className="flex-1"
+            />
+            
+            {/* Expand/Collapse Button */}
+            <button
+              onClick={handleChevronClick}
               className={cn(
-                'w-4 h-4 transition-transform duration-200',
-                isExpanded && 'rotate-180'
+                'p-1 rounded hover:bg-gray-700 transition-colors',
+                'text-gray-400 hover:text-gray-200'
               )}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+              aria-label={isExpanded ? 'Collapse tasks' : 'Expand tasks'}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
+              <svg
+                className={cn(
+                  'w-4 h-4 transition-transform duration-200',
+                  isExpanded && 'rotate-180'
+                )}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
