@@ -1,10 +1,29 @@
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
-import { Badge, AssigneeBadge, PriorityBadge } from '../ui/Badge';
+import { Badge, AssigneeBadge } from '../ui/Badge';
 import { Collapsible } from '../ui/Collapsible';
 import { TaskProgressBar } from '../tasks/TaskProgressBar';
 import { CardPreviewTasks } from './CardPreviewTasks';
-import type { CardSummary } from '../../types';
+import type { CardSummary, CardFrontmatter } from '../../types';
+
+function getPriorityBorderClass(priority?: 'low' | 'medium' | 'high'): string {
+  switch (priority) {
+    case 'high':   return 'border-l-[3px] border-l-red-500';
+    case 'medium': return 'border-l-[3px] border-l-amber-500';
+    case 'low':    return 'border-l-[3px] border-l-green-500';
+    default:       return '';
+  }
+}
+
+function getStatusClasses(status?: CardFrontmatter['status']): string {
+  switch (status) {
+    case 'in-progress': return 'bg-gray-750 ring-1 ring-blue-500/15';
+    case 'blocked':     return 'bg-gray-750 ring-1 ring-red-500/20';
+    case 'review':      return 'bg-gray-750 ring-1 ring-purple-500/15';
+    case 'testing':     return 'bg-gray-750 ring-1 ring-amber-500/15';
+    default:            return 'bg-gray-800';
+  }
+}
 
 interface CardPreviewProps {
   card: CardSummary;
@@ -45,7 +64,9 @@ export function CardPreview({
       onClick={handleCardClick}
       className={cn(
         'group relative rounded-lg border border-gray-700 p-3 cursor-pointer',
-        'bg-gray-800 hover:bg-gray-750 card-hover',
+        getStatusClasses(card.frontmatter.status),
+        'hover:bg-gray-750 card-hover',
+        !isDragging && getPriorityBorderClass(card.frontmatter.priority),
         isDragging && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500'
       )}
     >
@@ -103,13 +124,10 @@ export function CardPreview({
         </Collapsible>
       )}
 
-      {/* Footer: Priority, Tags, Assignee */}
+      {/* Footer: Tags, Assignee */}
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700/50 gap-2">
-        {/* Left side: Priority and Tags */}
+        {/* Left side: Tags */}
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          {card.frontmatter.priority && (
-            <PriorityBadge priority={card.frontmatter.priority} />
-          )}
           {card.frontmatter.tags?.slice(0, 2).map((tag) => (
             <Badge key={tag} variant="secondary" size="sm">
               {tag}

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
+import { Collapsible } from '../ui/Collapsible';
 import { Spinner } from '../ui/Spinner';
 
 export function ProjectSidebar() {
@@ -12,11 +13,55 @@ export function ProjectSidebar() {
     isSidebarOpen,
     loadProjects,
     setActiveProject,
+    createProject,
   } = useStore();
+
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
+
+  useEffect(() => {
+    if (isFormOpen) {
+      const timer = setTimeout(() => nameInputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isFormOpen]);
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = projectName.trim();
+    if (!trimmedName || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      await createProject(trimmedName, projectDescription.trim() || undefined);
+      setProjectName('');
+      setProjectDescription('');
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Failed to create project:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCancelCreate = () => {
+    setProjectName('');
+    setProjectDescription('');
+    setIsFormOpen(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      handleCancelCreate();
+    }
+  };
 
   return (
     <>
@@ -100,32 +145,97 @@ export function ProjectSidebar() {
           )}
         </div>
 
-        {/* Footer with create button */}
-        <div className="p-4 border-t border-gray-700">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="w-full justify-center"
-            onClick={() => {
-              // TODO: Open create project modal
-              console.log('Create project');
-            }}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        {/* Footer with create form + button */}
+        <div className="border-t border-gray-700">
+          <Collapsible isOpen={isFormOpen}>
+            <form onSubmit={handleCreateProject} className="p-4 space-y-3">
+              <div>
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Project name"
+                  disabled={isCreating}
+                  className={cn(
+                    'w-full bg-gray-800 border border-gray-600 rounded-md',
+                    'px-3 py-1.5 text-sm text-gray-100 placeholder-gray-500',
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                    'disabled:opacity-50'
+                  )}
+                />
+              </div>
+              <div>
+                <textarea
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Description (optional)"
+                  rows={2}
+                  disabled={isCreating}
+                  className={cn(
+                    'w-full bg-gray-800 border border-gray-600 rounded-md',
+                    'px-3 py-1.5 text-sm text-gray-100 placeholder-gray-500',
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                    'disabled:opacity-50 resize-none'
+                  )}
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelCreate}
+                  disabled={isCreating}
+                  className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!projectName.trim() || isCreating}
+                  className={cn(
+                    'text-xs px-3 py-1 rounded',
+                    'bg-blue-600 text-white hover:bg-blue-500',
+                    'disabled:opacity-50 disabled:cursor-not-allowed',
+                    'transition-colors duration-150'
+                  )}
+                >
+                  {isCreating ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </Collapsible>
+
+          <div className="p-4">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => {
+                if (isFormOpen) {
+                  handleCancelCreate();
+                } else {
+                  setIsFormOpen(true);
+                }
+              }}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            New Project
-          </Button>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d={isFormOpen ? 'M6 18L18 6M6 6l12 12' : 'M12 4v16m8-8H4'}
+                />
+              </svg>
+              {isFormOpen ? 'Cancel' : 'New Project'}
+            </Button>
+          </div>
         </div>
       </aside>
     </>
