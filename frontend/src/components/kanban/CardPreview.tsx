@@ -60,55 +60,61 @@ export function CardPreview({
         isDragging && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500'
       )}
     >
-      {/* Card Title */}
-      <h3 className="text-sm font-medium text-gray-100 mb-3 line-clamp-2 pr-2">
-        {card.frontmatter.title}
-      </h3>
+      {/* Header: Title + Task Count */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <h3 className="text-sm font-medium text-gray-100 line-clamp-2 leading-snug min-w-0">
+          {card.frontmatter.title}
+        </h3>
 
-      {/* Task Progress Row */}
+        {hasTasks && (
+          <span
+            className={cn(
+              'flex-shrink-0 inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold border shadow-sm transition-colors',
+              card.taskProgress.checked > 0
+                ? 'bg-gray-900 border-gray-600 text-gray-100' // In progress: popping slightly
+                : 'bg-gray-950 border-gray-800 text-gray-500' // Not started: recessed/dim
+            )}
+          >
+            {card.taskProgress.checked}/{card.taskProgress.total}
+          </span>
+        )}
+      </div>
+
+      {/* Progress Bar + Expand Toggle */}
       {hasTasks && (
-        <div className="flex flex-col gap-1.5 mb-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400 font-medium">Progress</span>
-            <span className="text-gray-300 font-medium">
-              {card.taskProgress.checked}/{card.taskProgress.total}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <TaskProgressBar
-              checked={card.taskProgress.checked}
-              total={card.taskProgress.total}
-              size="md"
-              className="flex-1"
-            />
-            
-            {/* Expand/Collapse Button */}
-            <button
-              onClick={handleChevronClick}
+        <div className="flex items-center gap-2 mb-3">
+          <TaskProgressBar
+            checked={card.taskProgress.checked}
+            total={card.taskProgress.total}
+            size="md"
+            className="flex-1"
+          />
+
+          <button
+            onClick={handleChevronClick}
+            className={cn(
+              'p-1 rounded hover:bg-gray-700 transition-colors',
+              'text-gray-400 hover:text-gray-200'
+            )}
+            aria-label={isExpanded ? 'Collapse tasks' : 'Expand tasks'}
+          >
+            <svg
               className={cn(
-                'p-1 rounded hover:bg-gray-700 transition-colors',
-                'text-gray-400 hover:text-gray-200'
+                'w-4 h-4 transition-transform duration-200',
+                isExpanded && 'rotate-180'
               )}
-              aria-label={isExpanded ? 'Collapse tasks' : 'Expand tasks'}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className={cn(
-                  'w-4 h-4 transition-transform duration-200',
-                  isExpanded && 'rotate-180'
-                )}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
         </div>
       )}
 

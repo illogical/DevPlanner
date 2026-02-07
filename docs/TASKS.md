@@ -122,9 +122,6 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
     -[x] 9.5.4 The style being used for this is fairly ugly. Remove this style since there is already a separate lane indicating in-progress cards.
     -[x] 9.5.5 Give the task completion graph and counts more visual weight style/layout to make it more obvious that a card has tasks started instead of adjusting the background color of the card when in-progress
 
-## Phase 9.6: IDs for quick communication
-- [ ] 9.5.6 Add an identifier to each card when added for a shortcut for communication about cards.
-
 ## Phase 10: Drag-and-Drop
 
 - [ ] 10.1 Integrate `@dnd-kit/core` and `@dnd-kit/sortable` into `KanbanBoard` and `Lane`
@@ -195,7 +192,19 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] 16.9 Render ActivityLog in sidebar or collapsible panel
 - [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified
 
-## Phase 17: Production Optimization & Testing
+---
+
+# Post-MVP (not in scope for initial build)
+
+- [ ] MCP server (reuses service layer)
+- [ ] Markdown editor for card content
+- [ ] Search and filter
+- [ ] Reference/file management
+- [ ] Optimistic locking conflict UI
+- [ ] Add identifier to each card for a shortcut for referring to cards in conversation
+
+
+## Production Optimization & Testing
 
 - [ ] 17.1 Implement message batching for rapid changes (200ms window, send single combined update)
 - [ ] 17.2 Add environment variable for WebSocket URL (`VITE_WS_URL`) with sensible default
@@ -205,13 +214,3 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] 17.6 Test multi-client scenario — two browser tabs, verify both receive updates simultaneously
 - [ ] 17.7 Test reconnection scenario — stop/restart server, verify clients auto-reconnect and re-subscribe
 - [ ] 17.8 Test edge cases — rapid file changes, corrupted files, file rename vs delete, large payloads
-
----
-
-## Post-MVP (not in scope for initial build)
-
-- [ ] MCP server (reuses service layer)
-- [ ] Markdown editor for card content
-- [ ] Search and filter
-- [ ] Reference/file management
-- [ ] Optimistic locking conflict UI
