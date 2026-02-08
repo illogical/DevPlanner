@@ -6,6 +6,12 @@ import type {
   Card,
   LaneConfig,
   HistoryEvent,
+  CardCreatedData,
+  CardUpdatedData,
+  CardMovedData,
+  CardDeletedData,
+  LaneReorderedData,
+  ProjectUpdatedData,
 } from '../types';
 
 // Change indicator types for visual animations
@@ -96,6 +102,25 @@ interface DevPlannerStore {
   addHistoryEvent: (event: HistoryEvent) => void;
   toggleActivityPanel: () => void;
   setActivityPanelOpen: (open: boolean) => void;
+
+  // WebSocket state
+  wsConnected: boolean;
+  wsReconnecting: boolean;
+  setWsConnected: (connected: boolean) => void;
+  setWsReconnecting: (reconnecting: boolean) => void;
+
+  // Self-echo deduplication
+  _recentLocalActions: Map<string, number>;
+  _recordLocalAction: (key: string) => void;
+  _isRecentLocalAction: (key: string) => boolean;
+
+  // WebSocket handlers
+  wsHandleCardCreated?: (data: CardCreatedData) => void;
+  wsHandleCardUpdated?: (data: CardUpdatedData) => void;
+  wsHandleCardMoved?: (data: CardMovedData) => void;
+  wsHandleCardDeleted?: (data: CardDeletedData) => void;
+  wsHandleLaneReordered?: (data: LaneReorderedData) => void;
+  wsHandleProjectUpdated?: (data: ProjectUpdatedData) => void;
 }
 
 export const useStore = create<DevPlannerStore>((set, get) => ({
@@ -114,6 +139,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   changeIndicators: new Map(),
   historyEvents: [],
   isActivityPanelOpen: false,
+  wsConnected: false,
+  wsReconnecting: false,
+  _recentLocalActions: new Map(),
 
   // Project actions
   loadProjects: async () => {
@@ -211,6 +239,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
 
     const card = await cardsApi.create(activeProjectSlug, { title, lane });
 
+    // Record local action for self-echo dedup
+    get()._recordLocalAction(`card:created:${card.slug}`);
+
     // Add to cardsByLane
     set((state) => {
       const laneCards = state.cardsByLane[lane] || [];
@@ -254,6 +285,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
 
     await cardsApi.archive(activeProjectSlug, cardSlug);
 
+    // Record local action for self-echo dedup
+    get()._recordLocalAction(`card:moved:${cardSlug}`);
+
     // Move from current lane to archive
     set((state) => {
       const sourceCards = state.cardsByLane[currentLane] || [];
@@ -286,6 +320,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     }
 
     await cardsApi.move(activeProjectSlug, cardSlug, targetLane, position);
+
+    // Record local action for self-echo dedup
+    get()._recordLocalAction(`card:moved:${cardSlug}`);
 
     // Optimistic update
     set((state) => {
@@ -326,6 +363,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     if (!activeProjectSlug) return;
 
     await cardsApi.reorder(activeProjectSlug, laneSlug, order);
+
+    // Record local action for self-echo dedup (using lane as key since it affects multiple cards)
+    get()._recordLocalAction(`lane:reordered:${laneSlug}`);
 
     // Reorder cards in state
     set((state) => {
@@ -374,6 +414,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       taskIndex,
       checked
     );
+
+    // Record local action for self-echo dedup
+    get()._recordLocalAction(`card:updated:${cardSlug}`);
 
     // Update active card if it matches
     if (activeCard && activeCard.slug === cardSlug) {
@@ -592,6 +635,254 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
 
   setActivityPanelOpen: (open: boolean) => {
     set({ isActivityPanelOpen: open });
+  },
+
+  // WebSocket state setters
+  setWsConnected: (connected: boolean) => {
+    set({ wsConnected: connected });
+  },
+
+  setWsReconnecting: (reconnecting: boolean) => {
+    set({ wsReconnecting: reconnecting });
+  },
+
+  // Self-echo deduplication helpers
+  _recordLocalAction: (key: string) => {
+    const now = Date.now();
+    set((state) => {
+      const newMap = new Map(state._recentLocalActions);
+      newMap.set(key, now);
+      
+      // Cleanup old entries (older than 5 seconds)
+      for (const [actionKey, timestamp] of newMap.entries()) {
+        if (now - timestamp > 5000) {
+          newMap.delete(actionKey);
+        }
+      }
+      
+      return { _recentLocalActions: newMap };
+    });
+  },
+
+  _isRecentLocalAction: (key: string): boolean => {
+    const actions = get()._recentLocalActions;
+    const timestamp = actions.get(key);
+    if (!timestamp) return false;
+    
+    const now = Date.now();
+    // Consider action recent if within 3 seconds
+    return now - timestamp < 3000;
+  },
+
+  // WebSocket event handlers
+  wsHandleCardCreated: (data: CardCreatedData) => {
+    const { slug, lane, card } = data;
+    const state = get();
+    
+    // Check if card already exists (dedup)
+    const existingCards = state.cardsByLane[lane] || [];
+    if (existingCards.some(c => c.slug === slug)) {
+      return;
+    }
+    
+    // Prepend new card to lane
+    set((state) => ({
+      cardsByLane: {
+        ...state.cardsByLane,
+        [lane]: [card, ...(state.cardsByLane[lane] || [])],
+      },
+    }));
+    
+    // Add change indicator if not a recent local action
+    const actionKey = `card:created:${slug}`;
+    if (!state._isRecentLocalAction(actionKey)) {
+      state.addChangeIndicator({
+        type: 'card:created',
+        cardSlug: slug,
+        lane,
+      });
+    }
+  },
+
+  wsHandleCardUpdated: (data: CardUpdatedData) => {
+    const { slug, lane, card } = data;
+    const state = get();
+    
+    // Find and replace card in the specified lane
+    let found = false;
+    const newCardsByLane = { ...state.cardsByLane };
+    
+    if (newCardsByLane[lane]) {
+      const cardIndex = newCardsByLane[lane].findIndex(c => c.slug === slug);
+      if (cardIndex !== -1) {
+        const oldCard = newCardsByLane[lane][cardIndex];
+        newCardsByLane[lane] = [...newCardsByLane[lane]];
+        newCardsByLane[lane][cardIndex] = card;
+        found = true;
+        
+        // Detect task progress changes
+        const oldProgress = oldCard.taskProgress;
+        const newProgress = card.taskProgress;
+        const actionKey = `card:updated:${slug}`;
+        
+        if (oldProgress.checked !== newProgress.checked && !state._isRecentLocalAction(actionKey)) {
+          // Task was toggled
+          state.addChangeIndicator({
+            type: 'task:toggled',
+            cardSlug: slug,
+            lane,
+          });
+        } else if (!state._isRecentLocalAction(actionKey)) {
+          // Regular card update
+          state.addChangeIndicator({
+            type: 'card:updated',
+            cardSlug: slug,
+            lane,
+          });
+        }
+      }
+    }
+    
+    // Fallback: search all lanes if not found in expected lane
+    if (!found) {
+      for (const [laneKey, cards] of Object.entries(newCardsByLane)) {
+        const cardIndex = cards.findIndex(c => c.slug === slug);
+        if (cardIndex !== -1) {
+          newCardsByLane[laneKey] = [...cards];
+          newCardsByLane[laneKey][cardIndex] = card;
+          found = true;
+          break;
+        }
+      }
+    }
+    
+    // If still not found, insert it
+    if (!found && newCardsByLane[lane]) {
+      newCardsByLane[lane] = [card, ...newCardsByLane[lane]];
+    }
+    
+    set({ cardsByLane: newCardsByLane });
+    
+    // Reload active card if it matches
+    if (state.activeCard?.slug === slug) {
+      state.openCardDetail(slug);
+    }
+  },
+
+  wsHandleCardMoved: (data: CardMovedData) => {
+    const { slug, sourceLane, targetLane } = data;
+    const state = get();
+    
+    // Find and remove card from source lane
+    const newCardsByLane = { ...state.cardsByLane };
+    let movedCard: CardSummary | null = null;
+    
+    if (newCardsByLane[sourceLane]) {
+      const cardIndex = newCardsByLane[sourceLane].findIndex(c => c.slug === slug);
+      if (cardIndex !== -1) {
+        movedCard = newCardsByLane[sourceLane][cardIndex];
+        newCardsByLane[sourceLane] = newCardsByLane[sourceLane].filter(c => c.slug !== slug);
+      }
+    }
+    
+    // If card not found in source, search all lanes
+    if (!movedCard) {
+      for (const [laneKey, cards] of Object.entries(newCardsByLane)) {
+        const cardIndex = cards.findIndex(c => c.slug === slug);
+        if (cardIndex !== -1) {
+          movedCard = cards[cardIndex];
+          newCardsByLane[laneKey] = cards.filter(c => c.slug !== slug);
+          break;
+        }
+      }
+    }
+    
+    // If still not found, fetch from API
+    if (!movedCard) {
+      console.warn(`[wsHandleCardMoved] Card ${slug} not found in local state, will refetch`);
+      // Reload all cards for this project
+      state.loadCards();
+      return;
+    }
+    
+    // Update card's lane and insert into target lane
+    const updatedCard = { ...movedCard, lane: targetLane };
+    newCardsByLane[targetLane] = [updatedCard, ...(newCardsByLane[targetLane] || [])];
+    
+    set({ cardsByLane: newCardsByLane });
+    
+    // Update active card lane if it matches
+    if (state.activeCard?.slug === slug) {
+      set((state) => ({
+        activeCard: state.activeCard ? { ...state.activeCard, lane: targetLane } : null,
+      }));
+    }
+    
+    // Add change indicator if not a recent local action
+    const actionKey = `card:moved:${slug}`;
+    if (!state._isRecentLocalAction(actionKey)) {
+      state.addChangeIndicator({
+        type: 'card:moved',
+        cardSlug: slug,
+        lane: targetLane,
+      });
+    }
+  },
+
+  wsHandleCardDeleted: (data: CardDeletedData) => {
+    const { slug, lane } = data;
+    const state = get();
+    
+    // Remove card from lane
+    const newCardsByLane = { ...state.cardsByLane };
+    if (newCardsByLane[lane]) {
+      newCardsByLane[lane] = newCardsByLane[lane].filter(c => c.slug !== slug);
+    }
+    
+    set({ cardsByLane: newCardsByLane });
+    
+    // Close detail panel if it's showing this card
+    if (state.activeCard?.slug === slug) {
+      state.closeCardDetail();
+    }
+  },
+
+  wsHandleLaneReordered: (data: LaneReorderedData) => {
+    const { lane, order } = data;
+    const state = get();
+    
+    const currentCards = state.cardsByLane[lane] || [];
+    
+    // Create a map for quick lookup
+    const cardMap = new Map(currentCards.map(card => [card.slug, card]));
+    
+    // Reorder cards according to the order array
+    const reorderedCards = order
+      .map(slug => cardMap.get(slug))
+      .filter((card): card is CardSummary => card !== undefined);
+    
+    set((state) => ({
+      cardsByLane: {
+        ...state.cardsByLane,
+        [lane]: reorderedCards,
+      },
+    }));
+  },
+
+  wsHandleProjectUpdated: (data: ProjectUpdatedData) => {
+    const { config } = data;
+    const state = get();
+    
+    // Find and merge updated config into projects
+    const projectIndex = state.projects.findIndex(p => p.slug === state.activeProjectSlug);
+    if (projectIndex !== -1) {
+      const updatedProjects = [...state.projects];
+      updatedProjects[projectIndex] = {
+        ...updatedProjects[projectIndex],
+        ...config,
+      };
+      set({ projects: updatedProjects });
+    }
   },
 }));
 

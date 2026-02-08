@@ -1,9 +1,21 @@
 import { useStore } from '../../store';
 import { IconButton } from '../ui/IconButton';
+import { ConnectionIndicator } from '../ui/ConnectionIndicator';
 import { cn } from '../../utils/cn';
+import { getWebSocketClient } from '../../services/websocket.service';
 
-export function Header() {
+interface HeaderProps {
+  connectionState: 'connected' | 'disconnected' | 'reconnecting';
+}
+
+export function Header({ connectionState }: HeaderProps) {
   const { isSidebarOpen, toggleSidebar, isActivityPanelOpen, toggleActivityPanel } = useStore();
+
+  const handleRetry = () => {
+    const client = getWebSocketClient();
+    client.disconnect();
+    setTimeout(() => client.connect(), 100);
+  };
 
   return (
     <header className="h-14 bg-gray-900 border-b border-gray-700 flex items-center px-4 gap-4">
@@ -83,6 +95,9 @@ export function Header() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Connection Indicator */}
+      <ConnectionIndicator connectionState={connectionState} onRetry={handleRetry} />
 
       {/* Activity History Toggle */}
       <IconButton

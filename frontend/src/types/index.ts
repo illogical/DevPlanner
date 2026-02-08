@@ -138,3 +138,67 @@ export interface HistoryResponse {
   events: HistoryEvent[];
   total: number;
 }
+
+// WebSocket types
+export type WebSocketEventType =
+  | 'card:created'
+  | 'card:updated'
+  | 'card:moved'
+  | 'card:deleted'
+  | 'task:toggled'
+  | 'lane:reordered'
+  | 'project:updated'
+  | 'history:event';
+
+export interface WebSocketEvent {
+  type: WebSocketEventType;
+  projectSlug: string;
+  timestamp: string;
+  data: unknown;
+}
+
+export interface WebSocketMessage {
+  type: 'event' | 'error' | 'ping' | 'subscribed' | 'unsubscribed';
+  projectSlug?: string;
+  event?: WebSocketEvent;
+  error?: string;
+}
+
+// Typed event data payloads
+export interface CardCreatedData {
+  slug: string;
+  lane: string;
+  card: CardSummary;
+}
+
+export interface CardUpdatedData {
+  slug: string;
+  lane: string;
+  card: CardSummary;
+}
+
+export interface CardMovedData {
+  slug: string;
+  sourceLane: string;
+  targetLane: string;
+}
+
+export interface CardDeletedData {
+  slug: string;
+  lane: string;
+}
+
+export interface TaskToggledData {
+  slug: string;
+  lane: string;
+  card: CardSummary;
+}
+
+export interface LaneReorderedData {
+  lane: string;
+  order: string[];
+}
+
+export interface ProjectUpdatedData {
+  config: ProjectConfig;
+}
