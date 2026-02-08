@@ -21,7 +21,6 @@ export function AnimatedCardWrapper({
   const indicators = getCardIndicators(cardSlug);
   
   // Determine if card has new indicators (not seen before)
-  const currentIndicatorIds = new Set(indicators.map((ind) => ind.id));
   const hasNewIndicators = indicators.some(
     (ind) => !previousIndicatorIdsRef.current.has(ind.id)
   );
@@ -33,8 +32,12 @@ export function AnimatedCardWrapper({
 
   // Update ref after render to track seen indicators
   useEffect(() => {
-    previousIndicatorIdsRef.current = currentIndicatorIds;
-  }, [currentIndicatorIds]);
+    const currentIndicatorIds = new Set(indicators.map((ind) => ind.id));
+    // Only update if there are actually new indicators
+    if (hasNewIndicators) {
+      previousIndicatorIdsRef.current = currentIndicatorIds;
+    }
+  });
 
   // Determine glow color based on indicator type
   const getGlowColor = () => {
