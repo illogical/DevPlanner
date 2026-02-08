@@ -565,9 +565,19 @@ function getIndicatorDuration(type: ChangeIndicatorType): number {
   }
 }
 
-// Run cleanup periodically (every 5 seconds)
+// Run cleanup periodically (every 5 seconds) - only in browser environment
+let cleanupIntervalId: number | undefined;
 if (typeof window !== 'undefined') {
-  setInterval(() => {
+  cleanupIntervalId = window.setInterval(() => {
     useStore.getState().clearExpiredIndicators();
   }, 5000);
+  
+  // Cleanup function for hot module replacement
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      if (cleanupIntervalId !== undefined) {
+        clearInterval(cleanupIntervalId);
+      }
+    });
+  }
 }

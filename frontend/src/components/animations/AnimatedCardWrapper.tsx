@@ -15,21 +15,26 @@ export function AnimatedCardWrapper({
   className,
 }: AnimatedCardWrapperProps) {
   const { getCardIndicators } = useStore();
-  const previousIndicatorsRef = useRef<Set<string>>(new Set());
+  const previousIndicatorIdsRef = useRef<Set<string>>(new Set());
 
   // Get all indicators for this card
   const indicators = getCardIndicators(cardSlug);
   
-  // Determine if card is newly created or moved
-  const isNew = indicators.some((ind) => ind.type === 'card:created');
-  const isMoved = indicators.some((ind) => ind.type === 'card:moved');
-  const isUpdated = indicators.some((ind) => ind.type === 'card:updated');
+  // Determine if card has new indicators (not seen before)
+  const currentIndicatorIds = new Set(indicators.map((ind) => ind.id));
+  const hasNewIndicators = indicators.some(
+    (ind) => !previousIndicatorIdsRef.current.has(ind.id)
+  );
+  
+  // Determine indicator types based on new indicators
+  const isNew = hasNewIndicators && indicators.some((ind) => ind.type === 'card:created');
+  const isMoved = hasNewIndicators && indicators.some((ind) => ind.type === 'card:moved');
+  const isUpdated = hasNewIndicators && indicators.some((ind) => ind.type === 'card:updated');
 
-  // Track which indicators we've seen to avoid re-animating
+  // Update ref after render to track seen indicators
   useEffect(() => {
-    const currentIndicatorIds = new Set(indicators.map((ind) => ind.id));
-    previousIndicatorsRef.current = currentIndicatorIds;
-  }, [indicators]);
+    previousIndicatorIdsRef.current = currentIndicatorIds;
+  }, [currentIndicatorIds]);
 
   // Determine glow color based on indicator type
   const getGlowColor = () => {

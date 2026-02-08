@@ -180,31 +180,31 @@ case 'card:created':
 
 ## Implementation Phases
 
-### Phase 1: Store Infrastructure ✓
+### Phase 1: Store Infrastructure ✅
 - [x] Add `changeIndicators` map to Zustand store
 - [x] Implement `addChangeIndicator` action
 - [x] Implement `removeChangeIndicator` action
 - [x] Add automatic cleanup timer for expired indicators
 
-### Phase 2: Task Toggle Animation
-- [ ] Enhance TaskList.tsx with programmatic animations
-- [ ] Add flash effect on task toggle
-- [ ] Add scale pulse animation
-- [ ] Integrate with store change indicators
-- [ ] Test with manual task toggles and simulated background changes
+### Phase 2: Task Toggle Animation ✅
+- [x] Enhance TaskList.tsx with programmatic animations
+- [x] Add flash effect on task toggle
+- [x] Add scale pulse animation
+- [x] Integrate with store change indicators
+- [x] Test with manual task toggles and simulated background changes
 
-### Phase 3: Card Addition Animation
-- [ ] Create AnimatedCardWrapper component
-- [ ] Implement slide-in animation for new cards
-- [ ] Add glow effect with auto-expire
-- [ ] Update CardList to use wrapper
-- [ ] Test with QuickAddCard and API-created cards
+### Phase 3: Card Addition Animation ✅
+- [x] Create AnimatedCardWrapper component
+- [x] Implement slide-in animation for new cards
+- [x] Add glow effect with auto-expire
+- [x] Update CardList to use wrapper
+- [x] Test with QuickAddCard and API-created cards
 
-### Phase 4: Card Movement Animation
-- [ ] Add lane change detection in store
-- [ ] Implement cross-lane animation coordination
-- [ ] Add glow effect for moved cards
-- [ ] Test with drag-and-drop and API moves
+### Phase 4: Card Movement Animation ✅
+- [x] Add lane change detection in store
+- [x] Implement cross-lane animation coordination
+- [x] Add glow effect for moved cards
+- [x] Test with drag-and-drop and API moves
 
 ### Phase 5: Card Update Animation
 - [ ] Create UpdateBadge component
