@@ -60,7 +60,7 @@ export function CardDetailPanel() {
           {/* Panel */}
           <motion.div
             ref={panelRef}
-            className="fixed right-0 top-0 h-full w-full max-w-lg bg-gray-900 border-l border-gray-700 z-50 overflow-y-auto shadow-2xl"
+            className="fixed right-0 top-0 h-full w-full md:max-w-2xl lg:max-w-lg bg-gray-900 border-l border-gray-700 z-50 overflow-y-auto shadow-2xl"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}

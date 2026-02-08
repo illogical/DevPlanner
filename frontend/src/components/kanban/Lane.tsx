@@ -37,7 +37,7 @@ export function Lane({
         'flex flex-col h-full',
         'bg-gray-900/50 rounded-lg border border-gray-800',
         'transition-all duration-300 ease-out',
-        isCollapsed ? 'w-0 opacity-0 overflow-hidden p-0 border-0' : 'w-80 min-w-[320px] p-3'
+        isCollapsed ? 'w-0 opacity-0 overflow-hidden p-0 border-0' : 'w-full md:w-80 md:min-w-[320px] p-3'
       )}
     >
       <LaneHeader

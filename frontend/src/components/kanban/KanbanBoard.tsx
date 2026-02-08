@@ -170,7 +170,7 @@ export function KanbanBoard() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full flex gap-3 p-4 overflow-x-auto">
+      <div className="h-full flex flex-col md:flex-row gap-3 p-4 md:overflow-x-auto overflow-y-auto">
         {/* Expanded lanes */}
         {expandedLanes.map(([slug, config]) => (
           <Lane

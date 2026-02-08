@@ -84,11 +84,11 @@ textarea {
   @apply transition-colors duration-150;
 }
 
-/* Card hover lift effect */
+/* Card hover effect - subtle brightness/depth increase */
 .card-hover {
   @apply transition-all duration-150 ease-out;
 }
 
 .card-hover:hover {
-  @apply -translate-y-0.5 shadow-lg shadow-black/20;
+  @apply brightness-110 shadow-md shadow-black/10;
 }

@@ -131,12 +131,12 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 11: Responsive Design & Polish
 
-- [ ] 11.1 Implement responsive breakpoints from spec section 5.7 (desktop, tablet, mobile)
-- [ ] 11.2 Sidebar: hidden by default on tablet/mobile, overlay mode
-- [ ] 11.3 Detail panel: full-width on tablet, full-screen on mobile
-- [ ] 11.4 Lanes: horizontal scroll on tablet, stacked on mobile
-- [ ] 11.5 Visual polish pass — hover states, transitions, focus rings, loading states
-- [ ] 11.6 Remember the last project selected
+- [x] 11.1 Implement responsive breakpoints from spec section 5.7 (desktop, tablet, mobile)
+- [x] 11.2 Sidebar: hidden by default on tablet/mobile, overlay mode
+- [x] 11.3 Detail panel: full-width on tablet, full-screen on mobile
+- [x] 11.4 Lanes: horizontal scroll on tablet, stacked on mobile
+- [x] 11.5 Visual polish pass — hover states, transitions, focus rings, loading states
+- [ ] 11.6 Remember the last project selected, ideally tracked from the backend API so that all clients load the last-selected project
 
 ## Phase 12: Backend WebSocket Infrastructure
 
