@@ -3,7 +3,7 @@ import { IconButton } from '../ui/IconButton';
 import { cn } from '../../utils/cn';
 
 export function Header() {
-  const { isSidebarOpen, toggleSidebar } = useStore();
+  const { isSidebarOpen, toggleSidebar, isActivityPanelOpen, toggleActivityPanel } = useStore();
 
   return (
     <header className="h-14 bg-gray-900 border-b border-gray-700 flex items-center px-4 gap-4">
@@ -87,11 +87,10 @@ export function Header() {
       {/* Activity History Toggle */}
       <IconButton
         label="Activity history"
-        onClick={() => useStore.getState().toggleActivityPanel()}
+        onClick={toggleActivityPanel}
         className={cn(
           'transition-colors',
-          useStore.getState().isActivityPanelOpen &&
-            'bg-blue-500/20 text-blue-400'
+          isActivityPanelOpen && 'bg-blue-500/20 text-blue-400'
         )}
       >
         <svg

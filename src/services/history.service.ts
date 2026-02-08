@@ -1,41 +1,9 @@
 import { randomUUID } from 'crypto';
-
-/**
- * History action types
- */
-export type HistoryActionType =
-  | 'task:completed'
-  | 'task:uncompleted'
-  | 'card:created'
-  | 'card:moved'
-  | 'card:updated'
-  | 'card:archived';
-
-/**
- * Metadata for history events
- */
-export interface HistoryEventMetadata {
-  cardSlug: string;
-  cardTitle: string;
-  lane?: string;
-  sourceLane?: string;
-  targetLane?: string;
-  taskIndex?: number;
-  taskText?: string;
-  changedFields?: string[];
-}
-
-/**
- * History event record
- */
-export interface HistoryEvent {
-  id: string;
-  projectSlug: string;
-  timestamp: string; // ISO 8601
-  action: HistoryActionType;
-  description: string; // Human-readable description
-  metadata: HistoryEventMetadata;
-}
+import type {
+  HistoryActionType,
+  HistoryEventMetadata,
+  HistoryEvent,
+} from '../types';
 
 /**
  * Service for managing activity history logs
