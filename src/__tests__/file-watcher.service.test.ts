@@ -84,7 +84,9 @@ describe('FileWatcherService', () => {
       // @ts-expect-error - accessing private method for testing
       expect(service.parseFilePath('single-part')).toBeNull();
 
-      // Path with 2 parts but not _project.json returns project slug only
+      // Path with 2 parts returns projectSlug regardless of file type
+      // File type validation is done separately by shouldProcessFile()
+      // parseFilePath focuses purely on extracting project/lane/card from path structure
       // @ts-expect-error - accessing private method for testing
       const result = service.parseFilePath('project/unknown.txt');
       expect(result).toEqual({ projectSlug: 'project' });
