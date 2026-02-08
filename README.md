@@ -101,6 +101,9 @@ DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run seed
 
 # Run tests
 bun test
+
+# Verify WebSocket infrastructure (Phase 12)
+bun run verify:websocket
 ```
 
 The frontend dev server proxies `/api` requests to the backend at `http://localhost:17103`.

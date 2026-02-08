@@ -78,3 +78,41 @@ export interface CreateCardInput {
 export interface Preferences {
   lastSelectedProject: string | null;
 }
+
+// WebSocket types
+export type WebSocketEventType =
+  | 'card:created'
+  | 'card:updated'
+  | 'card:moved'
+  | 'card:deleted'
+  | 'task:toggled'
+  | 'lane:reordered'
+  | 'project:updated';
+
+export interface WebSocketEvent {
+  type: WebSocketEventType;
+  projectSlug: string;
+  timestamp: string; // ISO 8601
+  data: unknown; // Event-specific payload
+}
+
+export interface WebSocketMessage {
+  type: 'subscribe' | 'unsubscribe' | 'event' | 'error' | 'ping' | 'pong' | 'subscribed' | 'unsubscribed';
+  projectSlug?: string;
+  event?: WebSocketEvent;
+  error?: string;
+}
+
+export interface SubscribeMessage {
+  type: 'subscribe';
+  projectSlug: string;
+}
+
+export interface UnsubscribeMessage {
+  type: 'unsubscribe';
+  projectSlug: string;
+}
+
+export interface PingMessage {
+  type: 'ping';
+}
