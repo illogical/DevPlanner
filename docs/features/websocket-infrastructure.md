@@ -1,6 +1,6 @@
 # WebSocket Infrastructure (Phase 12)
 
-**Status:** In Progress  
+**Status:** Complete  
 **Dependencies:** Phase 11.5 (Visual Indicators - already complete)  
 **Next Phase:** Phase 13 (File Watching Service)
 
@@ -30,7 +30,7 @@ All WebSocket messages follow a standard format:
 
 ```typescript
 interface WebSocketMessage {
-  type: 'subscribe' | 'unsubscribe' | 'event' | 'error' | 'pong';
+  type: 'subscribe' | 'unsubscribe' | 'event' | 'error' | 'ping' | 'pong' | 'subscribed' | 'unsubscribed';
   projectSlug?: string;    // Target project for subscription/events
   event?: WebSocketEvent;  // Event payload (when type === 'event')
   error?: string;          // Error message (when type === 'error')
