@@ -155,7 +155,7 @@ case 'card:created':
 | Animation Type | Duration | Easing | Delay |
 |---|---|---|---|
 | Task Flash | 300ms | ease-out | 0ms |
-| Task Scale Pulse | 400ms | spring (damping: 25, stiffness: 300) | 0ms |
+| Task Scale Pulse | 400ms | cubic-bezier(0.25, 0.1, 0.25, 1) | 0ms |
 | Card Slide In | 500ms | spring (damping: 30, stiffness: 200) | 0ms |
 | Card Glow | 2000ms | ease-in-out | 0ms |
 | Update Badge Fade | 3000ms | ease-in | 2500ms |
