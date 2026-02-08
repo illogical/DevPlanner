@@ -6,6 +6,7 @@ import { preferencesRoutes } from './routes/preferences';
 import { websocketRoutes } from './routes/websocket';
 import { ConfigService } from './services/config.service';
 import { WebSocketService } from './services/websocket.service';
+import { FileWatcherService } from './services/file-watcher.service';
 
 // Load and validate configuration
 const config = ConfigService.getInstance();
@@ -14,6 +15,10 @@ const port = config.port;
 
 // Initialize WebSocket service singleton
 WebSocketService.getInstance();
+
+// Initialize and start FileWatcher service
+const fileWatcher = FileWatcherService.getInstance();
+fileWatcher.start();
 
 const app = new Elysia()
   .onError(({ code, error, set }) => {
@@ -71,3 +76,16 @@ const app = new Elysia()
 
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);
 console.log(`📁 Workspace: ${workspacePath}`);
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n⏹️  Shutting down gracefully...');
+  fileWatcher.stop();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n⏹️  Shutting down gracefully...');
+  fileWatcher.stop();
+  process.exit(0);
+});
