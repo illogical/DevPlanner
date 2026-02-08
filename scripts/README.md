@@ -115,13 +115,14 @@ If multi-client tests fail:
 
 ### `e2e-demo.ts`
 
-Live demonstration script that exercises all DevPlanner real-time features. It takes actions via the REST API and direct file edits, with 3-second pauses between actions so you can watch the UI respond with animations in real time.
+Live demonstration script that exercises all DevPlanner real-time features. It takes actions via the REST API and direct file edits, with 5-second pauses between actions so you can watch the UI respond with animations in real time.
 
 **What it demonstrates:**
 - Project creation (sidebar update)
 - Card creation with blue glow + slide-in animations
 - Task addition with progress bar updates
 - Task completion with green flash + pulse animations
+- **Rapid-fire task toggling** (stress test for concurrent updates)
 - Card movement between lanes with amber glow animation
 - Card reordering within a lane
 - Direct file edit triggering file watcher → WebSocket → violet glow animation

@@ -389,10 +389,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { activeProjectSlug } = get();
     if (!activeProjectSlug) return;
 
+    console.log(`[openCardDetail] CALLED for ${cardSlug}, current activeCard:`, get().activeCard?.slug);
     set({ isLoadingCardDetail: true, isDetailPanelOpen: true });
     try {
       const card = await cardsApi.get(activeProjectSlug, cardSlug);
+      console.log(`[openCardDetail] Fetched ${cardSlug}, tasks:`, card.tasks);
       set({ activeCard: card, isLoadingCardDetail: false });
+      console.log(`[openCardDetail] SET activeCard for ${cardSlug}`);
     } catch (error) {
       console.error('Failed to load card:', error);
       set({ isLoadingCardDetail: false, isDetailPanelOpen: false });
@@ -459,18 +462,30 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { activeProjectSlug, activeCard } = get();
     if (!activeProjectSlug) return;
 
+    console.log(`[addTask] Starting for ${cardSlug}, current tasks:`, activeCard?.tasks);
     const result = await tasksApi.add(activeProjectSlug, cardSlug, text);
+    console.log(`[addTask] API returned:`, result);
+    
+    // Record this as a local action to prevent self-echo from file watcher events
+    get()._recordLocalAction(`card:updated:${cardSlug}`);
+    console.log(`[addTask] Recorded local action at`, Date.now());
 
     // Update active card if it matches
     if (activeCard && activeCard.slug === cardSlug) {
-      set((state) => ({
-        activeCard: state.activeCard
-          ? {
-              ...state.activeCard,
-              tasks: [...state.activeCard.tasks, result],
-            }
-          : null,
-      }));
+      set((state) => {
+        console.log(`[addTask] SET #1 - Before update, state.activeCard.tasks:`, state.activeCard?.tasks);
+        const updated = {
+          activeCard: state.activeCard
+            ? {
+                ...state.activeCard,
+                tasks: [...state.activeCard.tasks, result],
+              }
+            : null,
+        };
+        console.log(`[addTask] SET #1 - After update, new tasks:`, updated.activeCard?.tasks);
+        return updated;
+      });
+      console.log(`[addTask] After SET #1, store activeCard.tasks:`, get().activeCard?.tasks);
     }
 
     // Update card summary
@@ -487,6 +502,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       }
       return { cardsByLane: newCardsByLane };
     });
+    console.log(`[addTask] After SET #2, store activeCard.tasks:`, get().activeCard?.tasks);
+    console.log(`[addTask] COMPLETE for ${cardSlug}`);
   },
 
   // Card task expansion
@@ -667,11 +684,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   _isRecentLocalAction: (key: string): boolean => {
     const actions = get()._recentLocalActions;
     const timestamp = actions.get(key);
+    const now = Date.now();
+    const isRecent = timestamp ? now - timestamp < 5000 : false;
+    console.log(`[_isRecentLocalAction] key="${key}", timestamp=${timestamp}, now=${now}, diff=${timestamp ? now - timestamp : 'N/A'}ms, isRecent=${isRecent}`);
     if (!timestamp) return false;
     
-    const now = Date.now();
-    // Consider action recent if within 3 seconds
-    return now - timestamp < 3000;
+    // Consider action recent if within 5 seconds (accounts for file watcher debounce + processing)
+    return now - timestamp < 5000;
   },
 
   // WebSocket event handlers
@@ -707,6 +726,11 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   wsHandleCardUpdated: (data: CardUpdatedData) => {
     const { slug, lane, card } = data;
     const state = get();
+    console.log(`[wsHandleCardUpdated] START - ${slug}, activeCard:`, {
+      slug: state.activeCard?.slug,
+      taskCount: state.activeCard?.tasks?.length,
+      tasks: state.activeCard?.tasks,
+    });
     
     // Find and replace card in the specified lane
     let found = false;
@@ -761,11 +785,24 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       newCardsByLane[lane] = [card, ...newCardsByLane[lane]];
     }
     
+    console.log(`[wsHandleCardUpdated] About to SET cardsByLane for ${slug}`);
     set({ cardsByLane: newCardsByLane });
+    console.log(`[wsHandleCardUpdated] After SET, store activeCard.tasks:`, get().activeCard?.tasks);
     
-    // Reload active card if it matches
-    if (state.activeCard?.slug === slug) {
+    // Reload active card if it matches, but only if this wasn't a recent local action
+    // This prevents API fetches from overwriting optimistic updates
+    const actionKey = `card:updated:${slug}`;
+    const isRecentAction = state._isRecentLocalAction(actionKey);
+    console.log(`[wsHandleCardUpdated] Check refetch:`, {
+      activeCardMatches: state.activeCard?.slug === slug,
+      isRecentAction,
+      willRefetch: state.activeCard?.slug === slug && !isRecentAction,
+    });
+    if (state.activeCard?.slug === slug && !isRecentAction) {
+      console.log(`[wsHandleCardUpdated] REFETCHING ${slug} from API`);
       state.openCardDetail(slug);
+    } else {
+      console.log(`[wsHandleCardUpdated] SKIPPING refetch for ${slug}`);
     }
   },
 

@@ -67,6 +67,12 @@ export class FileWatcherService {
       console.warn('[FileWatcher] Already started');
       return;
     }
+    
+    // Check if file watcher is disabled via environment variable
+    if (process.env.DISABLE_FILE_WATCHER === 'true') {
+      console.log('[FileWatcher] Disabled via DISABLE_FILE_WATCHER environment variable');
+      return;
+    }
 
     const config = ConfigService.getInstance();
     const workspacePath = config.workspacePath;

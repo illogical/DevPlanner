@@ -86,6 +86,7 @@ mkdir -p workspace
 |----------|----------|---------|-------------|
 | `DEVPLANNER_WORKSPACE` | Yes | — | Absolute path to the workspace directory |
 | `PORT` | No | `17103` | Backend server port |
+| `DISABLE_FILE_WATCHER` | No | `false` | Set to `true` to disable file watching (useful for debugging WebSocket vs file watcher issues) |
 
 ### Running
 

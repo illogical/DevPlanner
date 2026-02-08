@@ -16,6 +16,12 @@ export function CardDetailPanel() {
     closeCardDetail,
   } = useStore();
 
+  console.log(`[CardDetailPanel] RENDER:`, {
+    slug: activeCard?.slug,
+    taskCount: activeCard?.tasks?.length,
+    tasks: activeCard?.tasks,
+  });
+
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape key

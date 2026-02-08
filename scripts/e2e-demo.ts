@@ -27,7 +27,7 @@ const API_BASE = 'http://localhost:17103/api';
 const PROJECT_NAME = 'E2E Demo';
 const PROJECT_SLUG = 'e2e-demo';
 const PAUSE_MS = 3000;
-const TIMEOUT_MS = 90000;
+const TIMEOUT_MS = 30000;
 
 // ---------------------------------------------------------------------------
 // Terminal colors
@@ -280,11 +280,44 @@ async function act4_toggleTasks(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// ACT 5: Move Card Between Lanes
+// ACT 4B: Rapid Task Toggle (Concurrent Update Test)
 // ---------------------------------------------------------------------------
 
-async function act5_moveCard(): Promise<void> {
-  section('ACT 5: Moving Cards');
+async function act4b_rapidTaskToggle(): Promise<void> {
+  section('ACT 4B: Rapid-Fire Task Completion (Stress Test)');
+
+  info('Toggling multiple tasks in quick succession (500ms intervals)');
+  watch('Verify frontend handles concurrent updates without race conditions');
+
+  action('Checking off "Build autopilot module" on Navigation System...');
+  await api('PATCH', `/projects/${PROJECT_SLUG}/cards/navigation-system/tasks/1`, {
+    checked: true,
+  });
+  ok('Task completed (2/3)');
+  await sleep(500); // Short delay, not full pause
+
+  action('Checking off "Implement collision avoidance" on Navigation System...');
+  await api('PATCH', `/projects/${PROJECT_SLUG}/cards/navigation-system/tasks/2`, {
+    checked: true,
+  });
+  ok('Task completed (3/3) — all Navigation tasks complete!');
+  await sleep(500);
+
+  action('Checking off "Implement power routing algorithm" on Fuel Cell Optimizer...');
+  await api('PATCH', `/projects/${PROJECT_SLUG}/cards/fuel-cell-optimizer/tasks/1`, {
+    checked: true,
+  });
+  ok('Task completed (2/2) — all Fuel Cell tasks complete!');
+  watch('All three animations should appear without flickering or disappearing tasks');
+  await pause();
+}
+
+// ---------------------------------------------------------------------------
+// ACT 6: Move Card Between Lanes
+// ---------------------------------------------------------------------------
+
+async function act6_moveCard(): Promise<void> {
+  section('ACT 6: Moving Cards');
 
   action('Moving "Navigation System" from Upcoming → In Progress...');
   await api('PATCH', `/projects/${PROJECT_SLUG}/cards/navigation-system/move`, {
@@ -296,11 +329,11 @@ async function act5_moveCard(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// ACT 6: Reorder Cards
+// ACT 7: Reorder Cards
 // ---------------------------------------------------------------------------
 
-async function act6_reorderCards(): Promise<void> {
-  section('ACT 6: Reordering Cards');
+async function act7_reorderCards(): Promise<void> {
+  section('ACT 7: Reordering Cards');
 
   action('Swapping card order in In Progress lane...');
   info('New order: Navigation System first, Fuel Cell Optimizer second');
@@ -313,11 +346,11 @@ async function act6_reorderCards(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// ACT 7: Direct File Edit (File Watcher Test)
+// ACT 8: Direct File Edit (File Watcher Test)
 // ---------------------------------------------------------------------------
 
-async function act7_directFileEdit(workspacePath: string): Promise<void> {
-  section('ACT 7: File Watcher Test (Direct Disk Edit)');
+async function act8_directFileEdit(workspacePath: string): Promise<void> {
+  section('ACT 8: File Watcher Test (Direct Disk Edit)');
 
   const filePath = join(
     workspacePath,
@@ -353,11 +386,11 @@ async function act7_directFileEdit(workspacePath: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// ACT 8: Archive a Card
+// ACT 9: Archive a Card
 // ---------------------------------------------------------------------------
 
-async function act8_archiveCard(): Promise<void> {
-  section('ACT 8: Archiving a Card');
+async function act9_archiveCard(): Promise<void> {
+  section('ACT 9: Archiving a Card');
 
   action('Archiving "Hull Integrity Monitor"...');
   await api('DELETE', `/projects/${PROJECT_SLUG}/cards/hull-integrity-monitor`);
@@ -367,11 +400,11 @@ async function act8_archiveCard(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// ACT 9: Update Project Metadata
+// ACT 10: Update Project Metadata
 // ---------------------------------------------------------------------------
 
-async function act9_updateProject(): Promise<void> {
-  section('ACT 9: Updating Project');
+async function act10_updateProject(): Promise<void> {
+  section('ACT 10: Updating Project');
 
   action('Updating project description...');
   await api('PATCH', `/projects/${PROJECT_SLUG}`, {
@@ -460,11 +493,12 @@ async function runDemo(): Promise<void> {
     { fn: act2_createCards, name: 'Create Cards' },
     { fn: act3_addTasks, name: 'Add Tasks' },
     { fn: act4_toggleTasks, name: 'Toggle Tasks' },
-    { fn: act5_moveCard, name: 'Move Card' },
-    { fn: act6_reorderCards, name: 'Reorder Cards' },
-    { fn: () => act7_directFileEdit(workspacePath), name: 'Direct File Edit' },
-    { fn: act8_archiveCard, name: 'Archive Card' },
-    { fn: act9_updateProject, name: 'Update Project' },
+    { fn: act4b_rapidTaskToggle, name: 'Rapid Task Toggle' },
+    { fn: act6_moveCard, name: 'Move Card' },
+    { fn: act7_reorderCards, name: 'Reorder Cards' },
+    { fn: () => act8_directFileEdit(workspacePath), name: 'Direct File Edit' },
+    { fn: act9_archiveCard, name: 'Archive Card' },
+    { fn: act10_updateProject, name: 'Update Project' },
     { fn: finale_showHistory, name: 'Show History' },
   ];
 
