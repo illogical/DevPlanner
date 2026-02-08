@@ -202,9 +202,50 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ---
 
-# Post-MVP (not in scope for initial build)
+# Post-MVP / Future Enhancements
 
-- [ ] MCP server (reuses service layer)
+## Near-term priorities (after Phase 17)
+
+### MCP Server Integration
+- [ ] Design MCP server architecture that reuses existing service layer
+- [ ] Implement MCP tools for project/card/task operations
+- [ ] Add MCP-specific endpoints for agent interactions
+- [ ] Document MCP server usage and capabilities
+
+### Documentation Maintenance
+- [ ] Review and update SPECIFICATION.md to reflect all Phase 12-16 features
+- [ ] Review and update README.md feature list and API overview
+- [ ] Ensure TASKS.md is in sync with actual implementation status
+- [ ] Add architecture diagrams for WebSocket and history features
+
+## Later priorities
+
+### Task Status & Collaboration
+- [ ] Add task status tracking (not-started, in-progress, complete) beyond checkboxes
+- [ ] Design task assignment/claiming mechanism to prevent work conflicts
+- [ ] Implement task-level locking or "claimed by" indicator
+- [ ] Add UI for marking individual tasks as in-progress
+- [ ] Support multiple agents working on different tasks within same card
+
+### History Persistence & Performance
+- [ ] Implement persistent JSON file storage for history events
+- [ ] Design rolling file mechanism for last 50 events per project
+- [ ] Add in-memory write queue to prevent file lock contention
+- [ ] Centralize history updates to single async writer
+- [ ] Handle rapid successive updates (e.g., checking off multiple tasks quickly)
+- [ ] Add history file rotation and archival strategy
+
+### User Attribution & Multi-Agent Support
+- [ ] Add user/agent identification to all history events
+- [ ] Track who made each card/task modification
+- [ ] Design authentication/session mechanism for user tracking
+- [ ] Add "modified by" metadata to cards and tasks
+- [ ] Implement agent identity system (user vs agent1 vs agent2)
+- [ ] Add activity log filtering by user/agent
+- [ ] Brainstorm requirements for multi-agent, multi-project workflows
+- [ ] Design conflict resolution for concurrent agent modifications
+
+### Content & Features
 - [ ] Markdown editor for card content
 - [ ] Search and filter
 - [ ] Reference/file management

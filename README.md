@@ -126,8 +126,37 @@ All endpoints are under `/api` and return JSON.
 | `POST` | `/api/projects/:slug/cards/:card/tasks` | Add checklist item |
 | `PATCH` | `/api/projects/:slug/cards/:card/tasks/:index` | Toggle task |
 | `PATCH` | `/api/projects/:slug/lanes/:lane/order` | Reorder cards in lane |
+| `GET` | `/api/projects/:slug/history` | Get activity history (last 50 events) |
+| `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
 See [SPECIFICATION.md](SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.
+
+## Features
+
+### Current (Phase 12-16 Complete)
+- ✅ **Kanban Board UI** - Drag-and-drop cards between lanes
+- ✅ **Card Management** - Create, edit, archive cards with Markdown content
+- ✅ **Task Tracking** - Checkbox-based task lists with progress visualization
+- ✅ **Project Management** - Multi-project support with card counts
+- ✅ **Real-time Sync** - WebSocket infrastructure for live updates
+- ✅ **File Watching** - Automatic detection of external file changes
+- ✅ **Activity History** - Track all card/task modifications with timestamps
+- ✅ **Visual Indicators** - Animated feedback for background changes
+- ✅ **Responsive Design** - Mobile, tablet, and desktop layouts
+- ✅ **Preferences** - Last-selected project persistence
+
+### In Progress (Phase 14-15)
+- 🔄 **Frontend WebSocket Client** - Real-time event handlers
+- 🔄 **Store Integration** - Delta updates and live UI refresh
+
+### Planned (Post-MVP)
+- 📋 **MCP Server** - Model Context Protocol integration for AI agents
+- 📋 **User Attribution** - Track who made each change
+- 📋 **Task Status** - Mark tasks as in-progress, not just done/undone
+- 📋 **History Persistence** - JSON file storage with write queue
+- 📋 **Multi-Agent Support** - Coordinate multiple AI agents on different tasks
+- 📋 **Markdown Editor** - Rich text editing for card content
+- 📋 **Search & Filter** - Find cards and tasks across projects
 
 ## Project Documents
 

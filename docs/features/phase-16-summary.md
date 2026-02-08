@@ -195,8 +195,8 @@ ActivityLog rerenders (shows new event)
 - ✅ History is per-project (not global)
 - ✅ No authentication yet (Phase 17+)
 - ✅ Limited to 50 events per project (memory-safe)
-- ⚠️ No persistent storage (events lost on server restart)
-- ⚠️ No user attribution (all changes anonymous)
+- ⚠️ No persistent storage (events lost on server restart) - **To be addressed: JSON file persistence with write queue**
+- ⚠️ No user attribution (all changes anonymous) - **To be addressed: User/agent tracking system**
 
 ## Performance Notes
 
@@ -204,6 +204,8 @@ ActivityLog rerenders (shows new event)
 - **REST endpoint**: Fast (in-memory lookup, no database)
 - **WebSocket broadcast**: Efficient (only to subscribed clients)
 - **Frontend rendering**: Efficient (virtualization not needed for 50 items)
+- **Write performance**: Currently synchronous in-memory writes
+  - **Future improvement needed**: Async write queue for JSON persistence to prevent file lock contention during rapid updates (e.g., checking off multiple tasks quickly)
 
 ## Accessibility
 
@@ -221,20 +223,30 @@ ActivityLog rerenders (shows new event)
 
 ## Known Limitations
 
-1. **No persistent storage** - Events lost on server restart
-2. **No real-time updates** - Requires manual panel reopen to refresh
-3. **No search/filter** - Would need implementation in Phase 17+
-4. **No pagination** - Fixed 50-event limit
-5. **No user tracking** - All events anonymous
-6. **No undo functionality** - Events are read-only
+1. **No persistent storage** - Events lost on server restart (to be addressed with JSON file persistence + write queue)
+2. **No real-time updates** - Requires manual panel reopen to refresh (requires Phase 14-15)
+3. **No user/agent attribution** - All events anonymous (to be addressed with user tracking system)
+4. **No task status tracking** - Cannot mark individual tasks as "in-progress" (to be addressed for multi-agent collaboration)
+5. **No search/filter** - Would need implementation in future phases
+6. **No pagination** - Fixed 50-event limit
+7. **No undo functionality** - Events are read-only
 
 ## Future Enhancements (Post-MVP)
 
-- Persistent storage (database)
-- User attribution (track who made each change)
+### High Priority (Next Phase)
+- **Persistent storage** - JSON file with rolling 50-event limit per project
+- **Write queue** - Async queue to prevent file lock contention on rapid updates
+- **User/agent attribution** - Track who made each change for multi-agent workflows
+- **Task status tracking** - Mark tasks as not-started/in-progress/complete
+- **Task claiming** - Prevent conflicts when multiple agents work on same card
+
+### Medium Priority
 - Search and filtering in activity log
 - Export history as CSV/JSON
-- Undo/redo based on history
 - Activity analytics and insights
 - Email notifications for important events
+
+### Lower Priority
+- Undo/redo based on history
 - Webhook integration for external services
+- Database storage option for larger scale deployments
