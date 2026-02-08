@@ -110,3 +110,51 @@ If multi-client tests fail:
 - Check server logs for connection/disconnection messages
 - Verify the WebSocketService singleton is managing clients correctly
 - Review subscription cleanup logic in `src/services/websocket.service.ts`
+
+---
+
+### `e2e-demo.ts`
+
+Live demonstration script that exercises all DevPlanner real-time features. It takes actions via the REST API and direct file edits, with 3-second pauses between actions so you can watch the UI respond with animations in real time.
+
+**What it demonstrates:**
+- Project creation (sidebar update)
+- Card creation with blue glow + slide-in animations
+- Task addition with progress bar updates
+- Task completion with green flash + pulse animations
+- Card movement between lanes with amber glow animation
+- Card reordering within a lane
+- Direct file edit triggering file watcher → WebSocket → violet glow animation
+- Card archival (card disappearing from lane)
+- Project metadata updates
+- Activity history log
+
+**Prerequisites:**
+- DevPlanner server running (`bun run dev`)
+- Frontend open in browser at `http://localhost:5173`
+- `DEVPLANNER_WORKSPACE` environment variable set
+
+**Usage:**
+```bash
+# With the dev server already running, in a separate terminal:
+bun run demo:e2e
+```
+
+**How to use:**
+1. Open `http://localhost:5173` in your browser
+2. Run the script in a terminal
+3. When prompted, click on the "E2E Demo" project in the sidebar
+4. Watch the UI update in real time as the script takes actions
+
+**What it creates:**
+- A project called "E2E Demo" with a space-themed narrative
+- Cards: "Navigation System", "Hull Integrity Monitor", "Fuel Cell Optimizer"
+- Tasks on multiple cards with some completed
+- The project is left in place after the script finishes so you can inspect it
+
+**Re-running:**
+The script is idempotent — it removes any existing "E2E Demo" project before creating a new one.
+
+**Exit codes:**
+- `0` - Demo completed successfully
+- `1` - Fatal error or timeout (90s)

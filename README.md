@@ -104,6 +104,9 @@ bun test
 
 # Verify WebSocket infrastructure (Phase 12)
 bun run verify:websocket
+
+# Run E2E demo (exercises real-time features — watch the UI!)
+bun run demo:e2e
 ```
 
 The frontend dev server proxies `/api` requests to the backend at `http://localhost:17103`.
