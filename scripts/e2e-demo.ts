@@ -27,7 +27,7 @@ const API_BASE = 'http://localhost:17103/api';
 const PROJECT_NAME = 'E2E Demo';
 const PROJECT_SLUG = 'e2e-demo';
 const PAUSE_MS = 3000;
-const TIMEOUT_MS = 30000;
+const TIMEOUT_MS = 90000;
 
 // ---------------------------------------------------------------------------
 // Terminal colors

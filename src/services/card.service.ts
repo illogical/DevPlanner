@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile, rename, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
-import type { Card, CardSummary, CardFrontmatter, CreateCardInput } from '../types';
+import type { Card, CardSummary, CardFrontmatter, CreateCardInput, UpdateCardInput } from '../types';
 import { MarkdownService } from './markdown.service';
 import { slugify } from '../utils/slug';
 import { ALL_LANES, LANE_NAMES } from '../constants';
@@ -215,6 +215,80 @@ export class CardService {
       lane,
       frontmatter,
       content,
+      tasks,
+    };
+  }
+
+  /**
+   * Update card metadata and/or content
+   */
+  async updateCard(
+    projectSlug: string,
+    cardSlug: string,
+    updates: UpdateCardInput
+  ): Promise<Card> {
+    // Find and read the existing card
+    const lane = await this.findCardLane(projectSlug, cardSlug);
+    if (!lane) {
+      throw new Error(`Card not found: ${cardSlug}`);
+    }
+
+    const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+    const cardContent = await readFile(cardPath, 'utf-8');
+    const { frontmatter, content } = MarkdownService.parse(cardContent);
+
+    // Merge updates into frontmatter
+    if (updates.title !== undefined) {
+      frontmatter.title = updates.title;
+    }
+    if (updates.status !== undefined) {
+      if (updates.status === null) {
+        delete frontmatter.status;
+      } else {
+        frontmatter.status = updates.status;
+      }
+    }
+    if (updates.priority !== undefined) {
+      if (updates.priority === null) {
+        delete frontmatter.priority;
+      } else {
+        frontmatter.priority = updates.priority;
+      }
+    }
+    if (updates.assignee !== undefined) {
+      if (updates.assignee === null) {
+        delete frontmatter.assignee;
+      } else {
+        frontmatter.assignee = updates.assignee;
+      }
+    }
+    if (updates.tags !== undefined) {
+      if (updates.tags === null) {
+        delete frontmatter.tags;
+      } else {
+        frontmatter.tags = updates.tags;
+      }
+    }
+
+    // Update timestamp
+    frontmatter.updated = new Date().toISOString();
+
+    // Use updated content if provided, otherwise keep existing
+    const updatedContent = updates.content !== undefined ? updates.content : content;
+
+    // Serialize and write back to disk
+    const markdown = MarkdownService.serialize(frontmatter, updatedContent);
+    await writeFile(cardPath, markdown);
+
+    // Parse tasks from the (potentially updated) content
+    const tasks = MarkdownService.parseTasks(updatedContent);
+
+    return {
+      slug: cardSlug,
+      filename: `${cardSlug}.md`,
+      lane,
+      frontmatter,
+      content: updatedContent,
       tasks,
     };
   }

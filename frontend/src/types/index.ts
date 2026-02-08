@@ -166,14 +166,10 @@ export interface WebSocketMessage {
 
 // Typed event data payloads
 export interface CardCreatedData {
-  slug: string;
-  lane: string;
   card: CardSummary;
 }
 
 export interface CardUpdatedData {
-  slug: string;
-  lane: string;
   card: CardSummary;
 }
 
@@ -181,6 +177,7 @@ export interface CardMovedData {
   slug: string;
   sourceLane: string;
   targetLane: string;
+  position?: number;
 }
 
 export interface CardDeletedData {
@@ -189,9 +186,13 @@ export interface CardDeletedData {
 }
 
 export interface TaskToggledData {
-  slug: string;
-  lane: string;
-  card: CardSummary;
+  cardSlug: string;
+  taskIndex: number;
+  checked: boolean;
+  taskProgress: {
+    total: number;
+    checked: number;
+  };
 }
 
 export interface LaneReorderedData {
@@ -200,5 +201,6 @@ export interface LaneReorderedData {
 }
 
 export interface ProjectUpdatedData {
+  slug: string;
   config: ProjectConfig;
 }

@@ -14,8 +14,19 @@ Refer to `BRAINSTORM.md` for the full context of design decisions and resolved q
 |----------|----------|---------|-------------|
 | `DEVPLANNER_WORKSPACE` | Yes | — | Absolute path to the workspace directory containing project folders |
 | `PORT` | No | `17103` | Port for the Elysia backend server |
+| `DISABLE_FILE_WATCHER` | No | `false` | When `true`, disables filesystem monitoring. All real-time updates come from API WebSocket broadcasts instead |
 
 The backend validates that `DEVPLANNER_WORKSPACE` exists and is a readable directory on startup. If missing, the server exits with a clear error message.
+
+### Real-Time Update Strategy
+
+DevPlanner supports two modes for real-time updates:
+
+1. **API-driven (recommended)**: When `DISABLE_FILE_WATCHER=true`, all data modifications go through the API, which broadcasts WebSocket events immediately after each operation. This ensures instant, synchronized updates across all connected clients.
+
+2. **File watcher (legacy)**: When file watching is enabled (default), the backend monitors the workspace directory for external file changes and broadcasts WebSocket events. This adds ~100-200ms latency and is primarily useful if external tools (AI agents, file editors) modify cards directly on disk.
+
+**Note**: The file watcher is being phased out in favor of API-only workflows with an MCP server for programmatic access. Set `DISABLE_FILE_WATCHER=true` for optimal performance.
 
 ---
 
@@ -306,13 +317,25 @@ Update project metadata (name, description) or archive/unarchive.
 }
 ```
 
+**Behavior:**
+1. Read existing project configuration
+2. Merge provided fields into configuration
+3. Update the project's `updated` timestamp
+4. Write modified configuration to `_project.json`
+5. Broadcast `project:updated` WebSocket event to subscribed clients
+
 **Response `200`:** Updated project object.
 
 #### `DELETE /api/projects/:projectSlug`
 
 Archive a project (sets `archived: true` in `_project.json`). Does **not** delete files.
 
-**Response `200`:**
+**Behavior:**
+1. Set `archived: true` in `_project.json`
+2. Update the project's `updated` timestamp
+3. Broadcast `project:updated` WebSocket event to subscribed clients
+
+**Response `200`:****
 ```json
 {
   "slug": "media-manager",
@@ -380,6 +403,7 @@ Only `title` is required. Defaults: `lane` → `"01-upcoming"`, others omitted f
 2. If slug already exists in any lane, append a numeric suffix (`-2`, `-3`, etc.)
 3. Create `.md` file with frontmatter in the target lane folder
 4. Append filename to that lane's `_order.json`
+5. Broadcast `card:created` WebSocket event to subscribed clients
 
 **Response `201`:**
 ```json
@@ -439,6 +463,7 @@ Move card to the archive lane.
 1. Move the `.md` file from its current lane to `04-archive/`
 2. Remove from source lane's `_order.json`, append to archive's `_order.json`
 3. Update the card's `updated` timestamp
+4. Broadcast `card:moved` WebSocket event to subscribed clients
 
 **Response `200`:**
 ```json
@@ -468,8 +493,45 @@ Move a card to a different lane.
 2. Remove from source lane's `_order.json`
 3. Insert into target lane's `_order.json` at the specified position (or append)
 4. Update the card's `updated` timestamp
+5. Broadcast `card:moved` WebSocket event to subscribed clients
 
 **Response `200`:** Full updated card object.
+
+#### `PATCH /api/projects/:projectSlug/cards/:cardSlug`
+
+Update card metadata and/or content.
+
+**Request Body (all fields optional):**
+```json
+{
+  "title": "Updated Card Title",
+  "status": "in-progress",
+  "priority": "high",
+  "assignee": "agent",
+  "tags": ["feature", "urgent"],
+  "content": "Updated markdown content\n\n- [ ] New task"
+}
+```
+
+To remove an optional field, set it to `null`:
+```json
+{
+  "priority": null,
+  "status": null
+}
+```
+
+**Behavior:**
+1. Read the existing card from disk
+2. Merge provided fields into frontmatter (undefined fields are preserved, null removes the field)
+3. Update content if provided (otherwise preserve existing)
+4. Update the card's `updated` timestamp
+5. Write the modified card back to disk
+6. Broadcast `card:updated` WebSocket event to subscribed clients
+
+**Response `200`:** Full updated card object with all fields.
+
+**Note:** This endpoint does NOT move the card between lanes. Use `PATCH /cards/:cardSlug/move` for that.
 
 ### 3.4 Task Endpoints
 
@@ -491,6 +553,7 @@ Add a new checklist item to a card.
 4. If no checklist exists yet, append a `## Tasks` section with the new item
 5. Update the card's `updated` timestamp
 6. Write the modified Markdown file
+7. Broadcast `card:updated` WebSocket event to subscribed clients
 
 **Response `201`:**
 ```json
@@ -519,6 +582,7 @@ Toggle a task's checked state.
 3. Replace `- [ ]` with `- [x]` (or vice versa)
 4. Update the card's `updated` timestamp
 5. Write the modified Markdown file
+6. Broadcast `task:toggled` WebSocket event to subscribed clients
 
 **Response `200`:**
 ```json
@@ -550,6 +614,7 @@ Reorder cards within a lane (for drag-and-drop within the same lane).
 1. Validate all filenames exist in the lane folder
 2. Replace the lane's `_order.json` with the new order
 3. Files in the folder but missing from `order` are appended alphabetically
+4. Broadcast `lane:reordered` WebSocket event to subscribed clients
 
 **Response `200`:**
 ```json

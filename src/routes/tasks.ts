@@ -2,10 +2,13 @@ import { Elysia, t } from 'elysia';
 import { TaskService } from '../services/task.service';
 import { MarkdownService } from '../services/markdown.service';
 import { CardService } from '../services/card.service';
+import { WebSocketService } from '../services/websocket.service';
+import type { TaskToggledData, CardUpdatedData } from '../types';
 
 export const taskRoutes = (workspacePath: string) => {
   const taskService = new TaskService(workspacePath);
   const cardService = new CardService(workspacePath);
+  const wsService = WebSocketService.getInstance();
 
   return new Elysia()
     .post(
@@ -22,6 +25,27 @@ export const taskRoutes = (workspacePath: string) => {
         const taskProgress = MarkdownService.taskProgress(card.tasks);
 
         set.status = 201;
+
+        // Broadcast card:updated event (task list changed)
+        const eventData: CardUpdatedData = {
+          card: {
+            slug: card.slug,
+            filename: card.filename,
+            lane: card.lane,
+            frontmatter: card.frontmatter,
+            taskProgress,
+          },
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'card:updated',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
+
         return {
           ...task,
           taskProgress,
@@ -52,6 +76,23 @@ export const taskRoutes = (workspacePath: string) => {
         // Get updated card to calculate task progress
         const card = await cardService.getCard(params.projectSlug, params.cardSlug);
         const taskProgress = MarkdownService.taskProgress(card.tasks);
+
+        // Broadcast task:toggled event
+        const eventData: TaskToggledData = {
+          cardSlug: params.cardSlug,
+          taskIndex,
+          checked: body.checked,
+          taskProgress,
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'task:toggled',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
 
         return {
           ...task,

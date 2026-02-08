@@ -74,6 +74,15 @@ export interface CreateCardInput {
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
 }
 
+export interface UpdateCardInput {
+  title?: string;
+  status?: 'in-progress' | 'blocked' | 'review' | 'testing' | null;
+  priority?: 'low' | 'medium' | 'high' | null;
+  assignee?: 'user' | 'agent' | null;
+  tags?: string[] | null;
+  content?: string;
+}
+
 // Preferences types
 export interface Preferences {
   lastSelectedProject: string | null;
@@ -116,6 +125,47 @@ export interface UnsubscribeMessage {
 
 export interface PingMessage {
   type: 'ping';
+}
+
+// WebSocket event payload types
+export interface CardCreatedData {
+  card: CardSummary;
+}
+
+export interface CardUpdatedData {
+  card: CardSummary;
+}
+
+export interface CardMovedData {
+  slug: string;
+  sourceLane: string;
+  targetLane: string;
+  position?: number;
+}
+
+export interface CardDeletedData {
+  slug: string;
+  lane: string;
+}
+
+export interface TaskToggledData {
+  cardSlug: string;
+  taskIndex: number;
+  checked: boolean;
+  taskProgress: {
+    total: number;
+    checked: number;
+  };
+}
+
+export interface LaneReorderedData {
+  lane: string;
+  order: string[];
+}
+
+export interface ProjectUpdatedData {
+  slug: string;
+  config: ProjectConfig;
 }
 
 // History types

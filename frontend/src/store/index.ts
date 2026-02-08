@@ -10,6 +10,7 @@ import type {
   CardUpdatedData,
   CardMovedData,
   CardDeletedData,
+  TaskToggledData,
   LaneReorderedData,
   ProjectUpdatedData,
 } from '../types';
@@ -119,6 +120,7 @@ interface DevPlannerStore {
   wsHandleCardUpdated?: (data: CardUpdatedData) => void;
   wsHandleCardMoved?: (data: CardMovedData) => void;
   wsHandleCardDeleted?: (data: CardDeletedData) => void;
+  wsHandleTaskToggled?: (data: TaskToggledData) => void;
   wsHandleLaneReordered?: (data: LaneReorderedData) => void;
   wsHandleProjectUpdated?: (data: ProjectUpdatedData) => void;
 }
@@ -418,8 +420,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       checked
     );
 
-    // Record local action for self-echo dedup
-    get()._recordLocalAction(`card:updated:${cardSlug}`);
+    // Record local action for self-echo dedup (backend broadcasts task:toggled)
+    get()._recordLocalAction(`task:toggled:${cardSlug}:${taskIndex}`);
 
     // Update active card if it matches
     if (activeCard && activeCard.slug === cardSlug) {
@@ -695,7 +697,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
 
   // WebSocket event handlers
   wsHandleCardCreated: (data: CardCreatedData) => {
-    const { slug, lane, card } = data;
+    const { card } = data;
+    const { slug, lane } = card;
     const state = get();
     
     // Check if card already exists (dedup)
@@ -724,7 +727,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   },
 
   wsHandleCardUpdated: (data: CardUpdatedData) => {
-    const { slug, lane, card } = data;
+    const { card } = data;
+    const { slug, lane } = card;
     const state = get();
     console.log(`[wsHandleCardUpdated] START - ${slug}, activeCard:`, {
       slug: state.activeCard?.slug,
@@ -904,6 +908,56 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         [lane]: reorderedCards,
       },
     }));
+  },
+
+  wsHandleTaskToggled: (data: TaskToggledData) => {
+    const { cardSlug, taskIndex, checked, taskProgress } = data;
+    const state = get();
+    
+    console.log(`[wsHandleTaskToggled] Task ${taskIndex} on ${cardSlug} toggled to ${checked}`);
+    
+    // Find and update the card's task progress in cardsByLane
+    const newCardsByLane = { ...state.cardsByLane };
+    let cardFound = false;
+    let cardLane: string | undefined;
+    
+    for (const [lane, cards] of Object.entries(newCardsByLane)) {
+      const cardIndex = cards.findIndex(c => c.slug === cardSlug);
+      if (cardIndex !== -1) {
+        newCardsByLane[lane] = [...cards];
+        newCardsByLane[lane][cardIndex] = {
+          ...cards[cardIndex],
+          taskProgress,
+        };
+        cardFound = true;
+        cardLane = lane;
+        break;
+      }
+    }
+    
+    if (cardFound) {
+      set({ cardsByLane: newCardsByLane });
+      
+      // Add change indicator if not a recent local action
+      const actionKey = `task:toggled:${cardSlug}:${taskIndex}`;
+      if (cardLane && !state._isRecentLocalAction(actionKey)) {
+        state.addChangeIndicator({
+          type: 'task:toggled',
+          cardSlug,
+          lane: cardLane,
+          taskIndex,
+        });
+      }
+    } else {
+      console.warn(`[wsHandleTaskToggled] Card ${cardSlug} not found in cardsByLane`);
+    }
+    
+    // If this card is currently open in detail view, refresh it
+    const actionKey = `task:toggled:${cardSlug}:${taskIndex}`;
+    if (state.activeCard?.slug === cardSlug && !state._isRecentLocalAction(actionKey)) {
+      console.log(`[wsHandleTaskToggled] Refreshing active card ${cardSlug}`);
+      state.openCardDetail(cardSlug);
+    }
   },
 
   wsHandleProjectUpdated: (data: ProjectUpdatedData) => {

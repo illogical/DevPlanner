@@ -24,6 +24,7 @@ export function useWebSocket() {
   const wsHandleCardUpdated = useStore((state) => state.wsHandleCardUpdated);
   const wsHandleCardMoved = useStore((state) => state.wsHandleCardMoved);
   const wsHandleCardDeleted = useStore((state) => state.wsHandleCardDeleted);
+  const wsHandleTaskToggled = useStore((state) => state.wsHandleTaskToggled);
   const wsHandleLaneReordered = useStore((state) => state.wsHandleLaneReordered);
   const wsHandleProjectUpdated = useStore((state) => state.wsHandleProjectUpdated);
   const addHistoryEvent = useStore((state) => state.addHistoryEvent);
@@ -63,6 +64,9 @@ export function useWebSocket() {
       client.on('card:deleted', (data) => {
         wsHandleCardDeleted?.(data as CardDeletedData);
       }),
+      client.on('task:toggled', (data) => {
+        wsHandleTaskToggled?.(data as TaskToggledData);
+      }),
       client.on('lane:reordered', (data) => {
         wsHandleLaneReordered?.(data as LaneReorderedData);
       }),
@@ -81,6 +85,7 @@ export function useWebSocket() {
     wsHandleCardUpdated,
     wsHandleCardMoved,
     wsHandleCardDeleted,
+    wsHandleTaskToggled,
     wsHandleLaneReordered,
     wsHandleProjectUpdated,
     addHistoryEvent,

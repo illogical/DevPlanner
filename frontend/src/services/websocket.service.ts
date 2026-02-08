@@ -196,8 +196,10 @@ export class WebSocketClient {
   }
 
   private dispatchEvent(event: WebSocketEvent): void {
+    console.log('[WebSocket] Dispatching event:', event.type, event.data);
     const handlers = this.handlers.get(event.type);
     if (handlers) {
+      console.log(`[WebSocket] Found ${handlers.size} handlers for ${event.type}`);
       handlers.forEach(handler => {
         try {
           handler(event.data);
@@ -205,6 +207,8 @@ export class WebSocketClient {
           console.error(`[WebSocket] Handler error for ${event.type}:`, error);
         }
       });
+    } else {
+      console.warn(`[WebSocket] No handlers registered for event type: ${event.type}`);
     }
   }
 

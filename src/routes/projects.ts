@@ -1,9 +1,12 @@
 import { Elysia, t } from 'elysia';
 import { ProjectService } from '../services/project.service';
 import { slugify } from '../utils/slug';
+import { WebSocketService } from '../services/websocket.service';
+import type { ProjectUpdatedData } from '../types';
 
 export const projectRoutes = (workspacePath: string) => {
   const projectService = new ProjectService(workspacePath);
+  const wsService = WebSocketService.getInstance();
 
   return new Elysia({ prefix: '/api/projects' })
     .get('/', async ({ query }) => {
@@ -51,6 +54,22 @@ export const projectRoutes = (workspacePath: string) => {
       '/:projectSlug',
       async ({ params, body }) => {
         const project = await projectService.updateProject(params.projectSlug, body);
+
+        // Broadcast project:updated event
+        const eventData: ProjectUpdatedData = {
+          slug: params.projectSlug,
+          config: project,
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'project:updated',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
+
         return project;
       },
       {
@@ -63,6 +82,25 @@ export const projectRoutes = (workspacePath: string) => {
     )
     .delete('/:projectSlug', async ({ params }) => {
       await projectService.archiveProject(params.projectSlug);
+
+      // Get updated project to broadcast
+      const project = await projectService.getProject(params.projectSlug);
+
+      // Broadcast project:updated event
+      const eventData: ProjectUpdatedData = {
+        slug: params.projectSlug,
+        config: project,
+      };
+      wsService.broadcast(params.projectSlug, {
+        type: 'event',
+        event: {
+          type: 'project:updated',
+          projectSlug: params.projectSlug,
+          timestamp: new Date().toISOString(),
+          data: eventData,
+        },
+      });
+
       return {
         slug: params.projectSlug,
         archived: true,

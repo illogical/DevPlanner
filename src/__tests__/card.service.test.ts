@@ -335,4 +335,153 @@ describe('CardService', () => {
       ).rejects.toThrow('Card not found in lane');
     });
   });
+
+  describe('updateCard', () => {
+    test('updates card title', async () => {
+      await cardService.createCard(projectSlug, { title: 'Original Title' });
+
+      const updated = await cardService.updateCard(projectSlug, 'original-title', {
+        title: 'New Title',
+      });
+
+      expect(updated.frontmatter.title).toBe('New Title');
+      expect(updated.slug).toBe('original-title'); // slug doesn't change
+    });
+
+    test('updates card status', async () => {
+      await cardService.createCard(projectSlug, { title: 'Test Card' });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        status: 'in-progress',
+      });
+
+      expect(updated.frontmatter.status).toBe('in-progress');
+    });
+
+    test('updates card priority', async () => {
+      await cardService.createCard(projectSlug, { title: 'Test Card' });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        priority: 'high',
+      });
+
+      expect(updated.frontmatter.priority).toBe('high');
+    });
+
+    test('updates card assignee', async () => {
+      await cardService.createCard(projectSlug, { title: 'Test Card' });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        assignee: 'agent',
+      });
+
+      expect(updated.frontmatter.assignee).toBe('agent');
+    });
+
+    test('updates card tags', async () => {
+      await cardService.createCard(projectSlug, { title: 'Test Card' });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        tags: ['feature', 'urgent'],
+      });
+
+      expect(updated.frontmatter.tags).toEqual(['feature', 'urgent']);
+    });
+
+    test('updates card content', async () => {
+      await cardService.createCard(projectSlug, {
+        title: 'Test Card',
+        content: 'Original content',
+      });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        content: 'Updated content\n\n- [ ] New task',
+      });
+
+      expect(updated.content).toBe('Updated content\n\n- [ ] New task');
+      expect(updated.tasks).toHaveLength(1);
+      expect(updated.tasks[0].text).toBe('New task');
+    });
+
+    test('updates multiple fields at once', async () => {
+      await cardService.createCard(projectSlug, { title: 'Test Card' });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        title: 'New Title',
+        priority: 'high',
+        assignee: 'user',
+        status: 'review',
+        tags: ['enhancement'],
+      });
+
+      expect(updated.frontmatter.title).toBe('New Title');
+      expect(updated.frontmatter.priority).toBe('high');
+      expect(updated.frontmatter.assignee).toBe('user');
+      expect(updated.frontmatter.status).toBe('review');
+      expect(updated.frontmatter.tags).toEqual(['enhancement']);
+    });
+
+    test('removes optional field when set to null', async () => {
+      await cardService.createCard(projectSlug, {
+        title: 'Test Card',
+        priority: 'high',
+        assignee: 'user',
+        status: 'in-progress',
+        tags: ['feature'],
+      });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        priority: null,
+        assignee: null,
+        status: null,
+        tags: null,
+      });
+
+      expect(updated.frontmatter.priority).toBeUndefined();
+      expect(updated.frontmatter.assignee).toBeUndefined();
+      expect(updated.frontmatter.status).toBeUndefined();
+      expect(updated.frontmatter.tags).toBeUndefined();
+    });
+
+    test('preserves fields not included in update', async () => {
+      await cardService.createCard(projectSlug, {
+        title: 'Test Card',
+        priority: 'high',
+        assignee: 'user',
+        tags: ['feature'],
+      });
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        title: 'New Title',
+      });
+
+      expect(updated.frontmatter.title).toBe('New Title');
+      expect(updated.frontmatter.priority).toBe('high'); // preserved
+      expect(updated.frontmatter.assignee).toBe('user'); // preserved
+      expect(updated.frontmatter.tags).toEqual(['feature']); // preserved
+    });
+
+    test('updates timestamp on modification', async () => {
+      const created = await cardService.createCard(projectSlug, { title: 'Test Card' });
+      const originalUpdated = created.frontmatter.updated;
+
+      // Wait a bit to ensure timestamp changes
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const updated = await cardService.updateCard(projectSlug, 'test-card', {
+        title: 'New Title',
+      });
+
+      expect(updated.frontmatter.updated).not.toBe(originalUpdated);
+      expect(new Date(updated.frontmatter.updated).getTime()).toBeGreaterThan(
+        new Date(originalUpdated).getTime()
+      );
+    });
+
+    test('throws error if card not found', async () => {
+      await expect(
+        cardService.updateCard(projectSlug, 'non-existent', { title: 'Test' })
+      ).rejects.toThrow('Card not found');
+    });
+  });
 });
