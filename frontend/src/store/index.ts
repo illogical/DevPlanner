@@ -7,6 +7,23 @@ import type {
   LaneConfig,
 } from '../types';
 
+// Change indicator types for visual animations
+export type ChangeIndicatorType = 
+  | 'task:toggled' 
+  | 'card:created' 
+  | 'card:moved' 
+  | 'card:updated';
+
+export interface ChangeIndicator {
+  id: string;
+  type: ChangeIndicatorType;
+  timestamp: number;
+  cardSlug: string;
+  lane?: string;
+  taskIndex?: number;
+  expiresAt: number;
+}
+
 interface DevPlannerStore {
   // Loading states
   isLoadingProjects: boolean;
@@ -60,6 +77,16 @@ interface DevPlannerStore {
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+
+  // Change indicators for animations
+  changeIndicators: Map<string, ChangeIndicator>;
+  addChangeIndicator: (
+    indicator: Omit<ChangeIndicator, 'id' | 'timestamp' | 'expiresAt'>
+  ) => string;
+  removeChangeIndicator: (id: string) => void;
+  clearExpiredIndicators: () => void;
+  getCardIndicators: (cardSlug: string) => ChangeIndicator[];
+  getTaskIndicator: (cardSlug: string, taskIndex: number) => ChangeIndicator | null;
 }
 
 export const useStore = create<DevPlannerStore>((set, get) => ({
@@ -75,6 +102,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   expandedCardTasks: new Set(),
   laneCollapsedState: {},
   isSidebarOpen: true,
+  changeIndicators: new Map(),
 
   // Project actions
   loadProjects: async () => {
@@ -191,6 +219,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         },
       };
     });
+
+    // Add visual indicator for the new card
+    get().addChangeIndicator({
+      type: 'card:created',
+      cardSlug: card.slug,
+      lane,
+    });
   },
 
   archiveCard: async (cardSlug) => {
@@ -264,6 +299,15 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         },
       };
     });
+
+    // Add visual indicator for moved card (only if lanes are different)
+    if (currentLane !== targetLane) {
+      get().addChangeIndicator({
+        type: 'card:moved',
+        cardSlug,
+        lane: targetLane,
+      });
+    }
   },
 
   reorderCards: async (laneSlug, order) => {
@@ -348,6 +392,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       }
       return { cardsByLane: newCardsByLane };
     });
+
+    // Add visual indicator for task toggle
+    get().addChangeIndicator({
+      type: 'task:toggled',
+      cardSlug,
+      taskIndex,
+    });
   },
 
   addTask: async (cardSlug, text) => {
@@ -423,4 +474,110 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   setSidebarOpen: (open) => {
     set({ isSidebarOpen: open });
   },
+
+  // Change indicator actions
+  addChangeIndicator: (indicator) => {
+    const id = `${indicator.type}-${indicator.cardSlug}-${indicator.taskIndex ?? 'card'}-${Date.now()}`;
+    const timestamp = Date.now();
+    const expiresAt = timestamp + getIndicatorDuration(indicator.type);
+
+    const newIndicator: ChangeIndicator = {
+      id,
+      timestamp,
+      expiresAt,
+      ...indicator,
+    };
+
+    set((state) => {
+      const newIndicators = new Map(state.changeIndicators);
+      newIndicators.set(id, newIndicator);
+      return { changeIndicators: newIndicators };
+    });
+
+    // Auto-remove after expiration
+    setTimeout(() => {
+      get().removeChangeIndicator(id);
+    }, expiresAt - timestamp);
+
+    return id;
+  },
+
+  removeChangeIndicator: (id) => {
+    set((state) => {
+      const newIndicators = new Map(state.changeIndicators);
+      newIndicators.delete(id);
+      return { changeIndicators: newIndicators };
+    });
+  },
+
+  clearExpiredIndicators: () => {
+    const now = Date.now();
+    set((state) => {
+      const newIndicators = new Map(state.changeIndicators);
+      let changed = false;
+      
+      for (const [id, indicator] of newIndicators.entries()) {
+        if (indicator.expiresAt <= now) {
+          newIndicators.delete(id);
+          changed = true;
+        }
+      }
+      
+      return changed ? { changeIndicators: newIndicators } : state;
+    });
+  },
+
+  getCardIndicators: (cardSlug) => {
+    const indicators = get().changeIndicators;
+    return Array.from(indicators.values()).filter(
+      (indicator) => indicator.cardSlug === cardSlug
+    );
+  },
+
+  getTaskIndicator: (cardSlug, taskIndex) => {
+    const indicators = get().changeIndicators;
+    for (const indicator of indicators.values()) {
+      if (
+        indicator.cardSlug === cardSlug &&
+        indicator.taskIndex === taskIndex &&
+        indicator.type === 'task:toggled'
+      ) {
+        return indicator;
+      }
+    }
+    return null;
+  },
 }));
+
+// Helper function to determine indicator duration based on type
+function getIndicatorDuration(type: ChangeIndicatorType): number {
+  switch (type) {
+    case 'task:toggled':
+      return 700; // 700ms for task flash + pulse
+    case 'card:created':
+      return 2000; // 2s for card glow
+    case 'card:moved':
+      return 1500; // 1.5s for moved card glow
+    case 'card:updated':
+      return 3000; // 3s for update badge
+    default:
+      return 2000;
+  }
+}
+
+// Run cleanup periodically (every 5 seconds) - only in browser environment
+let cleanupIntervalId: number | undefined;
+if (typeof window !== 'undefined') {
+  cleanupIntervalId = window.setInterval(() => {
+    useStore.getState().clearExpiredIndicators();
+  }, 5000);
+  
+  // Cleanup function for hot module replacement
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      if (cleanupIntervalId !== undefined) {
+        clearInterval(cleanupIntervalId);
+      }
+    });
+  }
+}

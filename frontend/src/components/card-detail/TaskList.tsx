@@ -59,6 +59,7 @@ export function TaskList({ tasks, cardSlug }: TaskListProps) {
             >
               <TaskCheckbox
                 task={task}
+                cardSlug={cardSlug}
                 onToggle={(checked) => handleToggle(task, checked)}
               />
             </motion.div>

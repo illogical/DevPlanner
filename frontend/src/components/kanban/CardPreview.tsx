@@ -6,6 +6,7 @@ import { Badge, AssigneeBadge } from '../ui/Badge';
 import { Collapsible } from '../ui/Collapsible';
 import { TaskProgressBar } from '../tasks/TaskProgressBar';
 import { CardPreviewTasks } from './CardPreviewTasks';
+import { AnimatedCardWrapper } from '../animations/AnimatedCardWrapper';
 import type { CardSummary } from '../../types';
 
 function getPriorityBorderClass(priority?: 'low' | 'medium' | 'high'): string {
@@ -71,109 +72,111 @@ export function CardPreview({
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onClick={handleCardClick}
-      className={cn(
-        'group relative rounded-lg border border-gray-700 p-3 cursor-pointer',
-        'bg-gray-800',
-        'hover:bg-gray-750 card-hover',
-        !isDragging && !isDraggingOverlay && getPriorityBorderClass(card.frontmatter.priority),
-        (isDragging || isDraggingOverlay) && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500',
-        isDragging && 'opacity-50' // Reduce opacity of the original card while dragging
-      )}
-    >
-      {/* Header: Title + Task Count */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="text-sm font-medium text-gray-100 line-clamp-2 leading-snug min-w-0">
-          {card.frontmatter.title}
-        </h3>
-
-        {hasTasks && (
-          <span
-            className={cn(
-              'flex-shrink-0 inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold border shadow-sm transition-colors',
-              card.taskProgress.checked > 0
-                ? 'bg-gray-900 border-gray-600 text-gray-100' // In progress: popping slightly
-                : 'bg-gray-950 border-gray-800 text-gray-500' // Not started: recessed/dim
-            )}
-          >
-            {card.taskProgress.checked}/{card.taskProgress.total}
-          </span>
+    <AnimatedCardWrapper cardSlug={card.slug}>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={handleCardClick}
+        className={cn(
+          'group relative rounded-lg border border-gray-700 p-3 cursor-pointer',
+          'bg-gray-800',
+          'hover:bg-gray-750 card-hover',
+          !isDragging && !isDraggingOverlay && getPriorityBorderClass(card.frontmatter.priority),
+          (isDragging || isDraggingOverlay) && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500',
+          isDragging && 'opacity-50' // Reduce opacity of the original card while dragging
         )}
-      </div>
+      >
+        {/* Header: Title + Task Count */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <h3 className="text-sm font-medium text-gray-100 line-clamp-2 leading-snug min-w-0">
+            {card.frontmatter.title}
+          </h3>
 
-      {/* Progress Bar + Expand Toggle */}
-      {hasTasks && (
-        <div className="flex items-center gap-2 mb-3">
-          <TaskProgressBar
-            checked={card.taskProgress.checked}
-            total={card.taskProgress.total}
-            size="md"
-            className="flex-1"
-          />
-
-          <button
-            onClick={handleChevronClick}
-            className={cn(
-              'p-1 rounded hover:bg-gray-700 transition-colors',
-              'text-gray-400 hover:text-gray-200'
-            )}
-            aria-label={isExpanded ? 'Collapse tasks' : 'Expand tasks'}
-          >
-            <svg
+          {hasTasks && (
+            <span
               className={cn(
-                'w-4 h-4 transition-transform duration-200',
-                isExpanded && 'rotate-180'
+                'flex-shrink-0 inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold border shadow-sm transition-colors',
+                card.taskProgress.checked > 0
+                  ? 'bg-gray-900 border-gray-600 text-gray-100' // In progress: popping slightly
+                  : 'bg-gray-950 border-gray-800 text-gray-500' // Not started: recessed/dim
               )}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Collapsible Task Area */}
-      {hasTasks && (
-        <Collapsible isOpen={isExpanded}>
-          <div className="border-t border-gray-700/50 pt-2 -mx-3 px-3">
-            <CardPreviewTasks cardSlug={card.slug} projectSlug={projectSlug} />
-          </div>
-        </Collapsible>
-      )}
-
-      {/* Footer: Tags, Assignee */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700/50 gap-2">
-        {/* Left side: Tags */}
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          {card.frontmatter.tags?.slice(0, 2).map((tag) => (
-            <Badge key={tag} variant="secondary" size="sm">
-              {tag}
-            </Badge>
-          ))}
-          {card.frontmatter.tags && card.frontmatter.tags.length > 2 && (
-            <span className="text-xs text-gray-500">
-              +{card.frontmatter.tags.length - 2}
+              {card.taskProgress.checked}/{card.taskProgress.total}
             </span>
           )}
         </div>
 
-        {/* Right side: Assignee */}
-        {card.frontmatter.assignee && (
-          <AssigneeBadge assignee={card.frontmatter.assignee} />
+        {/* Progress Bar + Expand Toggle */}
+        {hasTasks && (
+          <div className="flex items-center gap-2 mb-3">
+            <TaskProgressBar
+              checked={card.taskProgress.checked}
+              total={card.taskProgress.total}
+              size="md"
+              className="flex-1"
+            />
+
+            <button
+              onClick={handleChevronClick}
+              className={cn(
+                'p-1 rounded hover:bg-gray-700 transition-colors',
+                'text-gray-400 hover:text-gray-200'
+              )}
+              aria-label={isExpanded ? 'Collapse tasks' : 'Expand tasks'}
+            >
+              <svg
+                className={cn(
+                  'w-4 h-4 transition-transform duration-200',
+                  isExpanded && 'rotate-180'
+                )}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+          </div>
         )}
+
+        {/* Collapsible Task Area */}
+        {hasTasks && (
+          <Collapsible isOpen={isExpanded}>
+            <div className="border-t border-gray-700/50 pt-2 -mx-3 px-3">
+              <CardPreviewTasks cardSlug={card.slug} projectSlug={projectSlug} />
+            </div>
+          </Collapsible>
+        )}
+
+        {/* Footer: Tags, Assignee */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-700/50 gap-2">
+          {/* Left side: Tags */}
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            {card.frontmatter.tags?.slice(0, 2).map((tag) => (
+              <Badge key={tag} variant="secondary" size="sm">
+                {tag}
+              </Badge>
+            ))}
+            {card.frontmatter.tags && card.frontmatter.tags.length > 2 && (
+              <span className="text-xs text-gray-500">
+                +{card.frontmatter.tags.length - 2}
+              </span>
+            )}
+          </div>
+
+          {/* Right side: Assignee */}
+          {card.frontmatter.assignee && (
+            <AssigneeBadge assignee={card.frontmatter.assignee} />
+          )}
+        </div>
       </div>
-    </div>
+    </AnimatedCardWrapper>
   );
 }
