@@ -4,17 +4,20 @@ import { cardRoutes } from './routes/cards';
 import { taskRoutes } from './routes/tasks';
 import { preferencesRoutes } from './routes/preferences';
 import { websocketRoutes } from './routes/websocket';
+import { historyRoutes } from './routes/history';
 import { ConfigService } from './services/config.service';
 import { WebSocketService } from './services/websocket.service';
 import { FileWatcherService } from './services/file-watcher.service';
+import { HistoryService } from './services/history.service';
 
 // Load and validate configuration
 const config = ConfigService.getInstance();
 const workspacePath = config.workspacePath;
 const port = config.port;
 
-// Initialize WebSocket service singleton
+// Initialize services
 WebSocketService.getInstance();
+HistoryService.getInstance();
 
 // Initialize and start FileWatcher service
 const fileWatcher = FileWatcherService.getInstance();
@@ -72,6 +75,7 @@ const app = new Elysia()
   .use(taskRoutes(workspacePath))
   .use(preferencesRoutes(workspacePath))
   .use(websocketRoutes)
+  .use(historyRoutes)
   .listen(port);
 
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);

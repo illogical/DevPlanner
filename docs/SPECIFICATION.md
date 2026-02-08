@@ -561,27 +561,178 @@ Reorder cards within a lane (for drag-and-drop within the same lane).
 
 ---
 
+### 3.6 Activity History Endpoint
+
+#### `GET /api/projects/:projectSlug/history`
+
+Retrieve activity history for a project (recent card/task modifications).
+
+**Query Parameters:**
+- `limit` (optional): Number of events to return (default: 50, max: 100)
+  - Note: History service stores max 50 events per project, so requesting more than 50 will still only return up to 50 events
+
+**Response `200`:**
+```json
+{
+  "events": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "projectSlug": "my-project",
+      "timestamp": "2026-02-08T07:00:00.000Z",
+      "action": "card:moved",
+      "description": "Card \"Auth System\" moved to In Progress",
+      "metadata": {
+        "cardSlug": "auth-system",
+        "cardTitle": "Auth System",
+        "sourceLane": "01-upcoming",
+        "targetLane": "02-in-progress"
+      }
+    }
+  ],
+  "total": 1
+}
+```
+
+**Action Types:**
+- `task:completed` - Task marked as done
+- `task:uncompleted` - Task marked as not done
+- `card:created` - New card added
+- `card:moved` - Card moved between lanes
+- `card:updated` - Card content or metadata changed
+- `card:archived` - Card moved to archive
+
+**Note:** History is stored in-memory (lost on server restart). Persistent storage planned for future phases.
+
+---
+
+### 3.7 WebSocket Endpoint
+
+#### `WS /api/ws`
+
+WebSocket connection for real-time updates. Clients subscribe to project-specific events.
+
+**Client → Server Messages:**
+
+Subscribe to project:
+```json
+{
+  "type": "subscribe",
+  "projectSlug": "my-project"
+}
+```
+
+Unsubscribe from project:
+```json
+{
+  "type": "unsubscribe",
+  "projectSlug": "my-project"
+}
+```
+
+Heartbeat:
+```json
+{
+  "type": "ping"
+}
+```
+
+**Server → Client Messages:**
+
+Subscription confirmed:
+```json
+{
+  "type": "subscribed",
+  "projectSlug": "my-project"
+}
+```
+
+Event broadcast:
+```json
+{
+  "type": "event",
+  "event": {
+    "type": "card:moved",
+    "projectSlug": "my-project",
+    "timestamp": "2026-02-08T07:00:00.000Z",
+    "data": {
+      "slug": "auth-system",
+      "sourceLane": "01-upcoming",
+      "targetLane": "02-in-progress"
+    }
+  }
+}
+```
+
+History event:
+```json
+{
+  "type": "event",
+  "event": {
+    "type": "history:event",
+    "projectSlug": "my-project",
+    "timestamp": "2026-02-08T07:00:00.000Z",
+    "data": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "action": "card:moved",
+      "description": "Card \"Auth System\" moved to In Progress",
+      "metadata": { ... }
+    }
+  }
+}
+```
+
+Heartbeat response:
+```json
+{
+  "type": "pong"
+}
+```
+
+**Event Types:**
+- `card:created` - New card added to a lane
+- `card:updated` - Card frontmatter or content changed
+- `card:moved` - Card moved between lanes
+- `card:deleted` - Card removed/archived
+- `task:toggled` - Task checked/unchecked
+- `lane:reordered` - Cards reordered within a lane
+- `project:updated` - Project metadata changed
+- `history:event` - Activity history event recorded
+
+**Behavior:**
+- Server sends ping every 30 seconds
+- Client disconnected if no pong received within 5 seconds
+- Clients only receive events for subscribed projects
+- File watcher detects changes and broadcasts to subscribed clients
+
+---
+
 ## 4. Service Layer Architecture
 
 The service layer is a set of TypeScript classes that encapsulate all file I/O and business logic. The Elysia routes are thin wrappers that delegate to these services.
 
 ```
 src/
-├── server.ts                   # Elysia app setup, route registration
+├── server.ts                       # Elysia app setup, route registration
 ├── routes/
-│   ├── projects.ts             # Project route handlers
-│   ├── cards.ts                # Card route handlers
-│   └── tasks.ts                # Task route handlers
+│   ├── projects.ts                 # Project route handlers
+│   ├── cards.ts                    # Card route handlers
+│   ├── tasks.ts                    # Task route handlers
+│   ├── history.ts                  # Activity history handlers
+│   └── websocket.ts                # WebSocket connection handlers
 ├── services/
-│   ├── project.service.ts      # Project CRUD operations
-│   ├── card.service.ts         # Card CRUD + move operations
-│   ├── task.service.ts         # Checklist manipulation
-│   └── markdown.service.ts     # Frontmatter parsing, checklist parsing, slug generation
+│   ├── project.service.ts          # Project CRUD operations
+│   ├── card.service.ts             # Card CRUD + move operations
+│   ├── task.service.ts             # Checklist manipulation
+│   ├── markdown.service.ts         # Frontmatter parsing, checklist parsing
+│   ├── history.service.ts          # Activity history tracking
+│   ├── websocket.service.ts        # WebSocket connection management
+│   ├── file-watcher.service.ts     # File system monitoring
+│   └── config.service.ts           # Environment configuration
 ├── types/
-│   └── index.ts                # Shared TypeScript interfaces
+│   └── index.ts                    # Shared TypeScript interfaces
 ├── utils/
-│   └── slug.ts                 # Slugify function
-├── seed.ts                     # Seed data script
+│   └── slug.ts                     # Slugify function
+├── seed.ts                         # Seed data script
 └── __tests__/
     ├── project.service.test.ts
     ├── card.service.test.ts

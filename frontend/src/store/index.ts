@@ -5,6 +5,7 @@ import type {
   CardSummary,
   Card,
   LaneConfig,
+  HistoryEvent,
 } from '../types';
 
 // Change indicator types for visual animations
@@ -87,6 +88,14 @@ interface DevPlannerStore {
   clearExpiredIndicators: () => void;
   getCardIndicators: (cardSlug: string) => ChangeIndicator[];
   getTaskIndicator: (cardSlug: string, taskIndex: number) => ChangeIndicator | null;
+
+  // Activity History
+  historyEvents: HistoryEvent[];
+  isActivityPanelOpen: boolean;
+  loadHistory: () => Promise<void>;
+  addHistoryEvent: (event: HistoryEvent) => void;
+  toggleActivityPanel: () => void;
+  setActivityPanelOpen: (open: boolean) => void;
 }
 
 export const useStore = create<DevPlannerStore>((set, get) => ({
@@ -103,6 +112,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   laneCollapsedState: {},
   isSidebarOpen: true,
   changeIndicators: new Map(),
+  historyEvents: [],
+  isActivityPanelOpen: false,
 
   // Project actions
   loadProjects: async () => {
@@ -546,6 +557,41 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       }
     }
     return null;
+  },
+
+  // Activity History actions
+  loadHistory: async () => {
+    const projectSlug = get().activeProjectSlug;
+    if (!projectSlug) return;
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectSlug}/history?limit=50`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to load history');
+      }
+      const data = await response.json();
+      set({ historyEvents: data.events });
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    }
+  },
+
+  addHistoryEvent: (event: HistoryEvent) => {
+    set((state) => ({
+      historyEvents: [event, ...state.historyEvents].slice(0, 50),
+    }));
+  },
+
+  toggleActivityPanel: () => {
+    set((state) => ({
+      isActivityPanelOpen: !state.isActivityPanelOpen,
+    }));
+  },
+
+  setActivityPanelOpen: (open: boolean) => {
+    set({ isActivityPanelOpen: open });
   },
 }));
 

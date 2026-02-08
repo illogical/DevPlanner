@@ -202,9 +202,50 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ---
 
-# Post-MVP (not in scope for initial build)
+# Post-MVP / Future Enhancements
 
-- [ ] MCP server (reuses service layer)
+## Near-term priorities (after Phase 17)
+
+### MCP Server Integration
+- [ ] Design MCP server architecture that reuses existing service layer
+- [ ] Implement MCP tools for project/card/task operations
+- [ ] Add MCP-specific endpoints for agent interactions
+- [ ] Document MCP server usage and capabilities
+
+### Documentation Maintenance
+- [ ] Review and update SPECIFICATION.md to reflect all Phase 12-16 features
+- [ ] Review and update README.md feature list and API overview
+- [ ] Ensure TASKS.md is in sync with actual implementation status
+- [ ] Add architecture diagrams for WebSocket and history features
+
+## Later priorities
+
+### Task Status & Collaboration
+- [ ] Add task status tracking (not-started, in-progress, complete) beyond checkboxes
+- [ ] Design task assignment/claiming mechanism to prevent work conflicts
+- [ ] Implement task-level locking or "claimed by" indicator
+- [ ] Add UI for marking individual tasks as in-progress
+- [ ] Support multiple agents working on different tasks within same card
+
+### History Persistence & Performance
+- [ ] Implement persistent JSON file storage for history events
+- [ ] Design rolling file mechanism for last 50 events per project
+- [ ] Add in-memory write queue to prevent file lock contention
+- [ ] Centralize history updates to single async writer
+- [ ] Handle rapid successive updates (e.g., checking off multiple tasks quickly)
+- [ ] Add history file rotation and archival strategy
+
+### User Attribution & Multi-Agent Support
+- [ ] Add user/agent identification to all history events
+- [ ] Track who made each card/task modification
+- [ ] Design authentication/session mechanism for user tracking
+- [ ] Add "modified by" metadata to cards and tasks
+- [ ] Implement agent identity system (user vs agent1 vs agent2)
+- [ ] Add activity log filtering by user/agent
+- [ ] Brainstorm requirements for multi-agent, multi-project workflows
+- [ ] Design conflict resolution for concurrent agent modifications
+
+### Content & Features
 - [ ] Markdown editor for card content
 - [ ] Search and filter
 - [ ] Reference/file management
@@ -214,16 +255,16 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 16: Real-Time Activity History
 
-- [ ] 16.1 Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action, description, metadata
-- [ ] 16.2 Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
-- [ ] 16.3 Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
-- [ ] 16.4 Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
-- [ ] 16.5 Broadcast `history:event` via WebSocket when new events are recorded
-- [ ] 16.6 Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
-- [ ] 16.7 Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
-- [ ] 16.8 Implement `history:event` WebSocket handler to append events to store in real-time
-- [ ] 16.9 Render ActivityLog in sidebar or collapsible panel
-- [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified
+- [x] 16.1 Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action, description, metadata
+- [x] 16.2 Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
+- [x] 16.3 Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
+- [x] 16.4 Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
+- [x] 16.5 Broadcast `history:event` via WebSocket when new events are recorded
+- [x] 16.6 Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
+- [x] 16.7 Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
+- [ ] 16.8 Implement `history:event` WebSocket handler to append events to store in real-time (requires Phase 14 WebSocket client)
+- [x] 16.9 Render ActivityLog in sidebar or collapsible panel (slide-out panel with tabs and animations)
+- [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified (requires Phase 14-15 for WebSocket support)
 
 
 ## Phase 17: Production Optimization & Testing
