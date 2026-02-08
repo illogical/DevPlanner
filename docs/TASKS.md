@@ -176,41 +176,304 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 14: Frontend WebSocket Client
 
-- [ ] 14.1 Create `frontend/src/services/websocket.service.ts` — WebSocket client wrapper with message handler registration (`on(eventType, handler)`)
-- [ ] 14.2 Implement auto-reconnection with exponential backoff (1s → 2s → 4s → 8s → 16s → 32s max, reset on success, max 5 attempts)
-- [ ] 14.3 Create `frontend/src/hooks/useWebSocket.ts` — React hook for WebSocket lifecycle, auto-subscribe to active project on change
-- [ ] 14.4 Add WebSocket message types to `frontend/src/types/index.ts` — mirror backend types
-- [ ] 14.5 Initialize WebSocket connection in `App.tsx`, subscribe to active project when it changes
-- [ ] 14.6 Add connection state indicator to UI — show connected/disconnected/reconnecting status
-- [ ] 14.7 Test auto-connect and auto-reconnect — verify reconnection after server restart
+**Feature doc:** `docs/features/websocket-frontend.md`
+
+- [ ] 14.1 Add WebSocket message types to `frontend/src/types/index.ts` — mirror backend `WebSocketMessage`, `WebSocketEvent`, `WebSocketEventType`, plus typed event data interfaces (`CardCreatedData`, `CardUpdatedData`, `CardMovedData`, `CardDeletedData`, `LaneReorderedData`, `ProjectUpdatedData`)
+- [ ] 14.2 Create `frontend/src/services/websocket.service.ts` — standalone WebSocket client class (no React dependency) with `connect()`, `disconnect()`, `subscribe(projectSlug)`, `unsubscribe(projectSlug)`, `on(eventType, handler)`, `off(eventType, handler)`, state tracking (`connected`/`disconnected`/`reconnecting`), heartbeat pong response, and dev-mode direct URL construction (`ws://localhost:17103/api/ws`)
+- [ ] 14.3 Implement auto-reconnection with exponential backoff in WebSocket client — 1s → 2s → 4s → 8s → 16s delays, max 5 attempts, reset counter on success, re-subscribe to active project on reconnect, emit `reconnected` pseudo-event for data refresh
+- [ ] 14.4 Create `frontend/src/hooks/useWebSocket.ts` — React hook that manages client singleton lifecycle, subscribes to active project on `activeProjectSlug` change (unsubscribe old → subscribe new), registers all event handlers (Phase 15), tracks connection state, refreshes data (`loadCards`/`loadHistory`) on reconnect
+- [ ] 14.5 Initialize `useWebSocket()` hook in `App.tsx` — call at root level, pass connection state to header
+- [ ] 14.6 Create `frontend/src/components/ui/ConnectionIndicator.tsx` — green dot (connected, auto-hides after 3s), amber pulsing dot + tooltip (reconnecting), red dot + "click to retry" (disconnected). Add to `Header.tsx` near activity toggle button
+- [ ] 14.7 Test WebSocket client — verify: auto-connect on load, project subscription, project switch re-subscribes, pong response to server pings, reconnection after server restart (observe backoff timing), connection indicator states, data refresh after reconnect
 
 ## Phase 15: Zustand Store Integration (Delta Updates)
 
+**Feature doc:** `docs/features/websocket-frontend.md`
+
 **Note:** Frontend visual indicators (Phase 11.5) will automatically animate when these delta update handlers are called. No additional animation code needed in this phase.
 
-- [ ] 15.1 Add WebSocket state to Zustand store — `wsConnected`, `wsReconnecting`, `setWsConnected()`
-- [ ] 15.2 Implement `handleCardUpdated` — deep merge frontmatter changes, replace content/tasks for affected card (triggers `card:updated` animation automatically)
-- [ ] 15.3 Implement `handleCardCreated` — insert new card into correct lane at specified position (triggers `card:created` animation automatically)
-- [ ] 15.4 Implement `handleCardMoved` — remove from source lane, insert into target lane at position (triggers `card:moved` animation automatically)
-- [ ] 15.5 Implement `handleCardDeleted` — remove card from lane, close detail panel if viewing deleted card
-- [ ] 15.6 Implement `handleTaskToggled` — update specific task checked state and card progress summary in both cardsByLane and activeCard (triggers `task:toggled` animation automatically)
-- [ ] 15.7 Implement `handleLaneReordered` — replace order array for affected lane
-- [ ] 15.8 Implement `handleProjectUpdated` — merge partial project config with existing project in projects list
-- [ ] 15.9 Wire all WebSocket message handlers to store actions in `useWebSocket` hook
-- [ ] 15.10 Test delta updates end-to-end — edit card file externally, verify UI updates correctly without refresh and animations play
+- [ ] 15.1 Add WebSocket state to Zustand store — `wsConnected: boolean`, `wsReconnecting: boolean`, `setWsConnected()`, `setWsReconnecting()`. Add self-echo dedup tracking: `_recentLocalActions: Map<string, number>`, `_recordLocalAction(key)` (records `${eventType}:${cardSlug}` with timestamp), `_isRecentLocalAction(key)` (returns true if action within last 3 seconds)
+- [ ] 15.2 Add self-echo dedup to existing store actions — `createCard()`, `moveCard()`, `toggleTask()`, `reorderCards()`, `archiveCard()` should call `_recordLocalAction()` after their API calls so WebSocket echoes are detected
+- [ ] 15.3 Implement `wsHandleCardUpdated(data: CardUpdatedData)` — find card in `cardsByLane[lane]` and replace, search all lanes as fallback, reload `activeCard` from API if slug matches, add `card:updated` change indicator if not a recent local action. Detect task progress changes: compare old vs new `taskProgress` and emit `task:toggled` indicator if changed
+- [ ] 15.4 Implement `wsHandleCardCreated(data: CardCreatedData)` — check if card already exists (dedup), prepend to `cardsByLane[lane]` if new, add `card:created` change indicator if not a recent local action
+- [ ] 15.5 Implement `wsHandleCardMoved(data: CardMovedData)` — remove card from `cardsByLane[sourceLane]`, insert into `cardsByLane[targetLane]`, fall back to API fetch if card data missing, update `activeCard` lane display if slug matches, add `card:moved` change indicator if not a recent local action
+- [ ] 15.6 Implement `wsHandleCardDeleted(data: CardDeletedData)` — remove card from `cardsByLane[lane]`, close detail panel if `activeCard?.slug` matches
+- [ ] 15.7 Implement `wsHandleLaneReordered(data: LaneReorderedData)` — reorder `cardsByLane[lane]` according to new order array (sort existing cards by position in order array)
+- [ ] 15.8 Implement `wsHandleProjectUpdated(data: ProjectUpdatedData)` — find and merge updated config into `projects[]`, update derived state if active project matches
+- [ ] 15.9 Wire all handlers in `useWebSocket` hook — register `client.on()` for each event type mapping to store handlers: `card:created` → `wsHandleCardCreated`, `card:updated` → `wsHandleCardUpdated`, `card:moved` → `wsHandleCardMoved`, `card:deleted` → `wsHandleCardDeleted`, `lane:reordered` → `wsHandleLaneReordered`, `project:updated` → `wsHandleProjectUpdated`, `history:event` → `addHistoryEvent`. Clean up with returned unsubscribe functions
+- [ ] 15.10 Test delta updates end-to-end — verify: (1) external file edit updates UI within ~200ms, (2) external task toggle updates checkbox + progress bar, (3) multi-tab sync works (create card in tab 1 → appears in tab 2 with animation), (4) self-echo dedup prevents double animations for local actions, (5) detail panel updates when viewing a card modified externally, (6) reconnection refreshes stale data
 
+
+## Phase 18: MCP (Model Context Protocol) Server Integration
+
+**Feature doc:** `docs/features/mcp-server.md`
+
+### Core Infrastructure (Tasks 18.1-18.6)
+
+- [ ] 18.1 Install MCP SDK and set up project structure
+  - [ ] Add `@modelcontextprotocol/sdk` to `package.json` dependencies
+  - [ ] Add `"mcp": "bun src/mcp-server.ts"` script to `package.json`
+  - [ ] Create `src/mcp/` directory for MCP-specific code
+  - [ ] Create `src/mcp/__tests__/` directory for tests
+
+- [ ] 18.2 Create MCP type definitions in `src/mcp/types.ts`
+  - [ ] Define tool input/output TypeScript interfaces (17 tools)
+  - [ ] Define resource content type interfaces (3 resources)
+  - [ ] Define MCP error response structure with suggestions array
+  - [ ] Export all types for use in handlers and tests
+
+- [ ] 18.3 Create JSON schemas in `src/mcp/schemas.ts`
+  - [ ] Define JSON Schema for all 17 tool inputs (following MCP spec format)
+  - [ ] Include descriptions, required fields, enums, defaults
+  - [ ] Export as const objects for SDK registration
+  - [ ] Add JSDoc comments linking to tool handler functions
+
+- [ ] 18.4 Create `src/mcp-server.ts` — stdio transport entry point
+  - [ ] Import MCP Server and StdioServerTransport from SDK
+  - [ ] Initialize server with name "devplanner" and version "1.0.0"
+  - [ ] Configure capabilities: `{ tools: {}, resources: {} }`
+  - [ ] Register request handlers: ListTools, CallTool, ListResources, ReadResource
+  - [ ] Set up error handling with logging
+  - [ ] Connect stdio transport and start server
+  - [ ] Add graceful shutdown on SIGINT/SIGTERM
+
+- [ ] 18.5 Set up error handling utilities in `src/mcp/errors.ts`
+  - [ ] Create `MCPError` class extending Error with code, message, suggestions
+  - [ ] Define error code constants (PROJECT_NOT_FOUND, CARD_NOT_FOUND, etc.)
+  - [ ] Implement `formatMCPError()` helper for consistent error responses
+  - [ ] Add `wrapServiceError()` to convert service exceptions to MCP format
+  - [ ] Include LLM-friendly error messages with corrective actions
+
+- [ ] 18.6 Test basic MCP server connectivity
+  - [ ] Run `bun src/mcp-server.ts` and verify server starts
+  - [ ] Test with MCP Inspector: `mcp-inspector bun src/mcp-server.ts`
+  - [ ] Verify ListTools returns empty array (before tool registration)
+  - [ ] Verify ListResources returns empty array (before resource registration)
+  - [ ] Verify server responds to ping/capabilities check
+
+### Core CRUD Tool Handlers (Tasks 18.7-18.16)
+
+- [ ] 18.7 Implement `list_projects` tool in `src/mcp/tool-handlers.ts`
+  - [ ] Create `handleListProjects()` function calling ProjectService.listProjects()
+  - [ ] Add `includeArchived` parameter filtering
+  - [ ] Return `{ projects: ProjectSummary[], total: number }`
+  - [ ] Register tool in mcp-server.ts with schema from schemas.ts
+  - [ ] Add unit test with mocked ProjectService
+
+- [ ] 18.8 Implement `get_project` tool
+  - [ ] Create `handleGetProject()` calling ProjectService.getProject()
+  - [ ] Add PROJECT_NOT_FOUND error handling
+  - [ ] Return full ProjectConfig with lane configuration
+  - [ ] Register tool and schema
+  - [ ] Add unit test for valid and invalid project slugs
+
+- [ ] 18.9 Implement `create_project` tool
+  - [ ] Create `handleCreateProject()` calling ProjectService.createProject()
+  - [ ] Validate name parameter (non-empty, < 100 chars)
+  - [ ] Generate slug from name using existing slug utility
+  - [ ] Return created project with default lanes
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying project file creation
+
+- [ ] 18.10 Implement `list_cards` tool
+  - [ ] Create `handleListCards()` calling CardService.listCards()
+  - [ ] Implement filtering: lane, priority, assignee, tags, status
+  - [ ] Filter in-memory after service call (service returns all)
+  - [ ] Return `{ cards: CardSummary[], total: number }`
+  - [ ] Register tool and schema
+  - [ ] Add unit tests for each filter combination
+
+- [ ] 18.11 Implement `get_card` tool
+  - [ ] Create `handleGetCard()` calling CardService.getCard()
+  - [ ] Add CARD_NOT_FOUND error with suggestions
+  - [ ] Return full Card object with content and tasks
+  - [ ] Register tool and schema
+  - [ ] Add unit test with valid/invalid card slugs
+
+- [ ] 18.12 Implement `create_card` tool
+  - [ ] Create `handleCreateCard()` calling CardService.createCard()
+  - [ ] Map MCP input to CreateCardInput type
+  - [ ] Default lane to '01-upcoming' if not specified
+  - [ ] Return created Card object
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying card file + order.json update
+
+- [ ] 18.13 Implement `update_card` tool
+  - [ ] Create `handleUpdateCard()` calling CardService.updateCard()
+  - [ ] Only update provided fields (merge with existing frontmatter)
+  - [ ] Add CARD_NOT_FOUND error handling
+  - [ ] Return updated Card object
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying selective field updates
+
+- [ ] 18.14 Implement `move_card` tool
+  - [ ] Create `handleMoveCard()` calling CardService.moveCard()
+  - [ ] Validate targetLane is valid lane slug
+  - [ ] Add CARD_NOT_FOUND and INVALID_LANE error handling
+  - [ ] Return moved Card object with updated lane field
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying file move + both order.json updates
+
+- [ ] 18.15 Implement `add_task` tool
+  - [ ] Create `handleAddTask()` calling TaskService.addTask()
+  - [ ] Validate text parameter (non-empty, < 500 chars)
+  - [ ] Return `{ task: TaskItem, card: { slug, taskProgress } }`
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying task appended to markdown
+
+- [ ] 18.16 Implement `toggle_task` tool
+  - [ ] Create `handleToggleTask()` calling TaskService.setTaskChecked()
+  - [ ] If `checked` param omitted, toggle current state
+  - [ ] Add TASK_INDEX_OUT_OF_RANGE error handling
+  - [ ] Return `{ task: TaskItem, card: { slug, taskProgress } }`
+  - [ ] Register tool and schema
+  - [ ] Add unit test for toggle, explicit check, explicit uncheck
+
+### Smart/Workflow Tool Handlers (Tasks 18.17-18.23)
+
+- [ ] 18.17 Implement `get_board_overview` tool
+  - [ ] Create `handleGetBoardOverview()` aggregating data from multiple services
+  - [ ] For each lane: count cards, calculate task stats, priority breakdown
+  - [ ] Compute overall summary: total cards, total tasks, completion rate
+  - [ ] Return rich nested structure (see feature doc for schema)
+  - [ ] Register tool and schema
+  - [ ] Add unit test with multi-card project verifying calculations
+
+- [ ] 18.18 Implement `get_next_tasks` tool
+  - [ ] Create `handleGetNextTasks()` calling CardService.listCards()
+  - [ ] Filter cards by assignee and lane if provided
+  - [ ] Extract unchecked tasks from filtered cards
+  - [ ] Sort by: card priority (high→medium→low), then lane order (in-progress first)
+  - [ ] Apply limit parameter (default 20, max 100)
+  - [ ] Return `{ tasks: Array<{ task, card, project }>, total }`
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying prioritization and filtering
+
+- [ ] 18.19 Implement `batch_update_tasks` tool
+  - [ ] Create `handleBatchUpdateTasks()` parsing card once
+  - [ ] Apply all task updates in single pass through markdown
+  - [ ] Validate all taskIndex values before applying any changes
+  - [ ] Use MarkdownService.setTaskChecked() repeatedly, write file once
+  - [ ] Return `{ updated: TaskItem[], card: { slug, taskProgress } }`
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying atomic update (all or none on error)
+
+- [ ] 18.20 Implement `search_cards` tool
+  - [ ] Create `handleSearchCards()` calling CardService.listCards()
+  - [ ] Implement case-insensitive search across: title, content, tags
+  - [ ] If `fields` param provided, limit search to those fields
+  - [ ] Include matched field names and content excerpt in results
+  - [ ] Apply limit parameter (default 20, max 100)
+  - [ ] Return `{ results: Array<{ card, matchedFields, excerpt }>, total, query }`
+  - [ ] Register tool and schema
+  - [ ] Add unit test with various search queries
+
+- [ ] 18.21 Implement `update_card_content` tool
+  - [ ] Create `handleUpdateCardContent()` calling CardService.updateCard()
+  - [ ] If `append=true`, read existing content and concatenate
+  - [ ] If `append=false`, replace entire content section
+  - [ ] Preserve frontmatter and tasks section
+  - [ ] Return updated Card object
+  - [ ] Register tool and schema
+  - [ ] Add unit test for replace and append modes
+
+- [ ] 18.22 Implement `get_project_progress` tool
+  - [ ] Create `handleGetProjectProgress()` aggregating card/task data
+  - [ ] Group statistics by lane: card count, task counts, completion rate
+  - [ ] Group statistics by priority: card count, task counts, completion rate
+  - [ ] Compute overall totals and completion rate
+  - [ ] Return nested structure (see feature doc for schema)
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying percentage calculations
+
+- [ ] 18.23 Implement `archive_card` tool
+  - [ ] Create `handleArchiveCard()` as wrapper around handleMoveCard()
+  - [ ] Hardcode targetLane to '04-archive'
+  - [ ] Return archived Card object
+  - [ ] Register tool and schema
+  - [ ] Add unit test verifying same behavior as move_card
+
+### Resource Providers (Tasks 18.24-18.26)
+
+- [ ] 18.24 Create resource provider infrastructure in `src/mcp/resource-providers.ts`
+  - [ ] Implement `parseResourceUri()` to extract projectSlug and cardSlug from URI
+  - [ ] Create `listResourceTemplates()` returning URI patterns with descriptions
+  - [ ] Add error handling for malformed URIs
+  - [ ] Export provider functions for registration
+
+- [ ] 18.25 Implement `devplanner://projects` resource
+  - [ ] Create `handleProjectsResource()` calling ProjectService.listProjects()
+  - [ ] Return JSON with projects array (same as list_projects tool output)
+  - [ ] Set mimeType to 'application/json'
+  - [ ] Register resource in mcp-server.ts
+  - [ ] Add unit test verifying JSON structure
+
+- [ ] 18.26 Implement `devplanner://projects/{slug}` and `devplanner://projects/{slug}/cards/{cardSlug}` resources
+  - [ ] Create `handleProjectResource()` calling getProject() + listCards()
+  - [ ] Return full board state: project config + all cards grouped by lane
+  - [ ] Create `handleCardResource()` calling CardService.getCard()
+  - [ ] Return full card details: frontmatter + content + tasks
+  - [ ] Register both resources with URI templates
+  - [ ] Add unit tests for valid and invalid URIs
+
+### Testing & Integration (Tasks 18.27-18.30)
+
+- [ ] 18.27 Write comprehensive unit tests in `src/mcp/__tests__/tool-handlers.test.ts`
+  - [ ] Mock all service dependencies (ProjectService, CardService, TaskService)
+  - [ ] Test all 17 tool handlers with valid inputs
+  - [ ] Test error cases: not found, validation errors, out of range
+  - [ ] Verify error responses include suggestions array
+  - [ ] Achieve >90% code coverage for tool handlers
+
+- [ ] 18.28 Write integration tests in `src/mcp/__tests__/mcp-server.integration.test.ts`
+  - [ ] Create test workspace with seed data
+  - [ ] Start MCP server programmatically (not stdio, use in-memory transport)
+  - [ ] Execute full agent workflow: create project → create card → add tasks → toggle tasks → move card
+  - [ ] Verify filesystem changes persist (check .md files and order.json)
+  - [ ] Test concurrent tool calls (create multiple cards in parallel)
+  - [ ] Verify WebSocket events are broadcast (requires mocking WebSocketService)
+
+- [ ] 18.29 Manual testing with MCP Inspector
+  - [ ] Install MCP Inspector: `bun add -g @modelcontextprotocol/inspector`
+  - [ ] Launch server: `mcp-inspector bun src/mcp-server.ts`
+  - [ ] Test each tool with sample inputs in web UI
+  - [ ] Verify resources are browsable and return expected data
+  - [ ] Test error cases: invalid slugs, out of range indexes
+  - [ ] Screenshot tool list and example responses for documentation
+
+- [ ] 18.30 Test with real AI clients
+  - [ ] Configure Claude Desktop with DevPlanner MCP server
+  - [ ] Ask Claude: "What projects are available in DevPlanner?"
+  - [ ] Ask Claude: "Create a test card and add 3 tasks to it"
+  - [ ] Verify Claude can discover tools, call them correctly, handle errors
+  - [ ] Test Claude Code CLI integration (add to .claudecode/config.json)
+  - [ ] Document any AI prompting patterns that work particularly well
+
+### Documentation & Configuration (Tasks 18.31-18.33)
+
+- [ ] 18.31 Update project documentation files
+  - [ ] Add MCP section to `README.md` with setup instructions
+  - [ ] Update `docs/SPECIFICATION.md` with MCP architecture overview
+  - [ ] Create example config files: `examples/claude-desktop-config.json`, `examples/claude-code-config.json`
+  - [ ] Add troubleshooting section to `docs/features/mcp-server.md`
+
+- [ ] 18.32 Add MCP server to development workflow
+  - [ ] Update `bun run dev` to optionally start MCP server alongside REST API
+  - [ ] Add environment variable `MCP_ENABLED` (default false)
+  - [ ] Add logging to distinguish MCP tool calls from REST API calls
+  - [ ] Document how to run both transports simultaneously
+
+- [ ] 18.33 Create demo video/GIF showing agent workflow
+  - [ ] Record Claude Desktop or Claude Code CLI using MCP tools
+  - [ ] Show: list projects → get next tasks → claim card → toggle tasks → move to complete
+  - [ ] Add to README.md and docs/features/mcp-server.md
+  - [ ] Include example prompts that work well with the MCP tools
 
 ---
 
 # Post-MVP / Future Enhancements
 
-## Near-term priorities (after Phase 17)
-
-### MCP Server Integration
-- [ ] Design MCP server architecture that reuses existing service layer
-- [ ] Implement MCP tools for project/card/task operations
-- [ ] Add MCP-specific endpoints for agent interactions
-- [ ] Document MCP server usage and capabilities
+## Near-term priorities (after Phase 18)
 
 ### Documentation Maintenance
 - [ ] Review and update SPECIFICATION.md to reflect all Phase 12-16 features
