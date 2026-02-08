@@ -17,6 +17,7 @@ interface MoveDetectionEntry {
   slug: string;
   sourceLane: string;
   timestamp: number;
+  deleteTimeout?: NodeJS.Timeout; // Track timeout to clear it on move detection
 }
 
 /**
@@ -95,8 +96,17 @@ export class FileWatcherService {
     }
 
     // Clear all pending timers
-    this.debounceTimers.forEach((timer) => clearTimeout(timer));
+    for (const timer of this.debounceTimers.values()) {
+      clearTimeout(timer);
+    }
     this.debounceTimers.clear();
+    
+    // Clear all pending delete timeouts
+    for (const entry of this.moveDetectionWindow.values()) {
+      if (entry.deleteTimeout) {
+        clearTimeout(entry.deleteTimeout);
+      }
+    }
     this.moveDetectionWindow.clear();
   }
 
@@ -311,14 +321,7 @@ export class FileWatcherService {
 
     if (!exists) {
       // Card deleted - but might be a move, so store for detection
-      this.moveDetectionWindow.set(key, {
-        slug: cardSlug,
-        sourceLane: lane,
-        timestamp: Date.now(),
-      });
-
-      // Clean up after window expires
-      setTimeout(() => {
+      const deleteTimeout = setTimeout(() => {
         const entry = this.moveDetectionWindow.get(key);
         if (entry) {
           // Not a move - broadcast delete event
@@ -342,6 +345,13 @@ export class FileWatcherService {
         }
       }, this.MOVE_DETECTION_WINDOW_MS);
 
+      this.moveDetectionWindow.set(key, {
+        slug: cardSlug,
+        sourceLane: lane,
+        timestamp: Date.now(),
+        deleteTimeout, // Store timeout reference for cleanup
+      });
+
       return;
     }
 
@@ -352,7 +362,10 @@ export class FileWatcherService {
       recentDelete &&
       Date.now() - recentDelete.timestamp < this.MOVE_DETECTION_WINDOW_MS
     ) {
-      // This is a move!
+      // This is a move! Clear the pending delete timeout
+      if (recentDelete.deleteTimeout) {
+        clearTimeout(recentDelete.deleteTimeout);
+      }
       this.moveDetectionWindow.delete(key);
 
       const event: WebSocketEvent = {
