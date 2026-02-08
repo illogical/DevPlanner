@@ -104,3 +104,37 @@ export interface ArchiveResponse {
 export interface Preferences {
   lastSelectedProject: string | null;
 }
+
+// History types
+export type HistoryActionType =
+  | 'task:completed'
+  | 'task:uncompleted'
+  | 'card:created'
+  | 'card:moved'
+  | 'card:updated'
+  | 'card:archived';
+
+export interface HistoryEventMetadata {
+  cardSlug: string;
+  cardTitle: string;
+  lane?: string;
+  sourceLane?: string;
+  targetLane?: string;
+  taskIndex?: number;
+  taskText?: string;
+  changedFields?: string[];
+}
+
+export interface HistoryEvent {
+  id: string;
+  projectSlug: string;
+  timestamp: string; // ISO 8601
+  action: HistoryActionType;
+  description: string;
+  metadata: HistoryEventMetadata;
+}
+
+export interface HistoryResponse {
+  events: HistoryEvent[];
+  total: number;
+}
