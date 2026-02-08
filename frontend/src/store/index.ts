@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { projectsApi, cardsApi, tasksApi } from '../api/client';
+import { projectsApi, cardsApi, tasksApi, preferencesApi } from '../api/client';
 import type {
   ProjectSummary,
   CardSummary,
@@ -83,10 +83,25 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       const { projects } = await projectsApi.list();
       set({ projects, isLoadingProjects: false });
 
-      // Auto-select first project if none selected
+      // Load last selected project from preferences
       const { activeProjectSlug } = get();
       if (!activeProjectSlug && projects.length > 0) {
-        get().setActiveProject(projects[0].slug);
+        try {
+          const preferences = await preferencesApi.get();
+          const lastProject = preferences.lastSelectedProject;
+          
+          // Check if last selected project still exists
+          if (lastProject && projects.some(p => p.slug === lastProject)) {
+            get().setActiveProject(lastProject);
+          } else {
+            // Fall back to first project
+            get().setActiveProject(projects[0].slug);
+          }
+        } catch (error) {
+          console.error('Failed to load preferences:', error);
+          // Fall back to first project
+          get().setActiveProject(projects[0].slug);
+        }
       }
     } catch (error) {
       console.error('Failed to load projects:', error);
@@ -115,6 +130,12 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const project = get().projects.find((p) => p.slug === slug);
     if (project) {
       set({ activeProjectSlug: slug });
+      
+      // Save to preferences
+      preferencesApi.update({ lastSelectedProject: slug }).catch(error => {
+        console.error('Failed to save last selected project:', error);
+      });
+      
       get().initializeLaneState(project.lanes);
       get().loadCards();
     }

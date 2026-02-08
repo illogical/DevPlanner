@@ -73,3 +73,8 @@ export interface CreateCardInput {
   content?: string;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
 }
+
+// Preferences types
+export interface Preferences {
+  lastSelectedProject: string | null;
+}

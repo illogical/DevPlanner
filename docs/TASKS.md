@@ -136,7 +136,7 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [x] 11.3 Detail panel: full-width on tablet, full-screen on mobile
 - [x] 11.4 Lanes: horizontal scroll on tablet, stacked on mobile
 - [x] 11.5 Visual polish pass — hover states, transitions, focus rings, loading states
-- [ ] 11.6 Remember the last project selected, ideally tracked from the backend API so that all clients load the last-selected project
+- [x] 11.6 Remember the last project selected, ideally tracked from the backend API so that all clients load the last-selected project
 
 ## Phase 12: Backend WebSocket Infrastructure
 

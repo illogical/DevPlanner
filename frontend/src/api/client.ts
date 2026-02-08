@@ -8,6 +8,7 @@ import type {
   TaskToggleResponse,
   ReorderResponse,
   ArchiveResponse,
+  Preferences,
 } from '../types';
 
 const API_BASE = '/api';
@@ -143,6 +144,17 @@ export const tasksApi = {
         body: JSON.stringify({ checked }),
       }
     ),
+};
+
+// Preferences endpoints
+export const preferencesApi = {
+  get: () => fetchJSON<Preferences>(`${API_BASE}/preferences`),
+
+  update: (updates: Partial<Preferences>) =>
+    fetchJSON<Preferences>(`${API_BASE}/preferences`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
 };
 
 export { ApiClientError };

@@ -2,6 +2,7 @@ import { Elysia } from 'elysia';
 import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
 import { taskRoutes } from './routes/tasks';
+import { preferencesRoutes } from './routes/preferences';
 import { ConfigService } from './services/config.service';
 
 // Load and validate configuration
@@ -59,6 +60,7 @@ const app = new Elysia()
   .use(projectRoutes(workspacePath))
   .use(cardRoutes(workspacePath))
   .use(taskRoutes(workspacePath))
+  .use(preferencesRoutes(workspacePath))
   .listen(port);
 
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);

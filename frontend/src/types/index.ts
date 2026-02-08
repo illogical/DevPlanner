@@ -99,3 +99,8 @@ export interface ArchiveResponse {
   archived?: boolean;
   lane?: string;
 }
+
+// Preferences types
+export interface Preferences {
+  lastSelectedProject: string | null;
+}
