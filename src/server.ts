@@ -3,12 +3,17 @@ import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
 import { taskRoutes } from './routes/tasks';
 import { preferencesRoutes } from './routes/preferences';
+import { websocketRoutes } from './routes/websocket';
 import { ConfigService } from './services/config.service';
+import { WebSocketService } from './services/websocket.service';
 
 // Load and validate configuration
 const config = ConfigService.getInstance();
 const workspacePath = config.workspacePath;
 const port = config.port;
+
+// Initialize WebSocket service singleton
+WebSocketService.getInstance();
 
 const app = new Elysia()
   .onError(({ code, error, set }) => {
@@ -61,6 +66,7 @@ const app = new Elysia()
   .use(cardRoutes(workspacePath))
   .use(taskRoutes(workspacePath))
   .use(preferencesRoutes(workspacePath))
+  .use(websocketRoutes)
   .listen(port);
 
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);
