@@ -214,16 +214,16 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 16: Real-Time Activity History
 
-- [ ] 16.1 Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action, description, metadata
-- [ ] 16.2 Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
-- [ ] 16.3 Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
-- [ ] 16.4 Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
-- [ ] 16.5 Broadcast `history:event` via WebSocket when new events are recorded
-- [ ] 16.6 Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
-- [ ] 16.7 Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
-- [ ] 16.8 Implement `history:event` WebSocket handler to append events to store in real-time
-- [ ] 16.9 Render ActivityLog in sidebar or collapsible panel
-- [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified
+- [x] 16.1 Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action, description, metadata
+- [x] 16.2 Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
+- [x] 16.3 Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
+- [x] 16.4 Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
+- [x] 16.5 Broadcast `history:event` via WebSocket when new events are recorded
+- [x] 16.6 Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
+- [x] 16.7 Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
+- [ ] 16.8 Implement `history:event` WebSocket handler to append events to store in real-time (requires Phase 14 WebSocket client)
+- [x] 16.9 Render ActivityLog in sidebar or collapsible panel (slide-out panel with tabs and animations)
+- [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified (requires Phase 14-15 for WebSocket support)
 
 
 ## Phase 17: Production Optimization & Testing
