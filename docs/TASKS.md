@@ -138,7 +138,24 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [x] 11.5 Visual polish pass — hover states, transitions, focus rings, loading states
 - [x] 11.6 Remember the last project selected, ideally tracked from the backend API so that all clients load the last-selected project
 
+## Phase 11.5: Frontend Visual Indicators for Background Changes
+
+- [x] 11.5.1 Create change indicator infrastructure in Zustand store — `changeIndicators` Map with unique IDs, auto-expiration, cleanup timer
+- [x] 11.5.2 Add `addChangeIndicator()`, `removeChangeIndicator()`, `clearExpiredIndicators()` store actions
+- [x] 11.5.3 Enhance `TaskCheckbox` component with flash and pulse animations using Framer Motion's `useAnimate`
+- [x] 11.5.4 Integrate task toggle animations with store indicators — green flash (300ms) + scale pulse (400ms)
+- [x] 11.5.5 Create `AnimatedCardWrapper` component for card-level animations — detects indicator types via store queries
+- [x] 11.5.6 Implement card creation animation — slide-in effect with blue glow border (2s, spring physics)
+- [x] 11.5.7 Implement card movement animation — amber glow border (1.5s)
+- [x] 11.5.8 Add store action integration — `createCard`, `moveCard`, `toggleTask` automatically trigger visual indicators
+- [x] 11.5.9 Optimize effect dependencies and prevent duplicate animations via ref tracking
+- [x] 11.5.10 Add HMR cleanup for setInterval to prevent memory leaks in development
+- [x] 11.5.11 Document feature in `docs/features/visual-indicators.md` with specifications and implementation phases
+- [x] 11.5.12 Manual testing — verify task toggle, card creation, and card movement animations work correctly
+
 ## Phase 12: Backend WebSocket Infrastructure
+
+**Note:** Frontend visual indicators (Phase 11.5) are already implemented and will automatically work with WebSocket updates once this backend infrastructure is in place. The store actions that trigger animations (`createCard`, `moveCard`, `toggleTask`) will be called by WebSocket handlers without any additional frontend code changes.
 
 - [ ] 12.1 Create `src/services/websocket.service.ts` — connection manager with client tracking (`Map<clientId, ws>`), per-project subscription model (`Map<projectSlug, Set<clientId>>`), and broadcast functionality
 - [ ] 12.2 Add WebSocket message types to `src/types/index.ts` — `WebSocketMessage` interface, event type union (`card:updated`, `task:toggled`, `lane:reordered`, etc.)
@@ -169,16 +186,18 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 15: Zustand Store Integration (Delta Updates)
 
+**Note:** Frontend visual indicators (Phase 11.5) will automatically animate when these delta update handlers are called. No additional animation code needed in this phase.
+
 - [ ] 15.1 Add WebSocket state to Zustand store — `wsConnected`, `wsReconnecting`, `setWsConnected()`
-- [ ] 15.2 Implement `handleCardUpdated` — deep merge frontmatter changes, replace content/tasks for affected card
-- [ ] 15.3 Implement `handleCardCreated` — insert new card into correct lane at specified position
-- [ ] 15.4 Implement `handleCardMoved` — remove from source lane, insert into target lane at position
+- [ ] 15.2 Implement `handleCardUpdated` — deep merge frontmatter changes, replace content/tasks for affected card (triggers `card:updated` animation automatically)
+- [ ] 15.3 Implement `handleCardCreated` — insert new card into correct lane at specified position (triggers `card:created` animation automatically)
+- [ ] 15.4 Implement `handleCardMoved` — remove from source lane, insert into target lane at position (triggers `card:moved` animation automatically)
 - [ ] 15.5 Implement `handleCardDeleted` — remove card from lane, close detail panel if viewing deleted card
-- [ ] 15.6 Implement `handleTaskToggled` — update specific task checked state and card progress summary in both cardsByLane and activeCard
+- [ ] 15.6 Implement `handleTaskToggled` — update specific task checked state and card progress summary in both cardsByLane and activeCard (triggers `task:toggled` animation automatically)
 - [ ] 15.7 Implement `handleLaneReordered` — replace order array for affected lane
 - [ ] 15.8 Implement `handleProjectUpdated` — merge partial project config with existing project in projects list
 - [ ] 15.9 Wire all WebSocket message handlers to store actions in `useWebSocket` hook
-- [ ] 15.10 Test delta updates end-to-end — edit card file externally, verify UI updates correctly without refresh
+- [ ] 15.10 Test delta updates end-to-end — edit card file externally, verify UI updates correctly without refresh and animations play
 
 
 ---
