@@ -87,7 +87,8 @@ export type WebSocketEventType =
   | 'card:deleted'
   | 'task:toggled'
   | 'lane:reordered'
-  | 'project:updated';
+  | 'project:updated'
+  | 'history:event';
 
 export interface WebSocketEvent {
   type: WebSocketEventType;
@@ -115,4 +116,33 @@ export interface UnsubscribeMessage {
 
 export interface PingMessage {
   type: 'ping';
+}
+
+// History types
+export type HistoryActionType =
+  | 'task:completed'
+  | 'task:uncompleted'
+  | 'card:created'
+  | 'card:moved'
+  | 'card:updated'
+  | 'card:archived';
+
+export interface HistoryEventMetadata {
+  cardSlug: string;
+  cardTitle: string;
+  lane?: string;
+  sourceLane?: string;
+  targetLane?: string;
+  taskIndex?: number;
+  taskText?: string;
+  changedFields?: string[];
+}
+
+export interface HistoryEvent {
+  id: string;
+  projectSlug: string;
+  timestamp: string; // ISO 8601
+  action: HistoryActionType;
+  description: string;
+  metadata: HistoryEventMetadata;
 }

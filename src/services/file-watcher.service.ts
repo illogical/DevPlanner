@@ -2,6 +2,7 @@ import { watch, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { FSWatcher } from 'fs';
 import { WebSocketService } from './websocket.service';
+import { HistoryService } from './history.service';
 import { ConfigService } from './config.service';
 import { ProjectService } from './project.service';
 import { CardService } from './card.service';
@@ -36,6 +37,7 @@ export class FileWatcherService {
 
   private watcher: FSWatcher | null = null;
   private wsService: WebSocketService;
+  private historyService: HistoryService;
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
   private moveDetectionWindow: Map<string, MoveDetectionEntry> = new Map();
 
@@ -44,6 +46,7 @@ export class FileWatcherService {
 
   private constructor() {
     this.wsService = WebSocketService.getInstance();
+    this.historyService = HistoryService.getInstance();
   }
 
   /**
@@ -368,25 +371,59 @@ export class FileWatcherService {
       }
       this.moveDetectionWindow.delete(key);
 
-      const event: WebSocketEvent = {
-        type: 'card:moved',
-        projectSlug,
-        timestamp: new Date().toISOString(),
-        data: {
-          slug: cardSlug,
-          sourceLane: recentDelete.sourceLane,
-          targetLane: lane,
-        },
-      };
+      // Read the card to get its title
+      try {
+        const cardService = CardService.getInstance();
+        const card = cardService.getCard(projectSlug, cardSlug);
 
-      this.wsService.broadcast(projectSlug, {
-        type: 'event',
-        event,
-      });
+        const event: WebSocketEvent = {
+          type: 'card:moved',
+          projectSlug,
+          timestamp: new Date().toISOString(),
+          data: {
+            slug: cardSlug,
+            sourceLane: recentDelete.sourceLane,
+            targetLane: lane,
+          },
+        };
 
-      console.log(
-        `[FileWatcher] Card moved: ${cardSlug} from ${recentDelete.sourceLane} to ${lane}`
-      );
+        this.wsService.broadcast(projectSlug, {
+          type: 'event',
+          event,
+        });
+
+        // Record history event
+        if (card) {
+          const historyEvent = this.historyService.recordEvent({
+            projectSlug,
+            action: 'card:moved',
+            description: `Card "${card.frontmatter.title}" moved to ${lane}`,
+            metadata: {
+              cardSlug,
+              cardTitle: card.frontmatter.title,
+              sourceLane: recentDelete.sourceLane,
+              targetLane: lane,
+            },
+          });
+
+          // Broadcast history event
+          this.wsService.broadcast(projectSlug, {
+            type: 'event',
+            event: {
+              type: 'history:event',
+              projectSlug,
+              timestamp: historyEvent.timestamp,
+              data: historyEvent,
+            },
+          });
+        }
+
+        console.log(
+          `[FileWatcher] Card moved: ${cardSlug} from ${recentDelete.sourceLane} to ${lane}`
+        );
+      } catch (error) {
+        console.error(`[FileWatcher] Error recording card move:`, error);
+      }
       return;
     }
 
@@ -424,6 +461,29 @@ export class FileWatcherService {
       this.wsService.broadcast(projectSlug, {
         type: 'event',
         event,
+      });
+
+      // Record history event for card update
+      const historyEvent = this.historyService.recordEvent({
+        projectSlug,
+        action: 'card:updated',
+        description: `Card "${card.frontmatter.title}" was updated`,
+        metadata: {
+          cardSlug,
+          cardTitle: card.frontmatter.title,
+          lane,
+        },
+      });
+
+      // Broadcast history event
+      this.wsService.broadcast(projectSlug, {
+        type: 'event',
+        event: {
+          type: 'history:event',
+          projectSlug,
+          timestamp: historyEvent.timestamp,
+          data: historyEvent,
+        },
       });
 
       console.log(`[FileWatcher] Card updated: ${projectSlug}/${lane}/${cardSlug}`);
