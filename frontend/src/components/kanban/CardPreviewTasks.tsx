@@ -85,6 +85,7 @@ export function CardPreviewTasks({
         <TaskCheckbox
           key={task.index}
           task={task}
+          cardSlug={cardSlug}
           onToggle={(checked) => handleToggle(task, checked)}
           compact
         />
