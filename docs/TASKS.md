@@ -157,12 +157,12 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 **Note:** Frontend visual indicators (Phase 11.5) are already implemented and will automatically work with WebSocket updates once this backend infrastructure is in place. The store actions that trigger animations (`createCard`, `moveCard`, `toggleTask`) will be called by WebSocket handlers without any additional frontend code changes.
 
-- [ ] 12.1 Create `src/services/websocket.service.ts` — connection manager with client tracking (`Map<clientId, ws>`), per-project subscription model (`Map<projectSlug, Set<clientId>>`), and broadcast functionality
-- [ ] 12.2 Add WebSocket message types to `src/types/index.ts` — `WebSocketMessage` interface, event type union (`card:updated`, `task:toggled`, `lane:reordered`, etc.)
-- [ ] 12.3 Create `src/routes/websocket.ts` — Elysia WebSocket route (`/api/ws`), handle `open`/`close`/`message` lifecycle, route `subscribe`/`unsubscribe` messages to WebSocketService
-- [ ] 12.4 Register WebSocket route in `src/server.ts`, initialize WebSocketService singleton
-- [ ] 12.5 Implement heartbeat/ping-pong for connection health monitoring (30s interval, disconnect stale clients)
-- [ ] 12.6 Test WebSocket connection with wscat — verify connect, subscribe, and broadcast messages work
+- [x] 12.1 Create `src/services/websocket.service.ts` — connection manager with client tracking (`Map<clientId, ws>`), per-project subscription model (`Map<projectSlug, Set<clientId>>`), and broadcast functionality
+- [x] 12.2 Add WebSocket message types to `src/types/index.ts` — `WebSocketMessage` interface, event type union (`card:updated`, `task:toggled`, `lane:reordered`, etc.)
+- [x] 12.3 Create `src/routes/websocket.ts` — Elysia WebSocket route (`/api/ws`), handle `open`/`close`/`message` lifecycle, route `subscribe`/`unsubscribe` messages to WebSocketService
+- [x] 12.4 Register WebSocket route in `src/server.ts`, initialize WebSocketService singleton
+- [x] 12.5 Implement heartbeat/ping-pong for connection health monitoring (30s interval, disconnect stale clients)
+- [x] 12.6 Test WebSocket connection with wscat — verify connect, subscribe, and broadcast messages work
 
 ## Phase 13: File Watching Service
 
