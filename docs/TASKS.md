@@ -166,13 +166,13 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ## Phase 13: File Watching Service
 
-- [ ] 13.1 Create `src/services/file-watcher.service.ts` — recursive `fs.watch` on workspace directory with 100ms debouncing
-- [ ] 13.2 Implement file filtering — only process changes to `*.md`, `_project.json`, `_order.json` files, ignore temp files (`.tmp`, `.swp`)
-- [ ] 13.3 Implement change detection logic — determine event type from file path (`card:updated` vs `project:updated` vs `lane:reordered`)
-- [ ] 13.4 Parse changed files to extract delta data — read updated file, diff against event type to build minimal payload
-- [ ] 13.5 Integrate FileWatcherService with WebSocketService — broadcast parsed events to clients subscribed to affected project
-- [ ] 13.6 Initialize FileWatcherService in `src/server.ts` with workspace path from ConfigService
-- [ ] 13.7 Handle edge cases — file rename/delete detection, directory creation/deletion, race conditions between write and read
+- [x] 13.1 Create `src/services/file-watcher.service.ts` — recursive `fs.watch` on workspace directory with 100ms debouncing
+- [x] 13.2 Implement file filtering — only process changes to `*.md`, `_project.json`, `_order.json` files, ignore temp files (`.tmp`, `.swp`)
+- [x] 13.3 Implement change detection logic — determine event type from file path (`card:updated` vs `project:updated` vs `lane:reordered`)
+- [x] 13.4 Parse changed files to extract delta data — read updated file, diff against event type to build minimal payload
+- [x] 13.5 Integrate FileWatcherService with WebSocketService — broadcast parsed events to clients subscribed to affected project
+- [x] 13.6 Initialize FileWatcherService in `src/server.ts` with workspace path from ConfigService
+- [x] 13.7 Handle edge cases — file rename/delete detection, directory creation/deletion, race conditions between write and read
 
 ## Phase 14: Frontend WebSocket Client
 
