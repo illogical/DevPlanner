@@ -77,15 +77,12 @@ const app = new Elysia()
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);
 console.log(`📁 Workspace: ${workspacePath}`);
 
-// Graceful shutdown
-process.on('SIGINT', () => {
+// Graceful shutdown handler
+const shutdown = () => {
   console.log('\n⏹️  Shutting down gracefully...');
   fileWatcher.stop();
   process.exit(0);
-});
+};
 
-process.on('SIGTERM', () => {
-  console.log('\n⏹️  Shutting down gracefully...');
-  fileWatcher.stop();
-  process.exit(0);
-});
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
