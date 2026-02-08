@@ -569,6 +569,7 @@ Retrieve activity history for a project (recent card/task modifications).
 
 **Query Parameters:**
 - `limit` (optional): Number of events to return (default: 50, max: 100)
+  - Note: History service stores max 50 events per project, so requesting more than 50 will still only return up to 50 events
 
 **Response `200`:**
 ```json
