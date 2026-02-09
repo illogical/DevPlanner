@@ -1,6 +1,8 @@
+import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../utils/cn';
 
 interface CollapsedLaneTabProps {
+  laneSlug: string;
   displayName: string;
   color: string;
   cardCount: number;
@@ -8,18 +10,27 @@ interface CollapsedLaneTabProps {
 }
 
 export function CollapsedLaneTab({
+  laneSlug,
   displayName,
   color,
   cardCount,
   onClick,
 }: CollapsedLaneTabProps) {
+  // Make collapsed lane tab droppable
+  const { setNodeRef, isOver } = useDroppable({
+    id: laneSlug,
+  });
+
   return (
     <button
+      ref={setNodeRef}
       onClick={onClick}
       className={cn(
         'flex-shrink-0 w-10 h-full min-h-[200px]',
-        'bg-gray-900 border border-gray-700 rounded-lg',
-        'hover:bg-gray-800 transition-colors duration-150',
+        'bg-gray-900 border rounded-lg transition-all duration-150',
+        isOver 
+          ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20' 
+          : 'border-gray-700 hover:bg-gray-800',
         'flex flex-col items-center py-3 gap-2',
         'group'
       )}

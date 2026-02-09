@@ -336,26 +336,26 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
 
     // Find current lane
     let currentLane = '';
+    let card: CardSummary | undefined;
     for (const [lane, cards] of Object.entries(cardsByLane)) {
-      if (cards.some((c) => c.slug === cardSlug)) {
+      const foundCard = cards.find((c) => c.slug === cardSlug);
+      if (foundCard) {
         currentLane = lane;
+        card = foundCard;
         break;
       }
     }
 
+    if (!card) return;
+
     // Record local action BEFORE API call to prevent race condition with WebSocket
     get()._recordLocalAction(`card:moved:${cardSlug}`);
 
-    await cardsApi.move(activeProjectSlug, cardSlug, targetLane, position);
-
-    // Optimistic update
+    // OPTIMISTIC UPDATE - update UI immediately for smooth animation
     set((state) => {
       const sourceCards = state.cardsByLane[currentLane] || [];
-      const card = sourceCards.find((c) => c.slug === cardSlug);
-      if (!card) return state;
-
       const targetCards = [...(state.cardsByLane[targetLane] || [])];
-      const movedCard = { ...card, lane: targetLane };
+      const movedCard = { ...card!, lane: targetLane };
 
       if (position !== undefined) {
         targetCards.splice(position, 0, movedCard);
@@ -378,6 +378,38 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         type: 'card:moved',
         cardSlug,
         lane: targetLane,
+      });
+    }
+
+    try {
+      // API call after optimistic update
+      await cardsApi.move(activeProjectSlug, cardSlug, targetLane, position);
+    } catch (error) {
+      // Revert on error - move card back to original lane
+      console.error('Failed to move card:', error);
+      set((state) => {
+        const targetCards = state.cardsByLane[targetLane] || [];
+        const sourceCards = [...(state.cardsByLane[currentLane] || [])];
+        const revertCard = { ...card!, lane: currentLane };
+
+        // Add back to source lane
+        if (position !== undefined) {
+          // Try to restore original position
+          const originalIndex = sourceCards.findIndex(c => c.slug === cardSlug);
+          if (originalIndex === -1) {
+            sourceCards.push(revertCard);
+          }
+        } else {
+          sourceCards.push(revertCard);
+        }
+
+        return {
+          cardsByLane: {
+            ...state.cardsByLane,
+            [currentLane]: sourceCards,
+            [targetLane]: targetCards.filter((c) => c.slug !== cardSlug),
+          },
+        };
       });
     }
   },

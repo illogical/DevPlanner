@@ -26,7 +26,7 @@ export function Lane({
   const [isAddingCard, setIsAddingCard] = useState(false);
 
   // Make lane droppable - uses slug as the ID so we can identify which lane
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id: slug,
   });
 
@@ -35,8 +35,8 @@ export function Lane({
       ref={setNodeRef}
       className={cn(
         'flex flex-col h-full',
-        'bg-gray-900/50 rounded-lg border border-gray-800',
-        'transition-all duration-300 ease-out',
+        'bg-gray-900/50 rounded-lg border transition-all duration-300 ease-out',
+        isOver ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20' : 'border-gray-800',
         isCollapsed ? 'w-0 opacity-0 overflow-hidden p-0 border-0' : 'w-full md:w-80 md:min-w-[320px] p-3'
       )}
     >

@@ -5,7 +5,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  rectIntersection,
 } from '@dnd-kit/core';
 import { useStore } from '../../store';
 import { Lane } from './Lane';
@@ -86,8 +86,8 @@ export function KanbanBoard() {
 
     // Check if overId is a lane (starts with numbers like "01-", "02-")
     if (/^\d+-/.test(overId)) {
-      // Dropped on a lane container
-      targetLane = overId;
+      // Dropped on a lane container or empty lane droppable
+      targetLane = overId.replace('-empty', ''); // Remove -empty suffix if present
       targetPosition = undefined; // Append to end
     } else {
       // Dropped on another card - find which lane it belongs to
@@ -166,7 +166,7 @@ export function KanbanBoard() {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={rectIntersection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
@@ -190,6 +190,7 @@ export function KanbanBoard() {
             {collapsedLanes.map(([slug, config]) => (
               <CollapsedLaneTab
                 key={slug}
+                laneSlug={slug}
                 displayName={config.displayName}
                 color={config.color}
                 cardCount={(cardsByLane[slug] || []).length}
