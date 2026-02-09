@@ -1812,19 +1812,286 @@ Phase 18 is complete when:
 
 ---
 
+## Implementation Checklist
+
+For detailed task tracking, use this checklist during development. All subtasks and dependencies are listed here. See `docs/TASKS.md` for the high-level phase summary.
+
+### Core Infrastructure (Tasks 18.1-18.6)
+
+- [x] 18.1 Install MCP SDK and set up project structure
+  - [x] Add `@modelcontextprotocol/sdk` to `package.json` dependencies
+  - [x] Add `"mcp": "bun src/mcp-server.ts"` script to `package.json`
+  - [x] Create `src/mcp/` directory for MCP-specific code
+  - [x] Create `src/mcp/__tests__/` directory for tests
+
+- [x] 18.2 Create MCP type definitions in `src/mcp/types.ts`
+  - [x] Define tool input/output TypeScript interfaces (17 tools)
+  - [x] Define resource content type interfaces (3 resources)
+  - [x] Define MCP error response structure with suggestions array
+  - [x] Export all types for use in handlers and tests
+
+- [x] 18.3 Create JSON schemas in `src/mcp/schemas.ts`
+  - [x] Define JSON Schema for all 17 tool inputs (following MCP spec format)
+  - [x] Include descriptions, required fields, enums, defaults
+  - [x] Export as const objects for SDK registration
+  - [x] Add JSDoc comments linking to tool handler functions
+
+- [x] 18.4 Create `src/mcp-server.ts` — stdio transport entry point
+  - [x] Import MCP Server and StdioServerTransport from SDK
+  - [x] Initialize server with name "devplanner" and version "1.0.0"
+  - [x] Configure capabilities: `{ tools: {}, resources: {} }`
+  - [x] Register request handlers: ListTools, CallTool, ListResources, ReadResource
+  - [x] Set up error handling with logging
+  - [x] Connect stdio transport and start server
+  - [x] Add graceful shutdown on SIGINT/SIGTERM
+
+- [x] 18.5 Set up error handling utilities in `src/mcp/errors.ts`
+  - [x] Create `MCPError` class extending Error with code, message, suggestions
+  - [x] Define error code constants (PROJECT_NOT_FOUND, CARD_NOT_FOUND, etc.)
+  - [x] Implement `formatMCPError()` helper for consistent error responses
+  - [x] Add `wrapServiceError()` to convert service exceptions to MCP format
+  - [x] Include LLM-friendly error messages with corrective actions
+
+- [x] 18.6 Test basic MCP server connectivity
+  - [x] Run `bun src/mcp-server.ts` and verify server starts
+  - [x] Test with MCP Inspector: `mcp-inspector bun src/mcp-server.ts`
+  - [x] Verify ListTools returns array (before tool registration)
+  - [x] Verify ListResources returns array (before resource registration)
+  - [x] Verify server responds to ping/capabilities check
+
+### Core CRUD Tool Handlers (Tasks 18.7-18.16)
+
+- [~] 18.7 Implement `list_projects` tool in `src/mcp/tool-handlers.ts`
+  - [~] Create `handleListProjects()` function calling ProjectService.listProjects()
+  - [~] Add `includeArchived` parameter filtering
+  - [~] Return `{ projects: ProjectSummary[], total: number }`
+  - [~] Register tool in mcp-server.ts with schema from schemas.ts
+  - [ ] Add unit test with mocked ProjectService
+
+- [~] 18.8 Implement `get_project` tool
+  - [~] Create `handleGetProject()` calling ProjectService.getProject()
+  - [~] Add PROJECT_NOT_FOUND error handling
+  - [~] Return full ProjectConfig with lane configuration
+  - [~] Register tool and schema
+  - [ ] Add unit test for valid and invalid project slugs
+
+- [~] 18.9 Implement `create_project` tool
+  - [~] Create `handleCreateProject()` calling ProjectService.createProject()
+  - [~] Validate name parameter (non-empty, < 100 chars)
+  - [~] Generate slug from name using existing slug utility
+  - [~] Return created project with default lanes
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying project file creation
+
+- [~] 18.10 Implement `list_cards` tool
+  - [~] Create `handleListCards()` calling CardService.listCards()
+  - [~] Implement filtering: lane, priority, assignee, tags, status
+  - [~] Filter in-memory after service call (service returns all)
+  - [~] Return `{ cards: CardSummary[], total: number }`
+  - [~] Register tool and schema
+  - [ ] Add unit tests for each filter combination
+
+- [~] 18.11 Implement `get_card` tool
+  - [~] Create `handleGetCard()` calling CardService.getCard()
+  - [~] Add CARD_NOT_FOUND error with suggestions
+  - [~] Return full Card object with content and tasks
+  - [~] Register tool and schema
+  - [ ] Add unit test with valid/invalid card slugs
+
+- [~] 18.12 Implement `create_card` tool
+  - [~] Create `handleCreateCard()` calling CardService.createCard()
+  - [~] Map MCP input to CreateCardInput type
+  - [~] Default lane to '01-upcoming' if not specified
+  - [~] Return created Card object
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying card file + order.json update
+
+- [~] 18.13 Implement `update_card` tool
+  - [~] Create `handleUpdateCard()` calling CardService.updateCard()
+  - [~] Only update provided fields (merge with existing frontmatter)
+  - [~] Add CARD_NOT_FOUND error handling
+  - [~] Return updated Card object
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying selective field updates
+
+- [~] 18.14 Implement `move_card` tool
+  - [~] Create `handleMoveCard()` calling CardService.moveCard()
+  - [~] Validate targetLane is valid lane slug
+  - [~] Add CARD_NOT_FOUND and INVALID_LANE error handling
+  - [~] Return moved Card object with updated lane field
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying file move + both order.json updates
+
+- [~] 18.15 Implement `add_task` tool
+  - [~] Create `handleAddTask()` calling TaskService.addTask()
+  - [~] Validate text parameter (non-empty, < 500 chars)
+  - [~] Return `{ task: TaskItem, card: { slug, taskProgress } }`
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying task appended to markdown
+
+- [~] 18.16 Implement `toggle_task` tool
+  - [~] Create `handleToggleTask()` calling TaskService.setTaskChecked()
+  - [~] If `checked` param omitted, toggle current state
+  - [~] Add TASK_INDEX_OUT_OF_RANGE error handling
+  - [~] Return `{ task: TaskItem, card: { slug, taskProgress } }`
+  - [~] Register tool and schema
+  - [ ] Add unit test for toggle, explicit check, explicit uncheck
+
+### Smart/Workflow Tool Handlers (Tasks 18.17-18.23)
+
+- [~] 18.17 Implement `get_board_overview` tool
+  - [~] Create `handleGetBoardOverview()` aggregating data from multiple services
+  - [~] For each lane: count cards, calculate task stats, priority breakdown
+  - [~] Compute overall summary: total cards, total tasks, completion rate
+  - [~] Return rich nested structure (see feature doc for schema)
+  - [~] Register tool and schema
+  - [ ] Add unit test with multi-card project verifying calculations
+
+- [~] 18.18 Implement `get_next_tasks` tool
+  - [~] Create `handleGetNextTasks()` calling CardService.listCards()
+  - [~] Filter cards by assignee and lane if provided
+  - [~] Extract unchecked tasks from filtered cards
+  - [~] Sort by: card priority (high→medium→low), then lane order (in-progress first)
+  - [~] Apply limit parameter (default 20, max 100)
+  - [~] Return `{ tasks: Array<{ task, card, project }>, total }`
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying prioritization and filtering
+
+- [~] 18.19 Implement `batch_update_tasks` tool
+  - [~] Create `handleBatchUpdateTasks()` parsing card once
+  - [~] Apply all task updates in single pass through markdown
+  - [~] Validate all taskIndex values before applying any changes
+  - [~] Use MarkdownService.setTaskChecked() repeatedly, write file once
+  - [~] Return `{ updated: TaskItem[], card: { slug, taskProgress } }`
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying atomic update (all or none on error)
+
+- [~] 18.20 Implement `search_cards` tool
+  - [~] Create `handleSearchCards()` calling CardService.listCards()
+  - [~] Implement case-insensitive search across: title, content, tags
+  - [~] If `fields` param provided, limit search to those fields
+  - [~] Include matched field names and content excerpt in results
+  - [~] Apply limit parameter (default 20, max 100)
+  - [~] Return `{ results: Array<{ card, matchedFields, excerpt }>, total, query }`
+  - [~] Register tool and schema
+  - [ ] Add unit test with various search queries
+
+- [~] 18.21 Implement `update_card_content` tool
+  - [~] Create `handleUpdateCardContent()` calling CardService.updateCard()
+  - [~] If `append=true`, read existing content and concatenate
+  - [~] If `append=false`, replace entire content section
+  - [~] Preserve frontmatter and tasks section
+  - [~] Return updated Card object
+  - [~] Register tool and schema
+  - [ ] Add unit test for replace and append modes
+
+- [~] 18.22 Implement `get_project_progress` tool
+  - [~] Create `handleGetProjectProgress()` aggregating card/task data
+  - [~] Group statistics by lane: card count, task counts, completion rate
+  - [~] Group statistics by priority: card count, task counts, completion rate
+  - [~] Compute overall totals and completion rate
+  - [~] Return nested structure (see feature doc for schema)
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying percentage calculations
+
+- [~] 18.23 Implement `archive_card` tool
+  - [~] Create `handleArchiveCard()` as wrapper around handleMoveCard()
+  - [~] Hardcode targetLane to '04-archive'
+  - [~] Return archived Card object
+  - [~] Register tool and schema
+  - [ ] Add unit test verifying same behavior as move_card
+
+### Resource Providers (Tasks 18.24-18.26)
+
+- [~] 18.24 Create resource provider infrastructure in `src/mcp/resource-providers.ts`
+  - [~] Implement `parseResourceUri()` to extract projectSlug and cardSlug from URI
+  - [~] Create `listResourceTemplates()` returning URI patterns with descriptions
+  - [~] Add error handling for malformed URIs
+  - [~] Export provider functions for registration
+
+- [~] 18.25 Implement `devplanner://projects` resource
+  - [~] Create `handleProjectsResource()` calling ProjectService.listProjects()
+  - [~] Return JSON with projects array (same as list_projects tool output)
+  - [~] Set mimeType to 'application/json'
+  - [~] Register resource in mcp-server.ts
+  - [ ] Add unit test verifying JSON structure
+
+- [~] 18.26 Implement `devplanner://projects/{slug}` and `devplanner://projects/{slug}/cards/{cardSlug}` resources
+  - [~] Create `handleProjectResource()` calling getProject() + listCards()
+  - [~] Return full board state: project config + all cards grouped by lane
+  - [~] Create `handleCardResource()` calling CardService.getCard()
+  - [~] Return full card details: frontmatter + content + tasks
+  - [~] Register both resources with URI templates
+  - [ ] Add unit tests for valid and invalid URIs
+
+### Testing & Integration (Tasks 18.27-18.30)
+
+- [ ] 18.27 Write comprehensive unit tests in `src/mcp/__tests__/tool-handlers.test.ts`
+  - [ ] Mock all service dependencies (ProjectService, CardService, TaskService)
+  - [ ] Test all 17 tool handlers with valid inputs
+  - [ ] Test error cases: not found, validation errors, out of range
+  - [ ] Verify error responses include suggestions array
+  - [ ] Achieve >90% code coverage for tool handlers
+
+- [ ] 18.28 Write integration tests in `src/mcp/__tests__/mcp-server.integration.test.ts`
+  - [ ] Create test workspace with seed data
+  - [ ] Start MCP server programmatically (not stdio, use in-memory transport)
+  - [ ] Execute full agent workflow: create project → create card → add tasks → toggle tasks → move card
+  - [ ] Verify filesystem changes persist (check .md files and order.json)
+  - [ ] Test concurrent tool calls (create multiple cards in parallel)
+  - [ ] Verify WebSocket events are broadcast (requires mocking WebSocketService)
+
+- [ ] 18.29 Manual testing with MCP Inspector
+  - [ ] Install MCP Inspector: `bun add -g @modelcontextprotocol/inspector`
+  - [ ] Launch server: `mcp-inspector bun src/mcp-server.ts`
+  - [ ] Test each tool with sample inputs in web UI
+  - [ ] Verify resources are browsable and return expected data
+  - [ ] Test error cases: invalid slugs, out of range indexes
+  - [ ] Screenshot tool list and example responses for documentation
+
+- [ ] 18.30 Test with real AI clients
+  - [ ] Configure Claude Desktop with DevPlanner MCP server
+  - [ ] Ask Claude: "What projects are available in DevPlanner?"
+  - [ ] Ask Claude: "Create a test card and add 3 tasks to it"
+  - [ ] Verify Claude can discover tools, call them correctly, handle errors
+  - [ ] Test Claude Code CLI integration (add to .claudecode/config.json)
+  - [ ] Document any AI prompting patterns that work particularly well
+
+### Documentation & Configuration (Tasks 18.31-18.33)
+
+- [ ] 18.31 Update project documentation files
+  - [ ] Add MCP section to `README.md` with setup instructions
+  - [ ] Update `docs/SPECIFICATION.md` with MCP architecture overview
+  - [ ] Create example config files: `examples/claude-desktop-config.json`, `examples/claude-code-config.json`
+  - [ ] Add troubleshooting section to `docs/features/mcp-server.md`
+
+- [ ] 18.32 Add MCP server to development workflow
+  - [ ] Update `bun run dev` to optionally start MCP server alongside REST API
+  - [ ] Add environment variable `MCP_ENABLED` (default false)
+  - [ ] Add logging to distinguish MCP tool calls from REST API calls
+  - [ ] Document how to run both transports simultaneously
+
+- [ ] 18.33 Create demo video/GIF showing agent workflow
+  - [ ] Record Claude Desktop or Claude Code CLI using MCP tools
+  - [ ] Show: list projects → get next tasks → claim card → toggle tasks → move to complete
+  - [ ] Add to README.md and docs/features/mcp-server.md
+  - [ ] Include example prompts that work well with the MCP tools
+
+---
+
 ## Timeline
 
 **Estimated effort:** 12-16 hours
 
-- 2-3 hours: MCP SDK integration + server setup (stdio transport)
-- 4-5 hours: Implement all 17 tool handlers
-- 1-2 hours: Implement 3 resource providers
-- 2-3 hours: JSON Schema definitions + type safety
-- 1-2 hours: Error handling + LLM-friendly messages
-- 2-3 hours: Testing (unit tests + integration tests + MCP Inspector)
-- 1 hour: Documentation + configuration examples
+- 2-3 hours: MCP SDK integration + server setup (stdio transport) ✅
+- 4-5 hours: Implement all 17 tool handlers 🟠 (in progress)
+- 1-2 hours: Implement 3 resource providers 🟠 (in progress)
+- 2-3 hours: JSON Schema definitions + type safety ✅
+- 1-2 hours: Error handling + LLM-friendly messages ✅
+- 2-3 hours: Testing (unit tests + integration tests + MCP Inspector) ⏳
+- 1 hour: Documentation + configuration examples ⏳
 
-**Next milestone:** Post-MVP enhancements (task-level status, persistent history, multi-agent coordination)
+**Next milestone:** MCP verification script (Ollama/LMAPI testing) — See `docs/features/mcp-verification.md`
 
 ---
 
