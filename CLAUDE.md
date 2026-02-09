@@ -20,6 +20,9 @@ bun run dev
 bun run dev:backend        # Bun with --watch on src/server.ts
 bun run dev:frontend       # Vite dev server
 
+# MCP Server (AI agent integration)
+bun run mcp                # Start MCP server with stdio transport
+
 # Tests (Bun test runner, backend only)
 bun test                   # Run all tests
 bun test --filter "card"   # Run tests matching pattern
@@ -35,6 +38,12 @@ bun run start
 
 # Seed demo data (idempotent, creates 3 sample projects)
 bun run seed
+
+# Verify WebSocket and file watching (Phase 12)
+bun run verify:websocket
+
+# Run E2E demo (exercises real-time features)
+bun run demo:e2e
 ```
 
 ## Architecture
@@ -44,6 +53,7 @@ bun run seed
 ### Backend (Bun + Elysia)
 
 - **Entry**: `src/server.ts` — Elysia app setup, error handler, route registration
+- **MCP Server**: `src/mcp-server.ts` — Model Context Protocol server for AI agents (stdio transport)
 - **Routes** (`src/routes/`): Thin handlers that delegate to services. Resources: projects, cards, tasks
 - **Services** (`src/services/`): All business logic and file I/O
   - `config.service.ts` — Singleton, loads `DEVPLANNER_WORKSPACE` and `PORT` from env
@@ -51,7 +61,16 @@ bun run seed
   - `project.service.ts` — Project CRUD against `_project.json` files
   - `card.service.ts` — Card CRUD, lane moves, reordering via `_order.json`
   - `task.service.ts` — Checklist add/toggle within card Markdown files
-- **Tests** (`src/__tests__/`): Unit tests for all services and utilities
+  - `history.service.ts` — Activity tracking (Phase 16)
+  - `file-watcher.service.ts` — External file change detection (Phase 13)
+  - `websocket.service.ts` — Real-time updates (Phase 12)
+- **MCP** (`src/mcp/`): MCP server implementation (Phase 18)
+  - `tool-handlers.ts` — 17 tool implementations (CRUD + smart/workflow)
+  - `resource-providers.ts` — 3 resource providers (projects, cards)
+  - `types.ts` — MCP-specific type definitions
+  - `schemas.ts` — JSON schemas for all tool inputs
+  - `errors.ts` — LLM-friendly error messages with suggestions
+- **Tests** (`src/__tests__/` and `src/mcp/__tests__/`): Unit tests for all services and utilities
 
 ### Frontend (React 19 + Vite + Tailwind 4)
 
