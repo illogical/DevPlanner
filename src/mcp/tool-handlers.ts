@@ -62,18 +62,44 @@ import {
 
 import type { CardSummary } from '../types/index.js';
 
-// Initialize services
-const config = ConfigService.getInstance();
-const projectService = new ProjectService();
-const cardService = new CardService();
-const taskService = new TaskService();
+// ============================================================================
+// Service Initialization Helpers
+// ============================================================================
+
+// Services are cached per workspace path for efficiency
+const servicesCache = new Map<string, {
+  projectService: ProjectService;
+  cardService: CardService;
+  taskService: TaskService;
+}>();
+
+function getServices(workspacePath?: string) {
+  const wsPath = workspacePath || ConfigService.getInstance().workspacePath;
+  
+  let services = servicesCache.get(wsPath);
+  if (!services) {
+    services = {
+      projectService: new ProjectService(wsPath),
+      cardService: new CardService(wsPath),
+      taskService: new TaskService(wsPath),
+    };
+    servicesCache.set(wsPath, services);
+  }
+  
+  return services;
+}
+
+// Export for testing
+export function _resetServicesCache() {
+  servicesCache.clear();
+}
 
 // ============================================================================
 // Core CRUD Tool Handlers
 // ============================================================================
 
 async function handleListProjects(input: ListProjectsInput): Promise<ListProjectsOutput> {
-  const projects = await projectService.listProjects();
+  const projects = await getServices().projectService.listProjects();
   
   const filtered = input.includeArchived
     ? projects
@@ -87,10 +113,20 @@ async function handleListProjects(input: ListProjectsInput): Promise<ListProject
 
 async function handleGetProject(input: GetProjectInput): Promise<GetProjectOutput> {
   try {
-    const project = await projectService.getProject(input.projectSlug);
+    // Get project config from service
+    const config = await getServices().projectService.getProject(input.projectSlug);
+    
+    // Convert to ProjectSummary by listing all projects and finding the matching one
+    const allProjects = await getServices().projectService.listProjects();
+    const project = allProjects.find(p => p.slug === input.projectSlug);
+    
+    if (!project) {
+      throw new Error(`Project not found: ${input.projectSlug}`);
+    }
+    
     return { project };
   } catch (error) {
-    const projects = await projectService.listProjects();
+    const projects = await getServices().projectService.listProjects();
     throw projectNotFoundError(
       input.projectSlug,
       projects.map(p => p.slug)
@@ -99,16 +135,27 @@ async function handleGetProject(input: GetProjectInput): Promise<GetProjectOutpu
 }
 
 async function handleCreateProject(input: CreateProjectInput): Promise<CreateProjectOutput> {
-  const project = await projectService.createProject(input.name, input.description);
+  // Create the project
+  await getServices().projectService.createProject(input.name, input.description);
+  
+  // Get the created project as a ProjectSummary
+  const allProjects = await getServices().projectService.listProjects();
+  const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const project = allProjects.find(p => p.slug === slug);
+  
+  if (!project) {
+    throw new Error(`Failed to create project: ${input.name}`);
+  }
+  
   return { project };
 }
 
 async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> {
   // Verify project exists
   try {
-    await projectService.getProject(input.projectSlug);
+    await getServices().projectService.getProject(input.projectSlug);
   } catch (error) {
-    const projects = await projectService.listProjects();
+    const projects = await getServices().projectService.listProjects();
     throw projectNotFoundError(
       input.projectSlug,
       projects.map(p => p.slug)
@@ -116,7 +163,7 @@ async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> 
   }
 
   // Get all cards for the project
-  let cards = await cardService.listCards(input.projectSlug);
+  let cards = await getServices().cardService.listCards(input.projectSlug);
 
   // Apply filters
   if (input.lane) {
@@ -150,11 +197,11 @@ async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> 
 
 async function handleGetCard(input: GetCardInput): Promise<GetCardOutput> {
   try {
-    const card = await cardService.getCard(input.projectSlug, input.cardSlug);
+    const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
     return { card };
   } catch (error) {
     // Get all cards to provide suggestions
-    const allCards = await cardService.listCards(input.projectSlug);
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
       input.projectSlug,
@@ -166,16 +213,16 @@ async function handleGetCard(input: GetCardInput): Promise<GetCardOutput> {
 async function handleCreateCard(input: CreateCardInput): Promise<CreateCardOutput> {
   // Verify project exists
   try {
-    await projectService.getProject(input.projectSlug);
+    await getServices().projectService.getProject(input.projectSlug);
   } catch (error) {
-    const projects = await projectService.listProjects();
+    const projects = await getServices().projectService.listProjects();
     throw projectNotFoundError(
       input.projectSlug,
       projects.map(p => p.slug)
     );
   }
 
-  const card = await cardService.createCard(input.projectSlug, {
+  const card = await getServices().cardService.createCard(input.projectSlug, {
     title: input.title,
     lane: input.lane || '01-upcoming',
     priority: input.priority,
@@ -191,9 +238,9 @@ async function handleCreateCard(input: CreateCardInput): Promise<CreateCardOutpu
 async function handleUpdateCard(input: UpdateCardInput): Promise<UpdateCardOutput> {
   // Verify card exists
   try {
-    await cardService.getCard(input.projectSlug, input.cardSlug);
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
-    const allCards = await cardService.listCards(input.projectSlug);
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
       input.projectSlug,
@@ -201,7 +248,7 @@ async function handleUpdateCard(input: UpdateCardInput): Promise<UpdateCardOutpu
     );
   }
 
-  const card = await cardService.updateCard(input.projectSlug, input.cardSlug, {
+  const card = await getServices().cardService.updateCard(input.projectSlug, input.cardSlug, {
     title: input.title,
     status: input.status,
     priority: input.priority,
@@ -214,7 +261,7 @@ async function handleUpdateCard(input: UpdateCardInput): Promise<UpdateCardOutpu
 
 async function handleMoveCard(input: MoveCardInput): Promise<MoveCardOutput> {
   // Verify project and get valid lanes
-  const project = await projectService.getProject(input.projectSlug);
+  const project = await getServices().projectService.getProject(input.projectSlug);
   const validLanes = Object.keys(project.lanes);
 
   if (!validLanes.includes(input.targetLane)) {
@@ -223,9 +270,9 @@ async function handleMoveCard(input: MoveCardInput): Promise<MoveCardOutput> {
 
   // Verify card exists
   try {
-    await cardService.getCard(input.projectSlug, input.cardSlug);
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
-    const allCards = await cardService.listCards(input.projectSlug);
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
       input.projectSlug,
@@ -233,7 +280,7 @@ async function handleMoveCard(input: MoveCardInput): Promise<MoveCardOutput> {
     );
   }
 
-  const card = await cardService.moveCard(
+  const card = await getServices().cardService.moveCard(
     input.projectSlug,
     input.cardSlug,
     input.targetLane,
@@ -256,9 +303,9 @@ async function handleAddTask(input: AddTaskInput): Promise<AddTaskOutput> {
 
   // Verify card exists
   try {
-    await cardService.getCard(input.projectSlug, input.cardSlug);
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
-    const allCards = await cardService.listCards(input.projectSlug);
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
       input.projectSlug,
@@ -266,7 +313,7 @@ async function handleAddTask(input: AddTaskInput): Promise<AddTaskOutput> {
     );
   }
 
-  const result = await taskService.addTask(
+  const result = await getServices().taskService.addTask(
     input.projectSlug,
     input.cardSlug,
     trimmedText
@@ -279,9 +326,9 @@ async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutpu
   // Verify card exists and get task count
   let card;
   try {
-    card = await cardService.getCard(input.projectSlug, input.cardSlug);
+    card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
-    const allCards = await cardService.listCards(input.projectSlug);
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
       input.projectSlug,
@@ -298,7 +345,7 @@ async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutpu
     );
   }
 
-  const result = await taskService.setTaskChecked(
+  const result = await getServices().taskService.setTaskChecked(
     input.projectSlug,
     input.cardSlug,
     input.taskIndex,
@@ -314,8 +361,8 @@ async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutpu
 
 async function handleGetBoardOverview(input: GetBoardOverviewInput): Promise<GetBoardOverviewOutput> {
   // Verify project exists
-  const project = await projectService.getProject(input.projectSlug);
-  const allCards = await cardService.listCards(input.projectSlug);
+  const project = await getServices().projectService.getProject(input.projectSlug);
+  const allCards = await getServices().cardService.listCards(input.projectSlug);
 
   // Build lane overviews
   const lanes: LaneOverview[] = [];
@@ -376,8 +423,8 @@ async function handleGetBoardOverview(input: GetBoardOverviewInput): Promise<Get
 
 async function handleGetNextTasks(input: GetNextTasksInput): Promise<GetNextTasksOutput> {
   // Verify project exists
-  await projectService.getProject(input.projectSlug);
-  let cards = await cardService.listCards(input.projectSlug);
+  await getServices().projectService.getProject(input.projectSlug);
+  let cards = await getServices().cardService.listCards(input.projectSlug);
 
   // Apply filters
   if (input.assignee) {
@@ -393,7 +440,7 @@ async function handleGetNextTasks(input: GetNextTasksInput): Promise<GetNextTask
 
   for (const card of cards) {
     // Get full card to access tasks
-    const fullCard = await cardService.getCard(input.projectSlug, card.slug);
+    const fullCard = await getServices().cardService.getCard(input.projectSlug, card.slug);
     
     for (const task of fullCard.tasks) {
       if (!task.checked) {
@@ -443,7 +490,7 @@ async function handleGetNextTasks(input: GetNextTasksInput): Promise<GetNextTask
 
 async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<BatchUpdateTasksOutput> {
   // Verify card exists
-  const card = await cardService.getCard(input.projectSlug, input.cardSlug);
+  const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
 
   // Validate all task indices first
   for (const update of input.updates) {
@@ -459,7 +506,7 @@ async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<Bat
   // Apply updates
   const updated: any[] = [];
   for (const update of input.updates) {
-    const result = await taskService.setTaskChecked(
+    const result = await getServices().taskService.setTaskChecked(
       input.projectSlug,
       input.cardSlug,
       update.taskIndex,
@@ -469,7 +516,7 @@ async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<Bat
   }
 
   // Get final task progress
-  const updatedCard = await cardService.getCard(input.projectSlug, input.cardSlug);
+  const updatedCard = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
 
   return {
     updated,
@@ -485,8 +532,8 @@ async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<Bat
 
 async function handleSearchCards(input: SearchCardsInput): Promise<SearchCardsOutput> {
   // Verify project exists
-  await projectService.getProject(input.projectSlug);
-  const cards = await cardService.listCards(input.projectSlug);
+  await getServices().projectService.getProject(input.projectSlug);
+  const cards = await getServices().cardService.listCards(input.projectSlug);
 
   const searchIn = input.searchIn || ['title', 'content', 'tags'];
   const query = input.query.toLowerCase();
@@ -510,7 +557,7 @@ async function handleSearchCards(input: SearchCardsInput): Promise<SearchCardsOu
 
     if (searchIn.includes('content')) {
       // Need to get full card for content search
-      const fullCard = await cardService.getCard(input.projectSlug, card.slug);
+      const fullCard = await getServices().cardService.getCard(input.projectSlug, card.slug);
       if (fullCard.content.toLowerCase().includes(query)) {
         matches = true;
       }
@@ -530,9 +577,9 @@ async function handleSearchCards(input: SearchCardsInput): Promise<SearchCardsOu
 async function handleUpdateCardContent(input: UpdateCardContentInput): Promise<UpdateCardContentOutput> {
   // Verify card exists
   try {
-    await cardService.getCard(input.projectSlug, input.cardSlug);
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
-    const allCards = await cardService.listCards(input.projectSlug);
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
       input.projectSlug,
@@ -541,7 +588,7 @@ async function handleUpdateCardContent(input: UpdateCardContentInput): Promise<U
   }
 
   // Update the content field
-  const card = await cardService.updateCard(input.projectSlug, input.cardSlug, {
+  const card = await getServices().cardService.updateCard(input.projectSlug, input.cardSlug, {
     content: input.content,
   });
 
@@ -550,8 +597,8 @@ async function handleUpdateCardContent(input: UpdateCardContentInput): Promise<U
 
 async function handleGetProjectProgress(input: GetProjectProgressInput): Promise<GetProjectProgressOutput> {
   // Verify project exists
-  const project = await projectService.getProject(input.projectSlug);
-  const allCards = await cardService.listCards(input.projectSlug);
+  const project = await getServices().projectService.getProject(input.projectSlug);
+  const allCards = await getServices().cardService.listCards(input.projectSlug);
 
   const progress: ProjectProgress = {
     totalCards: allCards.length,
@@ -599,9 +646,9 @@ async function handleGetProjectProgress(input: GetProjectProgressInput): Promise
 async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOutput> {
   // Verify card exists
   try {
-    await cardService.getCard(input.projectSlug, input.cardSlug);
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
-    const allCards = await cardService.listCards(input.projectSlug);
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
       input.projectSlug,
@@ -609,7 +656,7 @@ async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOu
     );
   }
 
-  const card = await cardService.archiveCard(input.projectSlug, input.cardSlug);
+  const card = await getServices().cardService.archiveCard(input.projectSlug, input.cardSlug);
   return { card };
 }
 

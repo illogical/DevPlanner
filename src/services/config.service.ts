@@ -52,4 +52,12 @@ export class ConfigService {
     }
     return ConfigService.instance;
   }
+
+  /**
+   * Reset the singleton instance (for testing only)
+   * @internal
+   */
+  public static _resetInstance(): void {
+    ConfigService.instance = undefined as any;
+  }
 }
