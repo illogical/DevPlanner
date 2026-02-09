@@ -42,7 +42,7 @@ export function AnimatedCardWrapper({
   const getGlowColor = () => {
     if (isNew) return 'shadow-blue-500/40';
     if (isMoved) return 'shadow-amber-500/30';
-    if (isUpdated) return 'shadow-violet-500/30';
+    if (isUpdated) return 'shadow-orange-600/30';
     return '';
   };
 
@@ -80,7 +80,7 @@ export function AnimatedCardWrapper({
             'border-2',
             isNew && 'border-blue-500',
             isMoved && 'border-amber-500',
-            isUpdated && 'border-violet-500'
+            isUpdated && 'border-orange-600'
           )}
           initial={{ opacity: 0.6 }}
           animate={{ opacity: 0 }}

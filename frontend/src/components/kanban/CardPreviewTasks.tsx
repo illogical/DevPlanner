@@ -3,16 +3,18 @@ import { cardsApi } from '../../api/client';
 import { useStore } from '../../store';
 import { TaskCheckbox } from '../tasks/TaskCheckbox';
 import { Spinner } from '../ui/Spinner';
-import type { TaskItem } from '../../types';
+import type { TaskItem, TaskProgress } from '../../types';
 
 interface CardPreviewTasksProps {
   cardSlug: string;
   projectSlug: string;
+  taskProgress: TaskProgress;
 }
 
 export function CardPreviewTasks({
   cardSlug,
   projectSlug,
+  taskProgress,
 }: CardPreviewTasksProps) {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,8 +27,8 @@ export function CardPreviewTasks({
       .get(projectSlug, cardSlug)
       .then((card) => {
         if (mounted) {
-          // Show only unchecked tasks in preview
-          setTasks(card.tasks.filter((t) => !t.checked));
+          // Show all tasks (checked and unchecked)
+          setTasks(card.tasks);
           setIsLoading(false);
         }
       })
@@ -40,7 +42,7 @@ export function CardPreviewTasks({
     return () => {
       mounted = false;
     };
-  }, [projectSlug, cardSlug]);
+  }, [projectSlug, cardSlug, JSON.stringify(taskProgress)]);
 
   if (isLoading) {
     return (
@@ -50,7 +52,15 @@ export function CardPreviewTasks({
     );
   }
 
-  if (tasks.length === 0) {
+  if (taskProgress.total === 0) {
+    return (
+      <p className="text-xs text-gray-500 py-2 italic">
+        No tasks yet
+      </p>
+    );
+  }
+
+  if (taskProgress.total === taskProgress.checked && taskProgress.total > 0) {
     return (
       <p className="text-xs text-green-500 py-2 flex items-center gap-1">
         <svg
@@ -73,10 +83,7 @@ export function CardPreviewTasks({
 
   const handleToggle = async (task: TaskItem, checked: boolean) => {
     await toggleTask(cardSlug, task.index, checked);
-    // Update local state
-    if (checked) {
-      setTasks((prev) => prev.filter((t) => t.index !== task.index));
-    }
+    // Store update + WebSocket will trigger refetch via taskProgress change
   };
 
   return (
@@ -92,7 +99,7 @@ export function CardPreviewTasks({
       ))}
       {tasks.length > 5 && (
         <p className="text-xs text-gray-500 mt-1 pl-6">
-          +{tasks.length - 5} more pending...
+          +{tasks.length - 5} more tasks...
         </p>
       )}
     </div>

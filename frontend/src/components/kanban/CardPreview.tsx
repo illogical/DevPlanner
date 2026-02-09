@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useStore } from '../../store';
@@ -35,6 +36,20 @@ export function CardPreview({
   const isExpanded = expandedCardTasks.has(card.slug);
   const hasTasks = card.taskProgress.total > 0;
 
+  // Auto-expand tasks when card is in the In Progress lane
+  const hasAutoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (card.lane === '02-in-progress' && hasTasks && !isExpanded && !hasAutoExpandedRef.current) {
+      toggleCardTaskExpansion(card.slug);
+      hasAutoExpandedRef.current = true;
+    }
+    // Reset when card leaves in-progress lane
+    if (card.lane !== '02-in-progress') {
+      hasAutoExpandedRef.current = false;
+    }
+  }, [card.lane, card.slug, hasTasks, isExpanded, toggleCardTaskExpansion]);
+
+  // 
   // Set up sortable functionality (only if not in drag overlay)
   const {
     attributes,
@@ -150,7 +165,11 @@ export function CardPreview({
         {hasTasks && (
           <Collapsible isOpen={isExpanded}>
             <div className="border-t border-gray-700/50 pt-2 -mx-3 px-3">
-              <CardPreviewTasks cardSlug={card.slug} projectSlug={projectSlug} />
+              <CardPreviewTasks 
+                cardSlug={card.slug} 
+                projectSlug={projectSlug}
+                taskProgress={card.taskProgress}
+              />
             </div>
           </Collapsible>
         )}
