@@ -99,15 +99,12 @@ export function _resetServicesCache() {
 // ============================================================================
 
 async function handleListProjects(input: ListProjectsInput): Promise<ListProjectsOutput> {
-  const projects = await getServices().projectService.listProjects();
+  // Pass includeArchived to the service so it doesn't filter them out
+  const projects = await getServices().projectService.listProjects(input.includeArchived || false);
   
-  const filtered = input.includeArchived
-    ? projects
-    : projects.filter(p => !p.archived);
-
   return {
-    projects: filtered,
-    total: filtered.length,
+    projects,
+    total: projects.length,
   };
 }
 
@@ -313,13 +310,25 @@ async function handleAddTask(input: AddTaskInput): Promise<AddTaskOutput> {
     );
   }
 
-  const result = await getServices().taskService.addTask(
+  const task = await getServices().taskService.addTask(
     input.projectSlug,
     input.cardSlug,
     trimmedText
   );
 
-  return result;
+  // Get updated card to get task progress
+  const updatedCard = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+
+  return {
+    task,
+    card: {
+      slug: input.cardSlug,
+      taskProgress: {
+        total: updatedCard.tasks.length,
+        checked: updatedCard.tasks.filter(t => t.checked).length,
+      },
+    },
+  };
 }
 
 async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutput> {
@@ -345,14 +354,26 @@ async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutpu
     );
   }
 
-  const result = await getServices().taskService.setTaskChecked(
+  const task = await getServices().taskService.setTaskChecked(
     input.projectSlug,
     input.cardSlug,
     input.taskIndex,
     input.checked
   );
 
-  return result;
+  // Get updated card to get task progress
+  const updatedCard = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+
+  return {
+    task,
+    card: {
+      slug: input.cardSlug,
+      taskProgress: {
+        total: updatedCard.tasks.length,
+        checked: updatedCard.tasks.filter(t => t.checked).length,
+      },
+    },
+  };
 }
 
 // ============================================================================
@@ -656,7 +677,12 @@ async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOu
     );
   }
 
-  const card = await getServices().cardService.archiveCard(input.projectSlug, input.cardSlug);
+  // Archive the card (returns void)
+  await getServices().cardService.archiveCard(input.projectSlug, input.cardSlug);
+  
+  // Get the archived card
+  const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+  
   return { card };
 }
 
