@@ -91,6 +91,8 @@ const colors = {
 // Lane and Parameter Validation Utilities
 // ============================================================================
 
+// Valid lane slugs - should match the workspace structure
+// TODO: Consider importing from '../src/constants.ts' to keep in sync
 const VALID_LANES = ['01-upcoming', '02-in-progress', '03-complete', '04-archive'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
 const VALID_STATUSES = ['pending', 'in-progress', 'blocked', 'complete'];
@@ -165,6 +167,19 @@ function validateParameters(toolName: string, params: Record<string, any>): 'per
 // Workflow Logic Analysis
 // ============================================================================
 
+/**
+ * Analyzes the sequence of tool calls for logical workflow patterns
+ * 
+ * Categorizes each action as:
+ * - Logical: Good practice (e.g., get_card before toggle_task, cards moved in order)
+ * - Suboptimal: Works but inefficient (e.g., missing get_card, redundant calls)
+ * - Illogical: Problematic patterns (e.g., moving cards backward in workflow)
+ * 
+ * Scoring criteria:
+ * - Logical: +1 point (100%)
+ * - Suboptimal: +0.5 points (50%)
+ * - Illogical: 0 points (0%)
+ */
 function analyzeWorkflowLogic(calls: ToolCall[]): { logical: number; suboptimal: number; illogical: number } {
   let logical = 0;
   let suboptimal = 0;

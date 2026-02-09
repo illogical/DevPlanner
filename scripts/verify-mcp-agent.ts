@@ -290,25 +290,27 @@ async function main() {
     await executeWorkflow(mcpClient, ollama, metricsTracker, scenarioPrompt, options);
 
     // Generate report
+    
+    // Define expected tools for the delivery robot scenario
+    const expectedTools = [
+      'create_project',
+      'create_card',
+      'add_task',
+      'move_card',
+      'toggle_task',
+    ];
+    
+    const scenarioPhases: Array<{ phase: string; expectedTools: string[]; minCalls: number; maxCalls: number }> = [
+      { phase: 'setup', expectedTools: ['create_project', 'create_card'], minCalls: 2, maxCalls: 5 },
+      { phase: 'task-management', expectedTools: ['add_task', 'toggle_task'], minCalls: 3, maxCalls: 10 },
+      { phase: 'workflow', expectedTools: ['move_card'], minCalls: 1, maxCalls: 3 },
+    ];
+    
+    const scores = metricsTracker.calculateScores(expectedTools, scenarioPhases);
+    
     if (!options.json) {
       logSection("Phase 5: Final Report");
       
-      // Define expected tools for the delivery robot scenario
-      const expectedTools = [
-        'create_project',
-        'create_card',
-        'add_task',
-        'move_card',
-        'toggle_task',
-      ];
-      
-      const scenarioPhases: Array<{ phase: string; expectedTools: string[]; minCalls: number; maxCalls: number }> = [
-        { phase: 'setup', expectedTools: ['create_project', 'create_card'], minCalls: 2, maxCalls: 5 },
-        { phase: 'task-management', expectedTools: ['add_task', 'toggle_task'], minCalls: 3, maxCalls: 10 },
-        { phase: 'workflow', expectedTools: ['move_card'], minCalls: 1, maxCalls: 3 },
-      ];
-      
-      const scores = metricsTracker.calculateScores(expectedTools, scenarioPhases);
       const detailedReport = metricsTracker.getDetailedReport();
       const scoringReport = metricsTracker.getScoringReport(scores);
       
@@ -326,22 +328,6 @@ async function main() {
       process.exit(exitCode);
     } else {
       // JSON output mode
-      const expectedTools = [
-        'create_project',
-        'create_card',
-        'add_task',
-        'move_card',
-        'toggle_task',
-      ];
-      
-      const scenarioPhases: Array<{ phase: string; expectedTools: string[]; minCalls: number; maxCalls: number }> = [
-        { phase: 'setup', expectedTools: ['create_project', 'create_card'], minCalls: 2, maxCalls: 5 },
-        { phase: 'task-management', expectedTools: ['add_task', 'toggle_task'], minCalls: 3, maxCalls: 10 },
-        { phase: 'workflow', expectedTools: ['move_card'], minCalls: 1, maxCalls: 3 },
-      ];
-      
-      const scores = metricsTracker.calculateScores(expectedTools, scenarioPhases);
-      
       console.log(JSON.stringify({
         detailed: metricsTracker.exportJSON(),
         scoring: scores,
