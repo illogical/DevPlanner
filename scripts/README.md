@@ -159,3 +159,88 @@ The script is idempotent — it removes any existing "E2E Demo" project before c
 **Exit codes:**
 - `0` - Demo completed successfully
 - `1` - Fatal error or timeout (90s)
+
+---
+
+### `verify-mcp-agent.ts`
+
+Tests the MCP (Model Context Protocol) server by having a local LLM agent work through a realistic project scenario using MCP tools. This validates that DevPlanner's MCP tools are intuitive and effective for AI-driven project management.
+
+**What it tests:**
+- Tool selection accuracy (does the agent choose the right tools?)
+- Parameter correctness (lane slugs, card slugs, required fields)
+- Workflow logic (does the sequence make sense?)
+- Task completion rate (what % of actions succeed?)
+
+**Prerequisites:**
+1. **Ollama installed and running:**
+   ```bash
+   # Install Ollama (macOS)
+   brew install ollama
+   
+   # Install Ollama (Linux)
+   curl -fsSL https://ollama.com/install.sh | sh
+   
+   # Start Ollama server
+   ollama serve
+   
+   # Pull a model with tool calling support
+   ollama pull qwen2.5      # Recommended (excellent tool calling)
+   # OR
+   ollama pull llama3.1     # Good alternative
+   ```
+
+2. **DevPlanner workspace configured:**
+   ```bash
+   export DEVPLANNER_WORKSPACE=/path/to/workspace
+   ```
+
+**Usage:**
+```bash
+# Basic run (default: qwen2.5 model, 2s pauses)
+bun run verify:mcp
+
+# With different model
+bun scripts/verify-mcp-agent.ts --model llama3.1
+
+# Verbose mode (show full LLM responses)
+bun run verify:mcp:verbose
+
+# Custom pause duration (milliseconds)
+bun scripts/verify-mcp-agent.ts --pause 1000
+
+# JSON output for CI/CD
+bun run verify:mcp:json > results.json
+```
+
+**Workflow Scenario:**
+The script guides an AI agent through building an autonomous delivery robot project:
+
+1. **Phase 1: Project Setup** - Create project and verify lane structure
+2. **Phase 2: Create Cards** - Create subsystem cards (Navigation, Motor Control, API Backend)
+3. **Phase 3: Add Tasks** - Add detailed checklist items to each card
+4. **Phase 4: Start Work** - Move cards to in-progress and toggle tasks
+5. **Phase 5: Complete Work** - Batch complete tasks and move to complete lane
+
+**Metrics & Scoring:**
+The agent is scored on 4 metrics (25% weight each):
+
+| Metric | Description | What it measures |
+|--------|-------------|------------------|
+| Tool Selection | Did it choose the right tools? | Correct tool usage vs expected |
+| Parameter Correctness | Are lane slugs, card slugs correct? | Format validation (02-in-progress vs in-progress) |
+| Workflow Logic | Is the sequence logical? | Card movement order, redundant calls |
+| Task Completion | What % of actions succeeded? | Success rate of tool calls |
+
+**Rating Scale:**
+- **Excellent (90-100%)** - Agent can effectively work with DevPlanner ✅
+- **Good (75-89%)** - Agent mostly succeeds, minor issues ⚠️
+- **Fair (60-74%)** - Agent struggles with some tools/params ⚠️
+- **Poor (<60%)** - Agent cannot reliably use MCP tools ❌
+
+**Exit codes:**
+- `0` - Score >= 75% (agent is production-ready)
+- `1` - Score < 75% (needs improvement)
+
+**Output:**
+The script provides real-time colored terminal output showing each tool call, parameters, results, and pauses between actions. Final report includes metrics breakdown, scoring across 4 dimensions, and a rating (Excellent/Good/Fair/Poor). See `docs/features/mcp-verification-summary.md` for detailed output examples.

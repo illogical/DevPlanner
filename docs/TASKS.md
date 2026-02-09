@@ -208,25 +208,28 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 **Feature spec:** `docs/features/mcp-server.md`
 
-**Status:** Core infrastructure complete (18.1-18.6), tool handlers in progress (18.7-18.23), testing & verification pending
+**Status:** Core infrastructure complete (18.1-18.6), tool handlers complete (18.7-18.23), verification script implemented (18.27)
 
 - [x] 18.1-18.6: Core Infrastructure
   - [x] MCP SDK setup, type definitions, JSON schemas, stdio transport, error handling
   - [x] Basic MCP server connectivity verified
 
-- [~] 18.7-18.23: Tool Implementation
-  - [~] All 17 tool handlers implemented and registered
-  - [~] All 3 resource providers implemented
-  - [ ] Unit tests for all tool handlers
+- [x] 18.7-18.23: Tool Implementation
+  - [x] All 17 tool handlers implemented and registered
+  - [x] All 3 resource providers implemented
+  - [x] Unit tests for all tool handlers
 
 - [ ] 18.24-18.26: Resource Providers (See mcp-server.md for details)
 
-- [ ] 18.27-18.30: Testing & Integration
-  - [ ] Comprehensive unit tests for tool handlers
-  - [ ] Integration tests with MCP Inspector and real AI clients
-  - [ ] Verification script for Ollama/LMAPI testing (see `docs/features/mcp-verification.md`)
+- [~] 18.27-18.30: Testing & Integration
+  - [x] Verification script for Ollama/LMAPI testing (see `docs/features/mcp-verification.md`)
+  - [x] Agent performance tracking with 4-metric scoring system
+  - [x] Delivery robot scenario for structured workflow testing
+  - [ ] Integration tests with MCP Inspector
+  - [ ] Real-world testing with Claude Desktop/Code
 
 - [ ] 18.31-18.33: Documentation & Demo
+  - [x] Scripts README with usage instructions
   - [ ] Claude Desktop and Claude Code configuration examples
   - [ ] Demo video/GIF showing agent workflows
 
@@ -235,6 +238,20 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 # Post-MVP / Future Enhancements
 
 ## Near-term priorities (after Phase 18)
+
+### MCP Verification & Tuning
+- [ ] Test verification script with real Ollama models (qwen2.5, llama3.1, mistral)
+- [ ] Collect baseline scores for different models
+- [ ] Iterate on tool descriptions based on failure patterns
+- [ ] Add more scenarios (AI/ML pipeline, web app, IoT system)
+- [ ] Implement LMAPI provider for multi-model comparison
+- [ ] Add OpenRouter provider for testing cloud models (GPT-4, Claude)
+- [ ] A/B test different system prompts
+- [ ] Implement automated tuning of tool descriptions
+- [ ] Add conversation history analysis (how many turns needed?)
+- [ ] Track which tools are never/rarely used
+- [ ] Identify tool combinations that cause confusion
+- [ ] Create "best practices" guide for MCP tool usage based on metrics
 
 ### Content & Features
 - [ ] Add identifier to each card for a shortcut for referring to cards in conversation
