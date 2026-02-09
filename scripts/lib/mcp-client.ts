@@ -75,7 +75,7 @@ export class MCPClient {
     this.process = null;
   }
 
-  async callTool(name: string, args: any): Promise<string> {
+  async callTool(name: string, args: any): Promise<any> {
     if (!this.process) {
       throw new Error("MCP client not started");
     }
@@ -96,6 +96,35 @@ export class MCPClient {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(id);
         reject(new Error(`Tool call timeout after 15s: ${name}`));
+      }, 15000);
+
+      // Store pending request
+      this.pendingRequests.set(id, { resolve, reject, timeout });
+
+      // Send request via stdin
+      const requestLine = JSON.stringify(request) + "\n";
+      this.process!.stdin.write(requestLine);
+    });
+  }
+
+  async listTools(): Promise<Array<{ name: string; description: string; inputSchema: any }>> {
+    if (!this.process) {
+      throw new Error("MCP client not started");
+    }
+
+    const id = ++this.requestId;
+    const request: JSONRPCRequest = {
+      jsonrpc: "2.0",
+      id,
+      method: "tools/list",
+      params: {},
+    };
+
+    return new Promise((resolve, reject) => {
+      // Set up timeout (15s)
+      const timeout = setTimeout(() => {
+        this.pendingRequests.delete(id);
+        reject(new Error("Tool list timeout after 15s"));
       }, 15000);
 
       // Store pending request
@@ -176,6 +205,12 @@ export class MCPClient {
         return;
       }
 
+      // Check if this is a tools/list response
+      if (response.result && 'tools' in response.result) {
+        pending.resolve(response.result.tools);
+        return;
+      }
+
       // Parse MCP tool call result
       const result = response.result as MCPToolCallResult;
       
@@ -185,13 +220,20 @@ export class MCPClient {
         return;
       }
 
-      // Extract text from content array
+      // Extract text from content array and parse as JSON if possible
       if (result.content && Array.isArray(result.content)) {
         const textContent = result.content
           .filter((item) => item.type === "text")
           .map((item) => item.text)
           .join("\n");
-        pending.resolve(textContent);
+        
+        // Try to parse as JSON, otherwise return as string
+        try {
+          const parsed = JSON.parse(textContent);
+          pending.resolve(parsed);
+        } catch {
+          pending.resolve(textContent);
+        }
       } else {
         pending.reject(new Error("Invalid MCP response format"));
       }

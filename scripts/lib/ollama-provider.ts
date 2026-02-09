@@ -105,9 +105,9 @@ export class OllamaProvider implements ModelProvider {
   private baseUrl: string;
   private defaultModel: string;
 
-  constructor(baseUrl = "http://localhost:11434", defaultModel = "qwen2.5") {
+  constructor(model: string, baseUrl = "http://localhost:11434") {
     this.baseUrl = baseUrl;
-    this.defaultModel = defaultModel;
+    this.defaultModel = model;
   }
 
   /**
@@ -156,7 +156,41 @@ export class OllamaProvider implements ModelProvider {
    * Generate a unique tool call ID
    */
   private generateToolCallId(): string {
-    return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `call_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  }
+
+  /**
+   * Chat with tools (compatible with verify-mcp-agent.ts interface)
+   */
+  async chat(
+    messages: Array<{ role: string; content: string; tool_calls?: unknown[] }>,
+    tools: Array<{ type: "function"; function: { name: string; description: string; parameters: any } }>
+  ): Promise<{ content: string; tool_calls?: Array<{ function: { name: string; arguments: Record<string, any> } }> }> {
+    // Convert to internal format
+    const internalMessages: Message[] = messages.map(msg => ({
+      role: msg.role as any,
+      content: msg.content,
+      tool_calls: msg.tool_calls as any,
+    }));
+
+    const mcpTools: MCPToolSchema[] = tools.map(t => ({
+      name: t.function.name,
+      description: t.function.description,
+      inputSchema: t.function.parameters,
+    }));
+
+    const response = await this.callWithTools(internalMessages, mcpTools);
+    
+    // Convert back to external format
+    return {
+      content: response.content,
+      tool_calls: response.toolCalls?.map(tc => ({
+        function: {
+          name: tc.function.name,
+          arguments: JSON.parse(tc.function.arguments),
+        },
+      })),
+    };
   }
 
   /**
@@ -223,6 +257,25 @@ export class OllamaProvider implements ModelProvider {
         throw new Error(`Failed to call Ollama: ${error.message}`);
       }
       throw new Error("Failed to call Ollama: Unknown error");
+    }
+  }
+
+  /**
+   * Check connection to Ollama
+   */
+  async checkConnection(): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/tags`, {
+        method: "GET",
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to connect to Ollama at ${this.baseUrl}`);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Cannot connect to Ollama: ${error.message}`);
+      }
+      throw new Error("Cannot connect to Ollama");
     }
   }
 

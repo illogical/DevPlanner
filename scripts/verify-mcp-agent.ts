@@ -197,7 +197,7 @@ async function executeWorkflow(
           
           logToolResult(result);
           
-          metricsTracker.recordToolCall(toolName, toolArgs, result, null, duration);
+          metricsTracker.recordToolCall(toolName, toolArgs, true, duration);
           
           // Add tool result to conversation
           conversation.push({
@@ -208,7 +208,7 @@ async function executeWorkflow(
           const errorMessage = error instanceof Error ? error.message : String(error);
           logToolResult(null, errorMessage);
           
-          metricsTracker.recordToolCall(toolName, toolArgs, null, errorMessage, 0);
+          metricsTracker.recordToolCall(toolName, toolArgs, false, 0, errorMessage);
           
           // Add error to conversation
           conversation.push({
@@ -259,7 +259,8 @@ async function main() {
 
     // Initialize MCP client
     if (!options.json) logStep("Starting MCP server...");
-    mcpClient = new MCPClient(tempWorkspace);
+    process.env.DEVPLANNER_WORKSPACE = tempWorkspace;
+    mcpClient = new MCPClient();
     await mcpClient.start();
     if (!options.json) logSuccess("MCP server started");
 
@@ -271,7 +272,7 @@ async function main() {
 
     // Load scenario
     if (!options.json) logStep("Loading scenario...");
-    const scenarioPath = join(process.cwd(), "docs", "mcp", "delivery-robot.md");
+    const scenarioPath = join(process.cwd(), "scripts", "prompts", "scenarios", "delivery-robot.md");
     const scenarioContent = readFileSync(scenarioPath, "utf-8");
     
     // Extract the scenario prompt (everything after "## Scenario")
@@ -283,7 +284,7 @@ async function main() {
     if (!options.json) logSuccess("Scenario loaded");
 
     // Initialize metrics tracker
-    const metricsTracker = new MetricsTracker(scenarioContent);
+    const metricsTracker = new MetricsTracker();
 
     // Execute workflow
     await executeWorkflow(mcpClient, ollama, metricsTracker, scenarioPrompt, options);
@@ -292,46 +293,64 @@ async function main() {
     if (!options.json) {
       logSection("Phase 5: Final Report");
       
+      // Define expected tools for the delivery robot scenario
+      const expectedTools = [
+        'create_project',
+        'create_card',
+        'add_task',
+        'move_card',
+        'toggle_task',
+      ];
+      
+      const scenarioPhases: Array<{ phase: string; expectedTools: string[]; minCalls: number; maxCalls: number }> = [
+        { phase: 'setup', expectedTools: ['create_project', 'create_card'], minCalls: 2, maxCalls: 5 },
+        { phase: 'task-management', expectedTools: ['add_task', 'toggle_task'], minCalls: 3, maxCalls: 10 },
+        { phase: 'workflow', expectedTools: ['move_card'], minCalls: 1, maxCalls: 3 },
+      ];
+      
+      const scores = metricsTracker.calculateScores(expectedTools, scenarioPhases);
       const detailedReport = metricsTracker.getDetailedReport();
-      const scoringReport = metricsTracker.getScoringReport();
+      const scoringReport = metricsTracker.getScoringReport(scores);
       
-      log("=== Detailed Metrics ===", "bright");
-      log(JSON.stringify(detailedReport, null, 2), "dim");
-      console.log();
+      console.log(detailedReport);
+      console.log(scoringReport);
       
-      log("=== Scoring Report ===", "bright");
-      log(JSON.stringify(scoringReport, null, 2), "dim");
-      console.log();
+      const exitCode = scores.finalScore >= 0.75 ? 0 : 1;
       
-      const { score, rating } = scoringReport;
-      if (score >= 0.75) {
-        logSuccess(`Final Score: ${score.toFixed(2)} - ${rating}`);
-      } else {
-        logWarning(`Final Score: ${score.toFixed(2)} - ${rating}`);
-      }
-    } else {
-      // JSON output mode
-      const detailedReport = metricsTracker.getDetailedReport();
-      const scoringReport = metricsTracker.getScoringReport();
-      
-      console.log(JSON.stringify({
-        detailed: detailedReport,
-        scoring: scoringReport,
-      }, null, 2));
-    }
-
-    const scoringReport = metricsTracker.getScoringReport();
-    const exitCode = scoringReport.score >= 0.75 ? 0 : 1;
-    
-    if (!options.json) {
       if (exitCode === 0) {
         logSuccess("\nVerification PASSED ✓");
       } else {
         logError("\nVerification FAILED ✗");
       }
+      
+      process.exit(exitCode);
+    } else {
+      // JSON output mode
+      const expectedTools = [
+        'create_project',
+        'create_card',
+        'add_task',
+        'move_card',
+        'toggle_task',
+      ];
+      
+      const scenarioPhases: Array<{ phase: string; expectedTools: string[]; minCalls: number; maxCalls: number }> = [
+        { phase: 'setup', expectedTools: ['create_project', 'create_card'], minCalls: 2, maxCalls: 5 },
+        { phase: 'task-management', expectedTools: ['add_task', 'toggle_task'], minCalls: 3, maxCalls: 10 },
+        { phase: 'workflow', expectedTools: ['move_card'], minCalls: 1, maxCalls: 3 },
+      ];
+      
+      const scores = metricsTracker.calculateScores(expectedTools, scenarioPhases);
+      
+      console.log(JSON.stringify({
+        detailed: metricsTracker.exportJSON(),
+        scoring: scores,
+      }, null, 2));
+      
+      const exitCode = scores.finalScore >= 0.75 ? 0 : 1;
+      process.exit(exitCode);
     }
 
-    process.exit(exitCode);
   } catch (error) {
     if (!options.json) {
       logError(`Fatal error: ${error instanceof Error ? error.message : String(error)}`);
