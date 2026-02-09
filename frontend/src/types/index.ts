@@ -148,6 +148,7 @@ export type WebSocketEventType =
   | 'task:toggled'
   | 'lane:reordered'
   | 'project:updated'
+  | 'project:deleted'
   | 'history:event';
 
 export interface WebSocketEvent {
@@ -203,4 +204,8 @@ export interface LaneReorderedData {
 export interface ProjectUpdatedData {
   slug: string;
   config: ProjectConfig;
+}
+
+export interface ProjectDeletedData {
+  slug: string;
 }

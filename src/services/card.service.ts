@@ -90,7 +90,17 @@ export class CardService {
       .filter((f) => !order.includes(f))
       .sort((a, b) => a.localeCompare(b));
 
-    return [...orderedFiles, ...unorderedFiles];
+    const result = [...orderedFiles, ...unorderedFiles];
+    
+    // Only log for the lane we care about (02-in-progress) to reduce noise
+    if (lane === '02-in-progress') {
+      console.log(`[CardService] getOrderedCardFilenames for ${projectSlug}/${lane}:`);
+      console.log(`  _order.json contains:`, order);
+      console.log(`  .md files in folder:`, mdFiles);
+      console.log(`  Returning ordered list:`, result);
+    }
+    
+    return result;
   }
 
   /**
@@ -301,6 +311,27 @@ export class CardService {
   }
 
   /**
+   * Permanently delete a card from disk
+   */
+  async deleteCard(projectSlug: string, cardSlug: string): Promise<void> {
+    const lane = await this.findCardLane(projectSlug, cardSlug);
+    if (!lane) {
+      throw new Error(`Card not found: ${cardSlug}`);
+    }
+
+    const filename = `${cardSlug}.md`;
+    const cardPath = join(this.workspacePath, projectSlug, lane, filename);
+
+    // Delete the file
+    await unlink(cardPath);
+
+    // Remove from order file
+    const order = await this.readOrderFile(projectSlug, lane);
+    const updatedOrder = order.filter((f) => f !== filename);
+    await this.writeOrderFile(projectSlug, lane, updatedOrder);
+  }
+
+  /**
    * Move a card to a different lane, optionally at a specific position
    */
   async moveCard(
@@ -382,6 +413,9 @@ export class CardService {
     laneSlug: string,
     order: string[]
   ): Promise<void> {
+    console.log(`[CardService] Reordering cards in ${projectSlug}/${laneSlug}`);
+    console.log(`[CardService] New order:`, order);
+    
     // Get all actual files in the lane
     const lanePath = join(this.workspacePath, projectSlug, laneSlug);
     let files: string[];
@@ -392,6 +426,7 @@ export class CardService {
     }
 
     const mdFiles = files.filter((f) => f.endsWith('.md'));
+    console.log(`[CardService] Files currently in lane:`, mdFiles);
 
     // Validate that all files in order exist in the lane
     for (const filename of order) {
@@ -406,7 +441,9 @@ export class CardService {
       .sort((a, b) => a.localeCompare(b));
 
     const finalOrder = [...order, ...unorderedFiles];
+    console.log(`[CardService] Writing final order to _order.json:`, finalOrder);
 
     await this.writeOrderFile(projectSlug, laneSlug, finalOrder);
+    console.log(`[CardService] Order file written successfully`);
   }
 }

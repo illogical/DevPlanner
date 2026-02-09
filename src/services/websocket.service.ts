@@ -235,4 +235,23 @@ export class WebSocketService {
       ws.data.pingTimeout = undefined;
     }
   }
+
+  /**
+   * Disconnect all clients subscribed to a project
+   */
+  public disconnectProject(projectSlug: string): void {
+    const subscribers = this.subscriptions.get(projectSlug);
+    if (!subscribers || subscribers.size === 0) {
+      return;
+    }
+
+    console.log(`[WebSocket] Disconnecting ${subscribers.size} clients from deleted project: ${projectSlug}`);
+
+    // Create array to avoid modification during iteration
+    const clientIds = Array.from(subscribers);
+    
+    clientIds.forEach((clientId) => {
+      this.unsubscribe(clientId, projectSlug);
+    });
+  }
 }

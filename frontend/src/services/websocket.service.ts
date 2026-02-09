@@ -196,7 +196,14 @@ export class WebSocketClient {
   }
 
   private dispatchEvent(event: WebSocketEvent): void {
-    console.log('[WebSocket] Dispatching event:', event.type, event.data);
+    if (event.type === 'lane:reordered') {
+      console.log('[WebSocket] ========== RECEIVED lane:reordered EVENT ==========');
+      console.log('[WebSocket] Event data:', event.data);
+      console.log('[WebSocket] Timestamp:', event.timestamp);
+    } else {
+      console.log('[WebSocket] Dispatching event:', event.type, event.data);
+    }
+    
     const handlers = this.handlers.get(event.type);
     if (handlers) {
       console.log(`[WebSocket] Found ${handlers.size} handlers for ${event.type}`);

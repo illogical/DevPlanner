@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
+import { readdir, readFile, writeFile, mkdir, stat, rm } from 'fs/promises';
 import { join } from 'path';
 import type { ProjectConfig, ProjectSummary, LaneConfig } from '../types';
 import { slugify } from '../utils/slug';
@@ -184,5 +184,22 @@ export class ProjectService {
    */
   async archiveProject(slug: string): Promise<void> {
     await this.updateProject(slug, { archived: true });
+  }
+
+  /**
+   * Delete a project permanently (removes from disk)
+   */
+  async deleteProject(slug: string): Promise<void> {
+    const projectPath = join(this.workspacePath, slug);
+
+    // Verify project exists
+    try {
+      await stat(projectPath);
+    } catch (error) {
+      throw new Error(`Project not found: ${slug}`);
+    }
+
+    // Remove project directory
+    await rm(projectPath, { recursive: true, force: true });
   }
 }

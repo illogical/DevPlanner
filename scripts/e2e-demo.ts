@@ -16,7 +16,7 @@
  */
 
 import matter from 'gray-matter';
-import { readFile, writeFile, rm, stat } from 'fs/promises';
+import { readFile, writeFile, readdir, unlink } from 'fs/promises';
 import { join } from 'path';
 
 // ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body !== undefined ? JSON.stringify(body) : null,
   });
 
   if (!res.ok) {
@@ -137,34 +137,90 @@ async function checkPrerequisites(): Promise<string> {
 }
 
 async function cleanupPreviousRun(workspacePath: string): Promise<void> {
-  const projectDir = join(workspacePath, PROJECT_SLUG);
+  // Check if project exists and clear its cards (preserve project so frontend stays focused)
   try {
-    await stat(projectDir);
-    action(`Removing previous "${PROJECT_NAME}" project from disk...`);
-    await rm(projectDir, { recursive: true, force: true });
-    ok('Previous project removed');
-    // Brief pause so the file watcher processes the deletion
-    await sleep(500);
-  } catch {
-    // Directory doesn't exist — nothing to clean up
+    action(`Checking for existing "${PROJECT_NAME}" project...`);
+    const response = await fetch(`${API_BASE}/projects/${PROJECT_SLUG}`);
+    
+    if (response.ok) {
+      info('Project exists — clearing all existing cards...');
+      
+      // Fetch all cards from all lanes
+      const { cards } = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards`);
+      
+      if (cards.length > 0) {
+        watch('Watch the UI — cards will be hard-deleted one by one');
+        info(`Deleting ${cards.length} cards...`);
+        
+        // Hard delete each card via API so WebSocket events are broadcast
+        for (const card of cards) {
+          await api('DELETE', `/projects/${PROJECT_SLUG}/cards/${card.slug}?hard=true`);
+          info(`  ✓ Deleted: ${card.slug}`);
+          await sleep(300); // Short delay so user can see cards disappear
+        }
+        
+        ok(`Deleted ${cards.length} cards`);
+        
+        // Wait for WebSocket propagation
+        info('Waiting for WebSocket sync...');
+        await sleep(1000);
+        
+        // Verify cleanup
+        const { cards: remaining } = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards`);
+        if (remaining.length === 0) {
+          ok('✓ Verified: All cards cleared from project');
+        } else {
+          error(`⚠ Warning: ${remaining.length} cards still remain after cleanup`);
+          remaining.forEach(c => info(`  - ${c.slug} in ${c.lane}`));
+        }
+      } else {
+        ok('No cards to clear');
+      }
+    } else {
+      info('Project does not exist yet — will be created in Act 1');
+    }
+  } catch (err) {
+    info('Project does not exist yet — will be created in Act 1');
   }
 }
 
 // ---------------------------------------------------------------------------
-// ACT 1: Create Project
+// ACT 1: Ensure Project Exists
 // ---------------------------------------------------------------------------
 
-async function act1_createProject(): Promise<void> {
+async function act1_ensureProject(): Promise<void> {
   section('ACT 1: Setting the Stage');
 
-  action(`Creating project "${PROJECT_NAME}"...`);
-  await api('POST', '/projects', {
-    name: PROJECT_NAME,
-    description: 'End-to-end demo of real-time features',
-  });
-  ok(`Project created: ${PROJECT_SLUG}`);
-  watch('Look at the sidebar — a new project should appear');
-  info('Click on it now to watch the rest of the demo!');
+  // Check if project already exists
+  try {
+    const response = await fetch(`${API_BASE}/projects/${PROJECT_SLUG}`);
+    
+    if (response.ok) {
+      ok(`Project "${PROJECT_NAME}" already exists`);
+      info('Frontend should remain focused on this project throughout the demo');
+    } else {
+      // Project doesn't exist, create it
+      action(`Creating project "${PROJECT_NAME}"...`);
+      await api('POST', '/projects', {
+        name: PROJECT_NAME,
+        description: 'End-to-end demo of real-time features',
+      });
+      ok(`Project created: ${PROJECT_SLUG}`);
+      watch('Look at the sidebar — a new project should appear');
+      info('Click on it now to watch the rest of the demo!');
+    }
+  } catch (err) {
+    // Project doesn't exist, create it
+    action(`Creating project "${PROJECT_NAME}"...`);
+    await api('POST', '/projects', {
+      name: PROJECT_NAME,
+      description: 'End-to-end demo of real-time features',
+    });
+    ok(`Project created: ${PROJECT_SLUG}`);
+    watch('Look at the sidebar — a new project should appear');
+    info('Click on it now to watch the rest of the demo!');
+  }
+  
   await pause();
 }
 
@@ -335,13 +391,55 @@ async function act6_moveCard(): Promise<void> {
 async function act7_reorderCards(): Promise<void> {
   section('ACT 7: Reordering Cards');
 
+  // Fetch current order
+  action('Fetching current card order in In Progress...');
+  const beforeCards = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards?lane=02-in-progress`);
+  const beforeOrder = beforeCards.cards.map(c => c.slug);
+  const beforeFilenames = beforeCards.cards.map(c => c.filename);
+  info(`Current order (slugs): ${beforeOrder.join(', ')}`);
+  info(`Current order (filenames): ${beforeFilenames.join(', ')}`);
+
   action('Swapping card order in In Progress lane...');
-  info('New order: Navigation System first, Fuel Cell Optimizer second');
-  await api('PATCH', `/projects/${PROJECT_SLUG}/lanes/02-in-progress/order`, {
-    order: ['navigation-system.md', 'fuel-cell-optimizer.md'],
+  info('Sending new order: fuel-cell-optimizer.md FIRST, navigation-system.md SECOND');
+  info('This should REVERSE the current alphabetical order');
+  watch('⚠️ IMPORTANT: Check your browser console for WebSocket logs!');
+  watch('Look for "[WebSocket] ========== RECEIVED lane:reordered EVENT ==========" ');
+  
+  // Reverse the current order to ensure we see a visual change
+  const newOrder = ['fuel-cell-optimizer.md', 'navigation-system.md'];
+  const response = await api<{ lane: string; order: string[] }>('PATCH', `/projects/${PROJECT_SLUG}/lanes/02-in-progress/order`, {
+    order: newOrder,
   });
-  ok('Cards reordered');
-  watch('Cards swap positions in the In Progress lane');
+  
+  info(`API response - lane: ${response.lane}, order: ${response.order.join(', ')}`);
+  ok('Reorder API call completed');
+  watch('Cards should swap positions in the In Progress lane');
+  watch('Fuel Cell Optimizer should now be FIRST, Navigation System SECOND');
+  watch('If cards don\'t move, check if WebSocket is connected (green indicator in UI)');
+  
+  // Wait longer for WebSocket propagation and file system sync
+  info('Waiting 3 seconds for WebSocket event to propagate...');
+  await sleep(3000);
+  
+  // Verify the reorder
+  action('Verifying card positions...');
+  const afterCards = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards?lane=02-in-progress`);
+  const afterOrder = afterCards.cards.map(c => c.slug);
+  const afterFilenames = afterCards.cards.map(c => c.filename);
+  
+  info(`After reorder (slugs): ${afterOrder.join(', ')}`);
+  info(`After reorder (filenames): ${afterFilenames.join(', ')}`);
+  
+  const expectedOrder = ['fuel-cell-optimizer', 'navigation-system'];
+  const orderMatches = afterOrder.length === expectedOrder.length && 
+                      afterOrder.every((slug, i) => slug === expectedOrder[i]);
+  
+  if (orderMatches) {
+    ok('✓ Cards are in correct order (reversed from alphabetical)');
+  } else {
+    error(`❌ VERIFICATION FAILED: Expected [${expectedOrder.join(', ')}], got [${afterOrder.join(', ')}]`);
+  }
+  
   await pause();
 }
 
@@ -392,10 +490,125 @@ async function act8_directFileEdit(workspacePath: string): Promise<void> {
 async function act9_archiveCard(): Promise<void> {
   section('ACT 9: Archiving a Card');
 
+  // Get initial card counts
+  action('Fetching initial lane counts...');
+  const beforeUpcoming = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards?lane=01-upcoming`);
+  const beforeArchive = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards?lane=04-archive`);
+  
+  info(`Before: Upcoming has ${beforeUpcoming.cards.length} cards, Archive has ${beforeArchive.cards.length} cards`);
+  
+  // Verify the card exists before archiving
+  const targetCard = beforeUpcoming.cards.find(c => c.slug === 'hull-integrity-monitor');
+  if (!targetCard) {
+    error('❌ Card "hull-integrity-monitor" not found in Upcoming!');
+    info('Available cards in Upcoming:');
+    beforeUpcoming.cards.forEach(c => info(`  - ${c.slug}`));
+    return;
+  }
+  
+  info(`Found target card: ${targetCard.slug} in lane ${targetCard.lane}`);
+
   action('Archiving "Hull Integrity Monitor"...');
   await api('DELETE', `/projects/${PROJECT_SLUG}/cards/hull-integrity-monitor`);
   ok('Card archived');
-  watch('Card disappears from the Upcoming lane (moved to Archive)');
+  watch('Card should disappear from Upcoming and appear in Archive');
+  
+  // Longer pause for file move and WebSocket propagation
+  await sleep(1500);
+  
+  // Verify the move
+  action('Verifying archive operation...');
+  const afterUpcoming = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards?lane=01-upcoming`);
+  const afterArchive = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards?lane=04-archive`);
+  
+  info(`After: Upcoming has ${afterUpcoming.cards.length} cards, Archive has ${afterArchive.cards.length} cards`);
+  
+  // Verify card is not in Upcoming
+  const stillInUpcoming = afterUpcoming.cards.some(c => c.slug === 'hull-integrity-monitor');
+  if (stillInUpcoming) {
+    error('❌ VERIFICATION FAILED: Card still in Upcoming lane!');
+  } else {
+    ok('✓ Card removed from Upcoming');
+  }
+  
+  // Verify card is in Archive
+  const inArchive = afterArchive.cards.some(c => c.slug === 'hull-integrity-monitor');
+  if (!inArchive) {
+    error('❌ VERIFICATION FAILED: Card not found in Archive lane!');
+    info('Cards currently in Archive:');
+    afterArchive.cards.forEach(c => info(`  - ${c.slug}`));
+  } else {
+    ok('✓ Card found in Archive');
+  }
+  
+  // Verify counts changed correctly
+  if (afterUpcoming.cards.length === beforeUpcoming.cards.length - 1 && 
+      afterArchive.cards.length === beforeArchive.cards.length + 1) {
+    ok('✓ Lane counts updated correctly');
+  } else {
+    error(`❌ VERIFICATION FAILED: Expected Upcoming: ${beforeUpcoming.cards.length - 1}, got ${afterUpcoming.cards.length}; Expected Archive: ${beforeArchive.cards.length + 1}, got ${afterArchive.cards.length}`);
+  }
+  
+  await pause();
+}
+
+// ---------------------------------------------------------------------------
+// ACT 9B: Verify Archive Persistence
+// ---------------------------------------------------------------------------
+
+async function act9b_verifyArchivePersistence(): Promise<void> {
+  section('ACT 9B: Archive Persistence Check');
+  
+  info('Waiting 2 seconds to ensure no race conditions cause card reappearance...');
+  await sleep(2000);
+  
+  action('Re-fetching all cards to verify archived card stayed in archive...');
+  const allCards = await api<{ cards: any[] }>('GET', `/projects/${PROJECT_SLUG}/cards`);
+  
+  info(`Total cards in project: ${allCards.cards.length}`);
+  
+  // List all cards by lane for debugging
+  const cardsByLane: Record<string, string[]> = {};
+  allCards.cards.forEach(c => {
+    if (!cardsByLane[c.lane]) {
+      cardsByLane[c.lane] = [];
+    }
+    cardsByLane[c.lane]!.push(c.slug);
+  });
+  
+  Object.entries(cardsByLane).forEach(([lane, slugs]) => {
+    info(`  ${lane}: ${slugs.join(', ')}`);
+  });
+  
+  // Check if hull-integrity-monitor appears in any non-archive lane
+  const nonArchiveLanes = ['01-upcoming', '02-in-progress', '03-complete'];
+  const foundInWrongLane = allCards.cards.find(c => 
+    c.slug === 'hull-integrity-monitor' && nonArchiveLanes.includes(c.lane)
+  );
+  
+  if (foundInWrongLane) {
+    error(`❌ BUG DETECTED: Archived card reappeared in ${foundInWrongLane.lane}!`);
+  } else {
+    ok('✓ Archived card remained in archive (no reappearance)');
+  }
+  
+  // Verify it's still in archive
+  const stillInArchive = allCards.cards.find(c => 
+    c.slug === 'hull-integrity-monitor' && c.lane === '04-archive'
+  );
+  
+  if (stillInArchive) {
+    ok('✓ Card confirmed in archive lane');
+  } else {
+    error('❌ BUG DETECTED: Archived card disappeared completely!');
+    // Check if there's a variant with a different slug (e.g., hull-integrity-monitor-2)
+    const variants = allCards.cards.filter(c => c.slug.startsWith('hull-integrity-monitor'));
+    if (variants.length > 0) {
+      error(`Found ${variants.length} variant(s) with similar slug:`);
+      variants.forEach(v => info(`  - ${v.slug} in ${v.lane}`));
+    }
+  }
+  
   await pause();
 }
 
@@ -482,7 +695,7 @@ async function runDemo(): Promise<void> {
   await cleanupPreviousRun(workspacePath);
 
   try {
-    await act1_createProject();
+    await act1_ensureProject();
   } catch (err) {
     error(`Project creation failed: ${(err as Error).message}`);
     error('Cannot continue without a project. Aborting.');
@@ -498,6 +711,7 @@ async function runDemo(): Promise<void> {
     { fn: act7_reorderCards, name: 'Reorder Cards' },
     { fn: () => act8_directFileEdit(workspacePath), name: 'Direct File Edit' },
     { fn: act9_archiveCard, name: 'Archive Card' },
+    { fn: act9b_verifyArchivePersistence, name: 'Verify Archive Persistence' },
     { fn: act10_updateProject, name: 'Update Project' },
     { fn: finale_showHistory, name: 'Show History' },
   ];

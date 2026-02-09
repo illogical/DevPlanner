@@ -80,30 +80,60 @@ export const projectRoutes = (workspacePath: string) => {
         }),
       }
     )
-    .delete('/:projectSlug', async ({ params }) => {
-      await projectService.archiveProject(params.projectSlug);
+    .delete('/:projectSlug', async ({ params, query }) => {
+      const hardDelete = query.hard === 'true';
 
-      // Get updated project to broadcast
-      const project = await projectService.getProject(params.projectSlug);
+      if (hardDelete) {
+        // Hard delete: permanently remove project from disk
+        await projectService.deleteProject(params.projectSlug);
 
-      // Broadcast project:updated event
-      const eventData: ProjectUpdatedData = {
-        slug: params.projectSlug,
-        config: project,
-      };
-      wsService.broadcast(params.projectSlug, {
-        type: 'event',
-        event: {
-          type: 'project:updated',
-          projectSlug: params.projectSlug,
-          timestamp: new Date().toISOString(),
-          data: eventData,
-        },
-      });
+        // Broadcast project:deleted event to subscribed clients
+        const eventData: { slug: string } = {
+          slug: params.projectSlug,
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'project:deleted',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
 
-      return {
-        slug: params.projectSlug,
-        archived: true,
-      };
+        // Disconnect all clients subscribed to this project
+        wsService.disconnectProject(params.projectSlug);
+
+        return {
+          slug: params.projectSlug,
+          deleted: true,
+        };
+      } else {
+        // Soft delete: archive the project
+        await projectService.archiveProject(params.projectSlug);
+
+        // Get updated project to broadcast
+        const project = await projectService.getProject(params.projectSlug);
+
+        // Broadcast project:updated event
+        const eventData: ProjectUpdatedData = {
+          slug: params.projectSlug,
+          config: project,
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'project:updated',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
+
+        return {
+          slug: params.projectSlug,
+          archived: true,
+        };
+      }
     });
 };

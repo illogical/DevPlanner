@@ -13,6 +13,7 @@ import type {
   TaskToggledData,
   LaneReorderedData,
   ProjectUpdatedData,
+  ProjectDeletedData,
 } from '../types';
 
 // Change indicator types for visual animations
@@ -114,6 +115,10 @@ interface DevPlannerStore {
   _recentLocalActions: Map<string, number>;
   _recordLocalAction: (key: string) => void;
   _isRecentLocalAction: (key: string) => boolean;
+  
+  // Debounced loadCards for fallback scenarios
+  _lastLoadCardsTime: number;
+  _debouncedLoadCards: () => void;
 
   // WebSocket handlers
   wsHandleCardCreated?: (data: CardCreatedData) => void;
@@ -123,6 +128,7 @@ interface DevPlannerStore {
   wsHandleTaskToggled?: (data: TaskToggledData) => void;
   wsHandleLaneReordered?: (data: LaneReorderedData) => void;
   wsHandleProjectUpdated?: (data: ProjectUpdatedData) => void;
+  wsHandleProjectDeleted?: (data: ProjectDeletedData) => void;
 }
 
 export const useStore = create<DevPlannerStore>((set, get) => ({
@@ -144,6 +150,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   wsConnected: false,
   wsReconnecting: false,
   _recentLocalActions: new Map(),
+  _lastLoadCardsTime: 0,
 
   // Project actions
   loadProjects: async () => {
@@ -215,7 +222,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { activeProjectSlug } = get();
     if (!activeProjectSlug) return;
 
-    set({ isLoadingCards: true });
+    set({ isLoadingCards: true, _lastLoadCardsTime: Date.now() });
     try {
       const { cards } = await cardsApi.list(activeProjectSlug);
 
@@ -233,6 +240,21 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       console.error('Failed to load cards:', error);
       set({ isLoadingCards: false });
     }
+  },
+
+  _debouncedLoadCards: () => {
+    const state = get();
+    const now = Date.now();
+    const timeSinceLastLoad = now - state._lastLoadCardsTime;
+    const DEBOUNCE_MS = 2000; // Don't reload if loaded within last 2 seconds
+    
+    if (timeSinceLastLoad < DEBOUNCE_MS) {
+      console.log(`[_debouncedLoadCards] Skipping reload (last load was ${timeSinceLastLoad}ms ago)`);
+      return;
+    }
+    
+    console.log('[_debouncedLoadCards] Executing debounced reload');
+    state.loadCards();
   },
 
   createCard: async (title, lane = '01-upcoming') => {
@@ -285,10 +307,10 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       }
     }
 
-    await cardsApi.archive(activeProjectSlug, cardSlug);
-
-    // Record local action for self-echo dedup
+    // Record local action BEFORE API call to prevent race condition with WebSocket
     get()._recordLocalAction(`card:moved:${cardSlug}`);
+
+    await cardsApi.archive(activeProjectSlug, cardSlug);
 
     // Move from current lane to archive
     set((state) => {
@@ -321,10 +343,10 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       }
     }
 
-    await cardsApi.move(activeProjectSlug, cardSlug, targetLane, position);
-
-    // Record local action for self-echo dedup
+    // Record local action BEFORE API call to prevent race condition with WebSocket
     get()._recordLocalAction(`card:moved:${cardSlug}`);
+
+    await cardsApi.move(activeProjectSlug, cardSlug, targetLane, position);
 
     // Optimistic update
     set((state) => {
@@ -364,18 +386,23 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { activeProjectSlug } = get();
     if (!activeProjectSlug) return;
 
-    await cardsApi.reorder(activeProjectSlug, laneSlug, order);
-
-    // Record local action for self-echo dedup (using lane as key since it affects multiple cards)
+    console.log(`[reorderCards] ========== INITIATING REORDER ==========`);
+    console.log(`[reorderCards] Lane: ${laneSlug}`);
+    console.log(`[reorderCards] New order (from drag-drop):`, order);
+    
+    // Record local action BEFORE API call to prevent race condition
     get()._recordLocalAction(`lane:reordered:${laneSlug}`);
+    console.log(`[reorderCards] ✓ Recorded local action: lane:reordered:${laneSlug}`);
 
-    // Reorder cards in state
+    // Optimistic update - reorder cards in state immediately
     set((state) => {
       const laneCards = state.cardsByLane[laneSlug] || [];
       const cardMap = new Map(laneCards.map((c) => [c.filename, c]));
       const reordered = order
         .map((filename) => cardMap.get(filename))
         .filter((c): c is CardSummary => c !== undefined);
+
+      console.log(`[reorderCards] ✓ Optimistic update applied, new order:`, reordered.map(c => c.filename));
 
       return {
         cardsByLane: {
@@ -384,6 +411,12 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         },
       };
     });
+
+    // Make API call (errors will be caught by caller)
+    console.log(`[reorderCards] Calling API...`);
+    await cardsApi.reorder(activeProjectSlug, laneSlug, order);
+    console.log(`[reorderCards] ✓ API call completed`);
+    console.log(`[reorderCards] ================================`);
   },
 
   // Card Detail Panel actions
@@ -413,15 +446,15 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { activeProjectSlug, activeCard } = get();
     if (!activeProjectSlug) return;
 
+    // Record local action BEFORE API call to prevent race condition with WebSocket
+    get()._recordLocalAction(`task:toggled:${cardSlug}:${taskIndex}`);
+
     const result = await tasksApi.toggle(
       activeProjectSlug,
       cardSlug,
       taskIndex,
       checked
     );
-
-    // Record local action for self-echo dedup (backend broadcasts task:toggled)
-    get()._recordLocalAction(`task:toggled:${cardSlug}:${taskIndex}`);
 
     // Update active card if it matches
     if (activeCard && activeCard.slug === cardSlug) {
@@ -730,6 +763,14 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { card } = data;
     const { slug, lane } = card;
     const state = get();
+    
+    // Prevent self-echo: ignore if this was a recent local action
+    const actionKey = `card:updated:${slug}`;
+    if (state._isRecentLocalAction(actionKey)) {
+      console.log(`[wsHandleCardUpdated] Ignoring self-echo for ${slug}`);
+      return;
+    }
+    
     console.log(`[wsHandleCardUpdated] START - ${slug}, activeCard:`, {
       slug: state.activeCard?.slug,
       taskCount: state.activeCard?.tasks?.length,
@@ -795,8 +836,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     
     // Reload active card if it matches, but only if this wasn't a recent local action
     // This prevents API fetches from overwriting optimistic updates
-    const actionKey = `card:updated:${slug}`;
-    const isRecentAction = state._isRecentLocalAction(actionKey);
+    const actionKeyForRefetch = `card:updated:${slug}`;
+    const isRecentAction = state._isRecentLocalAction(actionKeyForRefetch);
     console.log(`[wsHandleCardUpdated] Check refetch:`, {
       activeCardMatches: state.activeCard?.slug === slug,
       isRecentAction,
@@ -813,6 +854,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   wsHandleCardMoved: (data: CardMovedData) => {
     const { slug, sourceLane, targetLane } = data;
     const state = get();
+    
+    // Prevent self-echo: ignore if this was a recent local action
+    const actionKey = `card:moved:${slug}`;
+    if (state._isRecentLocalAction(actionKey)) {
+      console.log(`[wsHandleCardMoved] Ignoring self-echo for ${slug}`);
+      return;
+    }
     
     // Find and remove card from source lane
     const newCardsByLane = { ...state.cardsByLane };
@@ -838,11 +886,11 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       }
     }
     
-    // If still not found, fetch from API
+    // If still not found, fetch from API (debounced to prevent cascading reloads)
     if (!movedCard) {
-      console.warn(`[wsHandleCardMoved] Card ${slug} not found in local state, will refetch`);
-      // Reload all cards for this project
-      state.loadCards();
+      console.warn(`[wsHandleCardMoved] Card ${slug} not found in local state, scheduling debounced reload`);
+      // Use debounced reload to prevent excessive API calls during rapid operations
+      state._debouncedLoadCards();
       return;
     }
     
@@ -860,8 +908,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     }
     
     // Add change indicator if not a recent local action
-    const actionKey = `card:moved:${slug}`;
-    if (!state._isRecentLocalAction(actionKey)) {
+    const actionKeyForIndicator = `card:moved:${slug}`;
+    if (!state._isRecentLocalAction(actionKeyForIndicator)) {
       state.addChangeIndicator({
         type: 'card:moved',
         cardSlug: slug,
@@ -892,15 +940,39 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { lane, order } = data;
     const state = get();
     
+    console.log(`[wsHandleLaneReordered] ========== RECEIVED EVENT ==========`);
+    console.log(`[wsHandleLaneReordered] Lane: ${lane}`);
+    console.log(`[wsHandleLaneReordered] New order from server:`, order);
+    
+    // Prevent self-echo: ignore if this was a recent local action
+    const actionKey = `lane:reordered:${lane}`;
+    if (state._isRecentLocalAction(actionKey)) {
+      console.log(`[wsHandleLaneReordered] ⚠️ IGNORING - self-echo detected for ${lane}`);
+      return;
+    }
+    
+    console.log(`[wsHandleLaneReordered] ✓ Not a self-echo, processing reorder...`);
+    
     const currentCards = state.cardsByLane[lane] || [];
+    console.log(`[wsHandleLaneReordered] Current cards in lane (${currentCards.length}):`, currentCards.map(c => c.filename));
     
-    // Create a map for quick lookup
-    const cardMap = new Map(currentCards.map(card => [card.slug, card]));
+    // Create a map for quick lookup - keyed by filename (to match optimistic update logic)
+    const cardMap = new Map(currentCards.map(card => [card.filename, card]));
+    console.log(`[wsHandleLaneReordered] Card map keys:`, Array.from(cardMap.keys()));
     
-    // Reorder cards according to the order array
+    // Reorder cards according to the filenames in the order array
     const reorderedCards = order
-      .map(slug => cardMap.get(slug))
+      .map(filename => {
+        const card = cardMap.get(filename);
+        if (!card) {
+          console.warn(`[wsHandleLaneReordered] ⚠️ Card not found for filename: ${filename}`);
+        }
+        return card;
+      })
       .filter((card): card is CardSummary => card !== undefined);
+    
+    console.log(`[wsHandleLaneReordered] Reordered ${reorderedCards.length} cards`);
+    console.log(`[wsHandleLaneReordered] New card order:`, reorderedCards.map(c => c.filename));
     
     set((state) => ({
       cardsByLane: {
@@ -908,11 +980,21 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         [lane]: reorderedCards,
       },
     }));
+    
+    console.log(`[wsHandleLaneReordered] ✓ State updated successfully`);
+    console.log(`[wsHandleLaneReordered] ================================`);
   },
 
   wsHandleTaskToggled: (data: TaskToggledData) => {
     const { cardSlug, taskIndex, checked, taskProgress } = data;
     const state = get();
+    
+    // Prevent self-echo: ignore if this was a recent local action
+    const actionKey = `task:toggled:${cardSlug}:${taskIndex}`;
+    if (state._isRecentLocalAction(actionKey)) {
+      console.log(`[wsHandleTaskToggled] Ignoring self-echo for ${cardSlug}:${taskIndex}`);
+      return;
+    }
     
     console.log(`[wsHandleTaskToggled] Task ${taskIndex} on ${cardSlug} toggled to ${checked}`);
     
@@ -953,8 +1035,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     }
     
     // If this card is currently open in detail view, refresh it
-    const actionKey = `task:toggled:${cardSlug}:${taskIndex}`;
-    if (state.activeCard?.slug === cardSlug && !state._isRecentLocalAction(actionKey)) {
+    const actionKeyForRefetch = `task:toggled:${cardSlug}:${taskIndex}`;
+    if (state.activeCard?.slug === cardSlug && !state._isRecentLocalAction(actionKeyForRefetch)) {
       console.log(`[wsHandleTaskToggled] Refreshing active card ${cardSlug}`);
       state.openCardDetail(cardSlug);
     }
@@ -973,6 +1055,32 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         ...config,
       };
       set({ projects: updatedProjects });
+    }
+  },
+
+  wsHandleProjectDeleted: (data: ProjectDeletedData) => {
+    const { slug } = data;
+    const state = get();
+    
+    console.log(`[wsHandleProjectDeleted] Project ${slug} was deleted`);
+    
+    // Remove project from list
+    const projects = state.projects.filter(p => p.slug !== slug);
+    
+    // If it was the active project, clear state and close detail panel
+    if (state.activeProjectSlug === slug) {
+      set({
+        projects,
+        activeProjectSlug: null,
+        cardsByLane: {},
+        activeCard: null,
+        isDetailPanelOpen: false,
+      });
+      
+      // Reload projects list to select a new active project if available
+      state.loadProjects();
+    } else {
+      set({ projects });
     }
   },
 }));

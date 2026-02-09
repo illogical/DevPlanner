@@ -8,6 +8,7 @@ import type {
   CardDeletedData,
   LaneReorderedData,
   ProjectUpdatedData,
+  ProjectDeletedData,
   HistoryEvent,
 } from '../types';
 
@@ -27,6 +28,7 @@ export function useWebSocket() {
   const wsHandleTaskToggled = useStore((state) => state.wsHandleTaskToggled);
   const wsHandleLaneReordered = useStore((state) => state.wsHandleLaneReordered);
   const wsHandleProjectUpdated = useStore((state) => state.wsHandleProjectUpdated);
+  const wsHandleProjectDeleted = useStore((state) => state.wsHandleProjectDeleted);
   const addHistoryEvent = useStore((state) => state.addHistoryEvent);
 
   // Connect on mount, disconnect on unmount
@@ -73,6 +75,9 @@ export function useWebSocket() {
       client.on('project:updated', (data) => {
         wsHandleProjectUpdated?.(data as ProjectUpdatedData);
       }),
+      client.on('project:deleted', (data) => {
+        wsHandleProjectDeleted?.(data as ProjectDeletedData);
+      }),
       client.on('history:event', (data) => {
         addHistoryEvent(data as HistoryEvent);
       }),
@@ -88,6 +93,7 @@ export function useWebSocket() {
     wsHandleTaskToggled,
     wsHandleLaneReordered,
     wsHandleProjectUpdated,
+    wsHandleProjectDeleted,
     addHistoryEvent,
   ]);
 

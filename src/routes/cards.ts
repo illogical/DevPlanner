@@ -1,17 +1,20 @@
 import { Elysia, t } from 'elysia';
 import { CardService } from '../services/card.service';
 import { WebSocketService } from '../services/websocket.service';
+import { HistoryService } from '../services/history.service';
 import { MarkdownService } from '../services/markdown.service';
 import type {
   CardCreatedData,
   CardUpdatedData,
   CardMovedData,
+  CardDeletedData,
   LaneReorderedData,
 } from '../types';
 
 export const cardRoutes = (workspacePath: string) => {
   const cardService = new CardService(workspacePath);
   const wsService = WebSocketService.getInstance();
+  const historyService = HistoryService.getInstance();
 
   return new Elysia()
     .get('/api/projects/:projectSlug/cards', async ({ params, query }) => {
@@ -69,33 +72,86 @@ export const cardRoutes = (workspacePath: string) => {
       const card = await cardService.getCard(params.projectSlug, params.cardSlug);
       return card;
     })
-    .delete('/api/projects/:projectSlug/cards/:cardSlug', async ({ params }) => {
-      // Get card info before archiving
+    .delete('/api/projects/:projectSlug/cards/:cardSlug', async ({ params, query }) => {
+      // Get card info before deletion
       const card = await cardService.getCard(params.projectSlug, params.cardSlug);
       const sourceLane = card.lane;
 
-      await cardService.archiveCard(params.projectSlug, params.cardSlug);
+      const hardDelete = query.hard === 'true';
 
-      // Broadcast card:moved event (archiving is a move to archive lane)
-      const eventData: CardMovedData = {
-        slug: params.cardSlug,
-        sourceLane,
-        targetLane: '04-archive',
-      };
-      wsService.broadcast(params.projectSlug, {
-        type: 'event',
-        event: {
-          type: 'card:moved',
+      if (hardDelete) {
+        // Permanently delete the card
+        await cardService.deleteCard(params.projectSlug, params.cardSlug);
+
+        // Broadcast card:deleted event
+        const eventData: CardDeletedData = {
+          slug: params.cardSlug,
+          lane: sourceLane,
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'card:deleted',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
+
+        // Record history event
+        historyService.recordEvent({
           projectSlug: params.projectSlug,
-          timestamp: new Date().toISOString(),
-          data: eventData,
-        },
-      });
+          action: 'card:deleted',
+          description: `Card "${card.frontmatter.title}" was permanently deleted`,
+          metadata: {
+            cardSlug: params.cardSlug,
+            cardTitle: card.frontmatter.title,
+            lane: sourceLane,
+          },
+        });
 
-      return {
-        slug: params.cardSlug,
-        archived: true,
-      };
+        return {
+          slug: params.cardSlug,
+          deleted: true,
+        };
+      } else {
+        // Archive the card (move to archive lane)
+        await cardService.archiveCard(params.projectSlug, params.cardSlug);
+
+        // Broadcast card:moved event (archiving is a move to archive lane)
+        const eventData: CardMovedData = {
+          slug: params.cardSlug,
+          sourceLane,
+          targetLane: '04-archive',
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'card:moved',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
+
+        // Record history event
+        historyService.recordEvent({
+          projectSlug: params.projectSlug,
+          action: 'card:archived',
+          description: `Card "${card.frontmatter.title}" moved to Archive`,
+          metadata: {
+            cardSlug: params.cardSlug,
+            cardTitle: card.frontmatter.title,
+            sourceLane,
+            targetLane: '04-archive',
+          },
+        });
+
+        return {
+          slug: params.cardSlug,
+          archived: true,
+        };
+      }
     })
     .patch(
       '/api/projects/:projectSlug/cards/:cardSlug/move',
@@ -149,6 +205,9 @@ export const cardRoutes = (workspacePath: string) => {
           lane: params.laneSlug,
           order: body.order,
         };
+        
+        console.log(`[CardRoutes] Broadcasting lane:reordered event:`, eventData);
+        
         wsService.broadcast(params.projectSlug, {
           type: 'event',
           event: {
