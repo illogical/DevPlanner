@@ -87,7 +87,10 @@ Structured 5-phase workflow for building an autonomous delivery robot:
 8. Generate detailed report
 9. Exit with code 0 (≥75%) or 1 (<75%)
 
-#### Real-Time Output
+#### Real-Time Output Example
+
+Below is a complete example of the verification script output showing all phases:
+
 ```
 ================================================================================
   DevPlanner MCP Agent Verification
@@ -97,32 +100,122 @@ Configuration:
   Model:           qwen2.5 (Ollama)
   Workspace:       /tmp/devplanner-verify-abc123
   MCP Server:      Spawned (PID 12345)
+  Pause Duration:  2 seconds between actions
 
 Phase 1: Loading MCP Tools
 ✓ Loaded 17 MCP tools
-✓ Converted to Ollama format
+✓ Converted 17 tools to Ollama format
 
 Phase 2: Starting Agent Workflow
+
 → Agent Action 1:
   🔧 Tool: create_project
-     ✓ Result: { project: { slug: "autonomous-delivery-robot" } }
+     Args: { name: "Autonomous Delivery Robot", ... }
+     ✓ Result: { project: { slug: "autonomous-delivery-robot", ... } }
 
 ⏳ Pausing 2s...
 
-[... continued ...]
+→ Agent Action 2:
+  🔧 Tool: get_board_overview
+     Args: { projectSlug: "autonomous-delivery-robot" }
+     ✓ Result: { lanes: [...], summary: { totalCards: 0 } }
 
-Phase 5: Final Report
-=== Detailed Metrics ===
-[metrics breakdown]
+⏳ Pausing 2s...
 
-=== Scoring Report ===
-Tool Selection:        14/15  (93.3%)  → 0.233
-Parameter Correctness: 13/15  (86.7%)  → 0.217
-Workflow Logic:        15/15  (100%)   → 0.250
-Task Completion:       14/15  (93.3%)  → 0.233
+→ Agent Action 3:
+  🔧 Tool: create_card
+     Args: { projectSlug: "autonomous-delivery-robot", title: "Navigation System", priority: "high", assignee: "agent" }
+     ✓ Result: { card: { slug: "navigation-system", lane: "01-upcoming" } }
 
-FINAL SCORE: 0.93 (93%) - EXCELLENT ✅
+⏳ Pausing 2s...
+
+[... more actions ...]
+
+================================================================================
+  VERIFICATION COMPLETE
+================================================================================
+
+Metrics:
+  Total Tool Calls:       15
+  Successful:             14  (93.3%)
+  Failed:                 0   (0.0%)
+  Warnings:               1   (6.7%)
+
+  Total Duration:         42.3 seconds
+  Avg Call Time:          0.88 seconds
+
+Scoring:
+  Tool Selection:         14/15  (93.3%)  → 0.93 * 0.25 = 0.233
+  Parameter Correctness:  13/15  (86.7%)  → 0.87 * 0.25 = 0.217
+  Workflow Logic:         15/15  (100%)   → 1.00 * 0.25 = 0.250
+  Task Completion:        14/15  (93.3%)  → 0.93 * 0.25 = 0.233
+
+  FINAL SCORE: 0.93 (93%) - EXCELLENT ✅
+
+Model Assessment:
+  ✅ qwen2.5 can effectively work with DevPlanner MCP tools
+  ✅ Agent successfully completed a realistic robotics workflow
+  ⚠️  Minor issue: Occasionally omits optional parameters (tags)
+  ✅ Excellent lane slug formatting (always used 02-in-progress)
+  ✅ Perfect workflow logic (cards moved in correct order)
 ```
+
+### Component Architecture
+
+**`lib/ollama-provider.ts`** - Ollama API client with tool calling support
+- Connects to Ollama at `http://localhost:11434/api/chat`
+- Converts MCP schemas to Ollama tool format
+- Non-streaming responses
+- Helper methods for connection checking and model listing
+
+**`lib/mcp-client.ts`** - MCP server stdio communication wrapper
+- Spawns MCP server as subprocess
+- JSON-RPC 2.0 protocol implementation
+- Line-buffered response parsing
+- 15-second timeout per tool call
+
+**`lib/agent-metrics.ts`** - Performance tracking and scoring system
+- 4-metric scoring (Tool Selection, Parameter Correctness, Workflow Logic, Task Completion)
+- Parameter validation (lane slugs, card slugs, enum values)
+- Workflow pattern detection
+- Color-coded terminal reporting
+
+**`prompts/scenarios/delivery-robot.md`** - Structured 5-phase workflow scenario
+- System prompt explaining all 17 MCP tools
+- Project brief for autonomous delivery robot
+- Phase-by-phase instructions
+- Expected tool calls and success criteria
+
+### Recommended Models
+
+Based on tool calling quality:
+- **qwen2.5** (default) - Excellent tool calling support, best results
+- **llama3.1** - Good tool calling, widely available
+- **mistral** - Decent tool calling, faster inference
+
+### Troubleshooting Guide
+
+**If Ollama connection fails:**
+- Ensure Ollama is running: `ollama serve`
+- Check Ollama is accessible: `curl http://localhost:11434/api/tags`
+- Verify model is pulled: `ollama list`
+
+**If MCP server fails to spawn:**
+- Check `DEVPLANNER_WORKSPACE` is set
+- Try running MCP server manually: `bun src/mcp-server.ts`
+- Check for TypeScript errors in MCP implementation
+
+**If agent makes incorrect tool calls:**
+- Try verbose mode to see full LLM responses: `--verbose`
+- Check if the model supports tool calling: `ollama show <model> --modelfile`
+- Try a different model with better tool calling support
+
+**If score is low:**
+- Review the scoring report to see which metric is failing
+- Check the delivery-robot.md scenario for clarity
+- Consider adjusting tool descriptions in `src/mcp/schemas.ts`
+- Try verbose mode to understand the agent's reasoning
+- Test with a different model known for better tool calling
 
 ### 4. Documentation
 
