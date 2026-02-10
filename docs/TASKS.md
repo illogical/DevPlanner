@@ -233,32 +233,56 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
   - [ ] Claude Desktop and Claude Code configuration examples
   - [ ] Demo video/GIF showing agent workflows
 
+*MVP Phases End*
+
 ---
 
-# Post-MVP / Future Enhancements
+# Upcoming Enhancements/Features
 
-## Near-term priorities (after Phase 18)
+## Near-term priorities
 
-### MCP Verification & Tuning
-- [ ] Test verification script with real Ollama models (qwen2.5, llama3.1, mistral)
-- [ ] Collect baseline scores for different models
-- [ ] Iterate on tool descriptions based on failure patterns
-- [ ] Add more scenarios (AI/ML pipeline, web app, IoT system)
-- [ ] Implement LMAPI provider for multi-model comparison
-- [ ] Add OpenRouter provider for testing cloud models (GPT-4, Claude)
-- [ ] A/B test different system prompts
-- [ ] Implement automated tuning of tool descriptions
-- [ ] Add conversation history analysis (how many turns needed?)
-- [ ] Track which tools are never/rarely used
-- [ ] Identify tool combinations that cause confusion
-- [ ] Create "best practices" guide for MCP tool usage based on metrics
+### Card Identifiers
+
+**Spec:** `docs/features/card-identifiers.md`
+
+- [ ] Implement `generatePrefix()` utility with uniqueness checking
+- [ ] Update `ProjectService.createProject()` to auto-generate prefix and set `nextCardNumber: 1`
+- [ ] Update `CardService.createCard()` to assign sequential card numbers from project config
+- [ ] Create migration script to assign IDs to existing cards based on creation date order
+- [ ] Update seed script to assign card numbers to seed data
+- [ ] Display card identifiers in `CardPreview` and `CardDetailHeader` components
+
+### Description Editor & Tag Management
+
+**Spec:** `docs/features/description-editor-tags.md`
+
+- [ ] Add `GET /api/projects/:projectSlug/tags` backend endpoint to collect unique project tags
+- [ ] Implement `cardsApi.update()` in frontend API client
+- [ ] Add `updateCard()` store action with local action deduplication and change indicators
+- [ ] Rewrite `CardContent.tsx` with view/edit toggle (pencil icon, Save/Cancel, Cmd+Enter)
+- [ ] Create `TagInput.tsx` combobox component with autocomplete and "Create new" option
+- [ ] Update `CardMetadata.tsx` to use `TagInput` for tag management
+
+### Search and Highlight
+
+**Spec:** `docs/features/search-highlight.md`
+
+- [ ] Implement `GET /api/projects/:projectSlug/cards/search?q=` backend endpoint (before `:cardSlug` route)
+- [ ] Add `cardsApi.search()` to frontend API client
+- [ ] Add search state and debounced `executeSearch()` action to store
+- [ ] Create `highlightText()` utility that wraps matches in `<mark>` elements
+- [ ] Replace Header spacer with search input and integrate with store
+- [ ] Update `CardPreview`, `CardPreviewTasks`, and `TaskCheckbox` to highlight and expand on matches
 
 ### Content & Features
-- [ ] Add identifier to each card for a shortcut for referring to cards in conversation
-- [ ] Plain text or Markdown editor for card content.
-- [ ] Search and filter cards/tasks in a project
 - [ ] Reference/file management
 - [ ] Optimistic locking conflict UI
+
+### Search Improvements
+- [ ] Search card descriptions in addition to titles and tasks
+- [ ] Show card description snippet on cards when search is active
+- [ ] Show all tasks (including completed) when search matches exist on a card
+- [ ] Brainstorm: How to surface search matches in collapsed lanes
 
 ### History Persistence & Performance
 - [ ] Implement persistent JSON file storage for history events
@@ -274,7 +298,7 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] Ensure TASKS.md is in sync with actual implementation status
 - [ ] Add architecture diagrams for WebSocket and history features
 
-## Later priorities
+## Future Enhancements
 
 ### Task Status & Collaboration
 - [ ] Add task status tracking (not-started, in-progress, complete) beyond checkboxes
@@ -293,28 +317,42 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] Brainstorm requirements for multi-agent, multi-project workflows
 - [ ] Design conflict resolution for concurrent agent modifications
 
+### MCP Verification & Tuning
+- [ ] Test verification script with real Ollama models (qwen2.5, llama3.1, mistral)
+- [ ] Collect baseline scores for different models
+- [ ] Iterate on tool descriptions based on failure patterns
+- [ ] Add more scenarios (AI/ML pipeline, web app, IoT system)
+- [ ] Implement LMAPI provider for multi-model comparison
+- [ ] Add OpenRouter provider for testing cloud models (GPT-4, Claude)
+- [ ] A/B test different system prompts
+- [ ] Implement automated tuning of tool descriptions
+- [ ] Add conversation history analysis (how many turns needed?)
+- [ ] Track which tools are never/rarely used
+- [ ] Identify tool combinations that cause confusion
+- [ ] Create "best practices" guide for MCP tool usage based on metrics
 
-## Phase 16: Real-Time Activity History
 
-- [x] 16.1 Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action, description, metadata
-- [x] 16.2 Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
-- [x] 16.3 Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
-- [x] 16.4 Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
-- [x] 16.5 Broadcast `history:event` via WebSocket when new events are recorded
-- [x] 16.6 Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
-- [x] 16.7 Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
-- [ ] 16.8 Implement `history:event` WebSocket handler to append events to store in real-time (requires Phase 14 WebSocket client)
-- [x] 16.9 Render ActivityLog in sidebar or collapsible panel (slide-out panel with tabs and animations)
-- [ ] 16.10 Test activity log — verify events appear in real-time as cards/tasks are modified (requires Phase 14-15 for WebSocket support)
+## Real-Time Activity History
+
+- [x] Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action,     description, metadata
+- [x] Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
+- [x] Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
+- [x] Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
+- [x] Broadcast `history:event` via WebSocket when new events are recorded
+- [x] Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
+- [x] Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
+- [ ] Implement `history:event` WebSocket handler to append events to store in real-time (requires Phase 14 WebSocket client)
+- [x] Render ActivityLog in sidebar or collapsible panel (slide-out panel with tabs and animations)
+- [ ] Test activity log — verify events appear in real-time as cards/tasks are modified (requires Phase 14-15 for WebSocket support)
 
 
-## Phase 17: Production Optimization & Testing
+## Final Phase: Production Optimization & Testing
 
-- [ ] 17.1 Implement message batching for rapid changes (200ms window, send single combined update)
-- [ ] 17.2 Add environment variable for WebSocket URL (`VITE_WS_URL`) with sensible default
-- [ ] 17.3 Add graceful degradation — show warning if WebSocket unavailable, fallback to manual refresh
-- [ ] 17.4 Write unit tests for WebSocketService (connection tracking, subscription, broadcast)
-- [ ] 17.5 Write unit tests for FileWatcherService (change detection, debouncing, file filtering)
-- [ ] 17.6 Test multi-client scenario — two browser tabs, verify both receive updates simultaneously
-- [ ] 17.7 Test reconnection scenario — stop/restart server, verify clients auto-reconnect and re-subscribe
-- [ ] 17.8 Test edge cases — rapid file changes, corrupted files, file rename vs delete, large payloads
+- [ ] Implement message batching for rapid changes (200ms window, send single combined update)
+- [ ] Add environment variable for WebSocket URL (`VITE_WS_URL`) with sensible default
+- [ ] Add graceful degradation — show warning if WebSocket unavailable, fallback to manual refresh
+- [ ] Write unit tests for WebSocketService (connection tracking, subscription, broadcast)
+- [ ] Write unit tests for FileWatcherService (change detection, debouncing, file filtering)
+- [ ] Test multi-client scenario — two browser tabs, verify both receive updates simultaneously
+- [ ] Test reconnection scenario — stop/restart server, verify clients auto-reconnect and re-subscribe
+- [ ] Test edge cases — rapid file changes, corrupted files, file rename vs delete, large payloads

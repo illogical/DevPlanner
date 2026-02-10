@@ -14,8 +14,10 @@ export function CardContent({ content }: CardContentProps) {
     });
 
     // Remove the ## Tasks section since we render it separately
+    // Also remove checklist items to avoid redundancy with the Tasks section
     const contentWithoutTasks = content
       .replace(/## Tasks[\s\S]*?(?=##|$)/g, '')
+      .replace(/^\s*-\s*\[[\sx]\]\s+.*/gm, '')
       .trim();
 
     if (!contentWithoutTasks) {
