@@ -285,9 +285,23 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [x] Replace Header spacer with search input and integrate with store
 - [x] Update `CardPreview`, `CardPreviewTasks`, and `TaskCheckbox` to highlight and expand on matches
 
-### Content & Features
-- [ ] Reference/file management
-- [ ] Optimistic locking conflict UI
+
+### Reference/File Management
+
+**Spec:** `docs/features/reference-file-management.md`
+
+- [ ] Implement backend file service, REST API routes, and MCP tools for project-level file storage with many-to-many card associations
+- [ ] Add card detail files section (replace attachments placeholder) — upload, associate, disassociate, view files
+- [ ] Build sidebar Files panel for project-level file management — upload, browse, delete with warnings
+- [ ] Verify end-to-end: file upload/download, associations, WebSocket sync, MCP tools for LLM agents
+
+#### Future: URL References
+- [ ] Extend `_files.json` to support URL references alongside file uploads (type discriminator, metadata fetching, MCP tools)
+
+
+### Frontend Features
+- [ ] Sub-task support with multiple levels of indenting ideally via tab and shift-tab
+
 
 ### Search Improvements
 - [ ] Search card descriptions in addition to titles and tasks
@@ -334,6 +348,7 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] Implement task-level locking or "claimed by" indicator
 - [ ] Add UI for marking individual tasks as in-progress
 - [ ] Support multiple agents working on different tasks within same card
+  - [ ] Optimistic locking conflict UI
 
 ### User Attribution & Multi-Agent Support
 - [ ] Add user/agent identification to all history events
@@ -358,6 +373,7 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] Track which tools are never/rarely used
 - [ ] Identify tool combinations that cause confusion
 - [ ] Create "best practices" guide for MCP tool usage based on metrics
+
 
 
 ## Real-Time Activity History
