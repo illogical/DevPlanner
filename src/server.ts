@@ -2,6 +2,7 @@ import { Elysia } from 'elysia';
 import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
 import { taskRoutes } from './routes/tasks';
+import { fileRoutes } from './routes/files';
 import { preferencesRoutes } from './routes/preferences';
 import { websocketRoutes } from './routes/websocket';
 import { historyRoutes } from './routes/history';
@@ -73,6 +74,7 @@ const app = new Elysia()
   .use(projectRoutes(workspacePath))
   .use(cardRoutes(workspacePath))
   .use(taskRoutes(workspacePath))
+  .use(fileRoutes(workspacePath))
   .use(preferencesRoutes(workspacePath))
   .use(websocketRoutes)
   .use(historyRoutes)
