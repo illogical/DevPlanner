@@ -225,3 +225,16 @@ export interface ProjectUpdatedData {
 export interface ProjectDeletedData {
   slug: string;
 }
+
+// Search types
+export interface SearchResult {
+  slug: string;
+  lane: string;
+  matchedFields: ('title' | 'tags' | 'tasks')[];
+  matchedTaskIndices: number[];
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  query: string;
+}

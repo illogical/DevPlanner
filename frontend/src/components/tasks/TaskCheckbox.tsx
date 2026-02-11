@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, useAnimate } from 'framer-motion';
 import { cn } from '../../utils/cn';
+import { highlightText } from '../../utils/highlight';
 import { useStore } from '../../store';
 import type { TaskItem } from '../../types';
 
@@ -9,9 +10,11 @@ interface TaskCheckboxProps {
   cardSlug: string;
   onToggle: (checked: boolean) => Promise<void>;
   compact?: boolean;
+  searchQuery?: string;
+  isSearchMatch?: boolean;
 }
 
-export function TaskCheckbox({ task, cardSlug, onToggle, compact }: TaskCheckboxProps) {
+export function TaskCheckbox({ task, cardSlug, onToggle, compact, searchQuery, isSearchMatch }: TaskCheckboxProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [scope, animate] = useAnimate();
   const { getTaskIndicator } = useStore();
@@ -83,10 +86,11 @@ export function TaskCheckbox({ task, cardSlug, onToggle, compact }: TaskCheckbox
           task.checked
             ? 'text-gray-500 line-through'
             : 'text-gray-200 group-hover:text-gray-100',
-          compact ? 'text-xs' : 'text-sm'
+          compact ? 'text-xs' : 'text-sm',
+          isSearchMatch && 'font-medium', // Make matched tasks slightly bolder
         )}
       >
-        {task.text}
+        {searchQuery ? highlightText(task.text, searchQuery) : task.text}
       </span>
     </motion.label>
   );

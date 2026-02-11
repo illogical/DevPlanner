@@ -11,6 +11,7 @@ import type {
   ArchiveResponse,
   TagsResponse,
   Preferences,
+  SearchResponse,
 } from '../types';
 
 const API_BASE = '/api';
@@ -129,6 +130,11 @@ export const cardsApi = {
 
   listTags: (projectSlug: string) =>
     fetchJSON<TagsResponse>(`${API_BASE}/projects/${projectSlug}/tags`),
+
+  search: (projectSlug: string, query: string) =>
+    fetchJSON<SearchResponse>(
+      `${API_BASE}/projects/${projectSlug}/cards/search?q=${encodeURIComponent(query)}`
+    ),
 };
 
 // Task endpoints

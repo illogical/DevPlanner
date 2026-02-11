@@ -9,7 +9,11 @@ interface HeaderProps {
 }
 
 export function Header({ connectionState }: HeaderProps) {
-  const { isSidebarOpen, toggleSidebar, isActivityPanelOpen, toggleActivityPanel } = useStore();
+  const {
+    isSidebarOpen, toggleSidebar,
+    isActivityPanelOpen, toggleActivityPanel,
+    searchQuery, setSearchQuery, clearSearch, isSearching,
+  } = useStore();
 
   const handleRetry = () => {
     const client = getWebSocketClient();
@@ -93,8 +97,47 @@ export function Header({ connectionState }: HeaderProps) {
         <h1 className="text-lg font-semibold text-gray-100">DevPlanner</h1>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
+      {/* Search box */}
+      <div className="flex-1 max-w-md mx-4">
+        <div className="relative">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search cards..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-8 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+          />
+          {searchQuery && !isSearching && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
+              aria-label="Clear search"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          {isSearching && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-gray-600 border-t-blue-400 rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Connection Indicator */}
       <ConnectionIndicator connectionState={connectionState} onRetry={handleRetry} />

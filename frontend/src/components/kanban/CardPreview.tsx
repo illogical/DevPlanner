@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
+import { highlightText } from '../../utils/highlight';
 import { Badge, AssigneeBadge } from '../ui/Badge';
 import { Collapsible } from '../ui/Collapsible';
 import { TaskProgressBar } from '../tasks/TaskProgressBar';
@@ -33,6 +34,8 @@ export function CardPreview({
 }: CardPreviewProps) {
   const { expandedCardTasks, toggleCardTaskExpansion, openCardDetail, projects } =
     useStore();
+  const searchQuery = useStore(state => state.searchQuery);
+  const isHighlighted = useStore(state => state.isCardHighlighted(card.slug));
   const isExpanded = expandedCardTasks.has(card.slug);
   const hasTasks = card.taskProgress.total > 0;
 
@@ -106,7 +109,9 @@ export function CardPreview({
           'hover:bg-gray-750 card-hover',
           !isDragging && !isDraggingOverlay && getPriorityBorderClass(card.frontmatter.priority),
           (isDragging || isDraggingOverlay) && 'shadow-xl shadow-blue-500/20 rotate-2 scale-105 opacity-90 border-blue-500',
-          isDragging && 'opacity-50' // Reduce opacity of the original card while dragging
+          isDragging && 'opacity-50', // Reduce opacity of the original card while dragging
+          // Search highlight
+          isHighlighted && !isDragging && 'ring-2 ring-yellow-500/50 border-yellow-500/30',
         )}
       >
         {/* Header: Title + Task Count */}
@@ -115,7 +120,9 @@ export function CardPreview({
             {cardId && (
               <span className="text-gray-500 font-mono text-xs mr-1.5">{cardId}</span>
             )}
-            {card.frontmatter.title}
+            {searchQuery
+              ? highlightText(card.frontmatter.title, searchQuery)
+              : card.frontmatter.title}
           </h3>
 
           {hasTasks && (

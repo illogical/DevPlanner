@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { cardsApi } from '../../api/client';
 import { useStore } from '../../store';
 import { TaskCheckbox } from '../tasks/TaskCheckbox';
@@ -18,10 +18,20 @@ export function CardPreviewTasks({
 }: CardPreviewTasksProps) {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { toggleTask } = useStore();
+  const toggleTask = useStore(state => state.toggleTask);
+
+  // Search state
+  const searchQuery = useStore(state => state.searchQuery);
+  const searchResults = useStore(state => state.searchResults);
+  const matchedTaskIndices = useMemo(() => {
+    const result = searchResults.find(r => r.slug === cardSlug);
+    return result?.matchedTaskIndices ?? [];
+  }, [searchResults, cardSlug]);
+  const hasSearchMatches = matchedTaskIndices.length > 0;
 
   useEffect(() => {
     let mounted = true;
+    setIsLoading(true);
 
     cardsApi
       .get(projectSlug, cardSlug)
@@ -42,7 +52,7 @@ export function CardPreviewTasks({
     return () => {
       mounted = false;
     };
-  }, [projectSlug, cardSlug, JSON.stringify(taskProgress)]);
+  }, [projectSlug, cardSlug]);
 
   if (isLoading) {
     return (
@@ -60,7 +70,12 @@ export function CardPreviewTasks({
     );
   }
 
-  if (taskProgress.total === taskProgress.checked && taskProgress.total > 0) {
+  // Show "All tasks complete!" ONLY if no search matches on this card's tasks
+  if (
+    taskProgress.total === taskProgress.checked &&
+    taskProgress.total > 0 &&
+    !hasSearchMatches
+  ) {
     return (
       <p className="text-xs text-green-500 py-2 flex items-center gap-1">
         <svg
@@ -83,23 +98,33 @@ export function CardPreviewTasks({
 
   const handleToggle = async (task: TaskItem, checked: boolean) => {
     await toggleTask(cardSlug, task.index, checked);
-    // Store update + WebSocket will trigger refetch via taskProgress change
+    setTasks((prev) =>
+      prev.map((item) =>
+        item.index === task.index ? { ...item, checked } : item
+      )
+    );
   };
+
+  // When search is active with matches, show all tasks (no 5-task limit)
+  const displayTasks = hasSearchMatches ? tasks : tasks.slice(0, 5);
+  const remainingCount = hasSearchMatches ? 0 : Math.max(0, tasks.length - 5);
 
   return (
     <div className="space-y-0.5 py-1">
-      {tasks.slice(0, 5).map((task) => (
+      {displayTasks.map((task) => (
         <TaskCheckbox
           key={task.index}
           task={task}
           cardSlug={cardSlug}
           onToggle={(checked) => handleToggle(task, checked)}
           compact
+          searchQuery={searchQuery}
+          isSearchMatch={matchedTaskIndices.includes(task.index)}
         />
       ))}
-      {tasks.length > 5 && (
+      {remainingCount > 0 && (
         <p className="text-xs text-gray-500 mt-1 pl-6">
-          +{tasks.length - 5} more tasks...
+          +{remainingCount} more tasks...
         </p>
       )}
     </div>

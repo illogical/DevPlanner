@@ -80,6 +80,55 @@ export const cardRoutes = (workspacePath: string) => {
       }
       return { tags: Array.from(tagSet).sort() };
     })
+    .get('/api/projects/:projectSlug/cards/search', async ({ params, query }) => {
+      const searchQuery = query.q?.trim();
+      if (!searchQuery) {
+        return { results: [], query: '' };
+      }
+
+      const queryLower = searchQuery.toLowerCase();
+      const cards = await cardService.listCards(params.projectSlug);
+      const results: Array<{
+        slug: string;
+        lane: string;
+        matchedFields: string[];
+        matchedTaskIndices: number[];
+      }> = [];
+
+      for (const cardSummary of cards) {
+        const matchedFields: string[] = [];
+        const matchedTaskIndices: number[] = [];
+
+        // Search title
+        if (cardSummary.frontmatter.title.toLowerCase().includes(queryLower)) {
+          matchedFields.push('title');
+        }
+
+        // Search tasks (requires full card load)
+        if (cardSummary.taskProgress.total > 0) {
+          const fullCard = await cardService.getCard(params.projectSlug, cardSummary.slug);
+          for (const task of fullCard.tasks) {
+            if (task.text.toLowerCase().includes(queryLower)) {
+              if (!matchedFields.includes('tasks')) {
+                matchedFields.push('tasks');
+              }
+              matchedTaskIndices.push(task.index);
+            }
+          }
+        }
+
+        if (matchedFields.length > 0) {
+          results.push({
+            slug: cardSummary.slug,
+            lane: cardSummary.lane,
+            matchedFields,
+            matchedTaskIndices,
+          });
+        }
+      }
+
+      return { results, query: searchQuery };
+    })
     .get('/api/projects/:projectSlug/cards/:cardSlug', async ({ params }) => {
       const card = await cardService.getCard(params.projectSlug, params.cardSlug);
       return card;

@@ -278,12 +278,12 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 **Spec:** `docs/features/search-highlight.md`
 
-- [ ] Implement `GET /api/projects/:projectSlug/cards/search?q=` backend endpoint (before `:cardSlug` route)
-- [ ] Add `cardsApi.search()` to frontend API client
-- [ ] Add search state and debounced `executeSearch()` action to store
-- [ ] Create `highlightText()` utility that wraps matches in `<mark>` elements
-- [ ] Replace Header spacer with search input and integrate with store
-- [ ] Update `CardPreview`, `CardPreviewTasks`, and `TaskCheckbox` to highlight and expand on matches
+- [x] Implement `GET /api/projects/:projectSlug/cards/search?q=` backend endpoint (before `:cardSlug` route)
+- [x] Add `cardsApi.search()` to frontend API client
+- [x] Add search state and debounced `executeSearch()` action to store
+- [x] Create `highlightText()` utility that wraps matches in `<mark>` elements
+- [x] Replace Header spacer with search input and integrate with store
+- [x] Update `CardPreview`, `CardPreviewTasks`, and `TaskCheckbox` to highlight and expand on matches
 
 ### Content & Features
 - [ ] Reference/file management
@@ -310,6 +310,23 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [ ] Add architecture diagrams for WebSocket and history features
 
 ## Future Enhancements
+
+### WebSocket Smart Merge — Preventing Edit Interruptions
+
+**Spec:** `docs/features/websocket-smart-merge.md`
+
+**Problem:** WebSocket messages currently interrupt users mid-edit, causing the edit screen to disappear and work to be lost.
+
+**Solution:** Track active editing state and intelligently merge WebSocket updates without interrupting the user.
+
+**Implementation tasks:**
+- [ ] Add edit state tracking to Zustand store (`activeCardEdits` with `isEditingTitle`, `isEditingContent`, `isEditingMetadata`)
+- [ ] Track editing state in CardDetailHeader, CardContent, and CardMetadata components
+- [ ] Implement smart merge logic in WebSocket `card:updated` handler that preserves edited fields while updating non-edited fields
+- [ ] Clean up edit state when detail panel closes
+- [ ] Verify with multi-tab testing that edits are never interrupted while external changes still appear in real-time
+
+**Benefits:** No more edit interruptions, real-time collaboration on non-edited fields, better UX for concurrent editing scenarios.
 
 ### Task Status & Collaboration
 - [ ] Add task status tracking (not-started, in-progress, complete) beyond checkboxes

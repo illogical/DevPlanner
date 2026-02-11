@@ -15,7 +15,11 @@ import type {
   LaneReorderedData,
   ProjectUpdatedData,
   ProjectDeletedData,
+  SearchResult,
 } from '../types';
+
+// Search debounce timer
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Change indicator types for visual animations
 export type ChangeIndicatorType = 
@@ -140,6 +144,15 @@ interface DevPlannerStore {
   wsHandleLaneReordered?: (data: LaneReorderedData) => void;
   wsHandleProjectUpdated?: (data: ProjectUpdatedData) => void;
   wsHandleProjectDeleted?: (data: ProjectDeletedData) => void;
+
+  // Search
+  searchQuery: string;
+  searchResults: SearchResult[];
+  isSearching: boolean;
+  setSearchQuery: (query: string) => void;
+  clearSearch: () => void;
+  isCardHighlighted: (cardSlug: string) => boolean;
+  getMatchedTaskIndices: (cardSlug: string) => number[];
 }
 
 export const useStore = create<DevPlannerStore>((set, get) => ({
@@ -164,6 +177,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   _recentLocalActions: new Map(),
   _creatingCards: new Set(),
   _lastLoadCardsTime: 0,
+  searchQuery: '',
+  searchResults: [],
+  isSearching: false,
 
   // Project actions
   loadProjects: async () => {
@@ -219,12 +235,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const project = get().projects.find((p) => p.slug === slug);
     if (project) {
       set({ activeProjectSlug: slug });
-      
+      get().clearSearch(); // Clear search when switching projects
+
       // Save to preferences
       preferencesApi.update({ lastSelectedProject: slug }).catch(error => {
         console.error('Failed to save last selected project:', error);
       });
-      
+
       get().initializeLaneState(project.lanes);
       get().loadCards();
     }
@@ -1195,12 +1212,12 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   wsHandleProjectDeleted: (data: ProjectDeletedData) => {
     const { slug } = data;
     const state = get();
-    
+
     console.log(`[wsHandleProjectDeleted] Project ${slug} was deleted`);
-    
+
     // Remove project from list
     const projects = state.projects.filter(p => p.slug !== slug);
-    
+
     // If it was the active project, clear state and close detail panel
     if (state.activeProjectSlug === slug) {
       set({
@@ -1210,12 +1227,69 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         activeCard: null,
         isDetailPanelOpen: false,
       });
-      
+
       // Reload projects list to select a new active project if available
       state.loadProjects();
     } else {
       set({ projects });
     }
+  },
+
+  // Search actions
+  setSearchQuery: (query: string) => {
+    set({ searchQuery: query });
+
+    // Clear previous debounce timer
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+
+    if (!query.trim()) {
+      get().clearSearch();
+      return;
+    }
+
+    // Debounce search: wait 300ms after typing stops
+    set({ isSearching: true });
+    searchDebounceTimer = setTimeout(async () => {
+      const { activeProjectSlug } = get();
+      if (!activeProjectSlug) return;
+
+      try {
+        const { results } = await cardsApi.search(activeProjectSlug, query);
+        set({ searchResults: results, isSearching: false });
+
+        // Auto-expand tasks for cards that have task matches
+        const { expandedCardTasks } = get();
+        for (const result of results) {
+          if (result.matchedTaskIndices.length > 0 && !expandedCardTasks.has(result.slug)) {
+            get().toggleCardTaskExpansion(result.slug);
+          }
+        }
+      } catch (error) {
+        console.error('Search failed:', error);
+        set({ isSearching: false });
+      }
+    }, 300);
+  },
+
+  clearSearch: () => {
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = null;
+    }
+    set({ searchQuery: '', searchResults: [], isSearching: false });
+  },
+
+  isCardHighlighted: (cardSlug: string) => {
+    const { searchResults, searchQuery } = get();
+    if (!searchQuery) return false;
+    return searchResults.some(r => r.slug === cardSlug);
+  },
+
+  getMatchedTaskIndices: (cardSlug: string) => {
+    const result = get().searchResults.find(r => r.slug === cardSlug);
+    return result?.matchedTaskIndices || [];
   },
 }));
 
