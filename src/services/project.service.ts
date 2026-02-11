@@ -2,6 +2,7 @@ import { readdir, readFile, writeFile, mkdir, stat, rm } from 'fs/promises';
 import { join } from 'path';
 import type { ProjectConfig, ProjectSummary, LaneConfig } from '../types';
 import { slugify } from '../utils/slug';
+import { generatePrefix } from '../utils/prefix';
 import { DEFAULT_LANE_CONFIG } from '../constants';
 
 /**
@@ -129,6 +130,14 @@ export class ProjectService {
     // Create timestamps
     const now = new Date().toISOString();
 
+    // Get existing prefixes for uniqueness check
+    const existingProjects = await this.listProjects(true); // include archived
+    const existingPrefixes = existingProjects
+      .map(p => p.prefix)
+      .filter((p): p is string => !!p);
+
+    const prefix = generatePrefix(name, existingPrefixes);
+
     // Create project config
     const config: ProjectConfig = {
       name,
@@ -137,6 +146,8 @@ export class ProjectService {
       updated: now,
       archived: false,
       lanes: this.getDefaultLanes(),
+      prefix,
+      nextCardNumber: 1,
     };
 
     // Create project directory

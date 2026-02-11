@@ -31,10 +31,16 @@ export function CardPreview({
   projectSlug,
   isDragging: isDraggingOverlay,
 }: CardPreviewProps) {
-  const { expandedCardTasks, toggleCardTaskExpansion, openCardDetail } =
+  const { expandedCardTasks, toggleCardTaskExpansion, openCardDetail, projects } =
     useStore();
   const isExpanded = expandedCardTasks.has(card.slug);
   const hasTasks = card.taskProgress.total > 0;
+
+  // Get project prefix for card identifier
+  const projectPrefix = projects.find(p => p.slug === projectSlug)?.prefix;
+  const cardId = (projectPrefix && card.frontmatter.cardNumber)
+    ? `${projectPrefix}-${card.frontmatter.cardNumber}`
+    : null;
 
   // Auto-expand tasks when card is in the In Progress lane
   const hasAutoExpandedRef = useRef(false);
@@ -106,6 +112,9 @@ export function CardPreview({
         {/* Header: Title + Task Count */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <h3 className="text-sm font-medium text-gray-100 line-clamp-2 leading-snug min-w-0">
+            {cardId && (
+              <span className="text-gray-500 font-mono text-xs mr-1.5">{cardId}</span>
+            )}
             {card.frontmatter.title}
           </h3>
 

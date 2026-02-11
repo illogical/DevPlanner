@@ -205,6 +205,23 @@ export class CardService {
     if (data.assignee) frontmatter.assignee = data.assignee;
     if (data.tags) frontmatter.tags = data.tags;
 
+    // Assign card number from project config
+    const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
+    try {
+      const projectConfigRaw = await readFile(projectConfigPath, 'utf-8');
+      const projectConfig = JSON.parse(projectConfigRaw);
+
+      if (projectConfig.nextCardNumber !== undefined) {
+        frontmatter.cardNumber = projectConfig.nextCardNumber;
+        projectConfig.nextCardNumber += 1;
+        projectConfig.updated = new Date().toISOString();
+        await writeFile(projectConfigPath, JSON.stringify(projectConfig, null, 2));
+      }
+    } catch (error) {
+      // If project config can't be read, skip card number assignment
+      console.error('Failed to assign card number:', error);
+    }
+
     const content = data.content || '';
     const markdown = MarkdownService.serialize(frontmatter, content);
 

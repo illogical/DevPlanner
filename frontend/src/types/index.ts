@@ -6,6 +6,8 @@ export interface ProjectConfig {
   updated: string; // ISO 8601
   archived: boolean;
   lanes: Record<string, LaneConfig>;
+  prefix?: string; // 2-4 uppercase chars, unique across projects
+  nextCardNumber?: number; // Auto-incrementing counter, starts at 1
 }
 
 export interface LaneConfig {
@@ -28,6 +30,7 @@ export interface CardFrontmatter {
   created: string; // ISO 8601
   updated: string; // ISO 8601
   tags?: string[];
+  cardNumber?: number; // Sequential within project
 }
 
 export interface Card {

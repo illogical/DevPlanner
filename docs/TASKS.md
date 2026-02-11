@@ -245,12 +245,12 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 **Spec:** `docs/features/card-identifiers.md`
 
-- [ ] Implement `generatePrefix()` utility with uniqueness checking
-- [ ] Update `ProjectService.createProject()` to auto-generate prefix and set `nextCardNumber: 1`
-- [ ] Update `CardService.createCard()` to assign sequential card numbers from project config
-- [ ] Create migration script to assign IDs to existing cards based on creation date order
-- [ ] Update seed script to assign card numbers to seed data
-- [ ] Display card identifiers in `CardPreview` and `CardDetailHeader` components
+- [x] Implement `generatePrefix()` utility with uniqueness checking
+- [x] Update `ProjectService.createProject()` to auto-generate prefix and set `nextCardNumber: 1`
+- [x] Update `CardService.createCard()` to assign sequential card numbers from project config
+- [x] Create migration script to assign IDs to existing cards based on creation date order
+- [x] Update seed script to assign card numbers to seed data (automatic via service layer)
+- [x] Display card identifiers in `CardPreview` and `CardDetailHeader` components
 
 ### Description Editor & Tag Management
 

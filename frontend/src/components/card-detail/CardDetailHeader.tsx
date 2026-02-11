@@ -1,4 +1,5 @@
 import { IconButton } from '../ui/IconButton';
+import { useStore } from '../../store';
 import type { Card } from '../../types';
 
 interface CardDetailHeaderProps {
@@ -15,10 +16,22 @@ const laneDisplayNames: Record<string, string> = {
 };
 
 export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
+  const activeProjectSlug = useStore(state => state.activeProjectSlug);
+  const projectPrefix = useStore(
+    state => state.projects.find(p => p.slug === activeProjectSlug)?.prefix
+  );
+
+  const cardId = (projectPrefix && card.frontmatter.cardNumber)
+    ? `${projectPrefix}-${card.frontmatter.cardNumber}`
+    : null;
+
   return (
     <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-4 z-10">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
+          {cardId && (
+            <span className="text-sm text-gray-500 font-mono">{cardId}</span>
+          )}
           <h2 className="text-xl font-semibold text-gray-100 mb-1">
             {card.frontmatter.title}
           </h2>

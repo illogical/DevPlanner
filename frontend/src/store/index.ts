@@ -115,7 +115,10 @@ interface DevPlannerStore {
   _recentLocalActions: Map<string, number>;
   _recordLocalAction: (key: string) => void;
   _isRecentLocalAction: (key: string) => boolean;
-  
+
+  // Track in-progress card creations (to prevent race with WebSocket)
+  _creatingCards: Set<string>; // Set of card titles being created
+
   // Debounced loadCards for fallback scenarios
   _lastLoadCardsTime: number;
   _debouncedLoadCards: () => void;
@@ -150,6 +153,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   wsConnected: false,
   wsReconnecting: false,
   _recentLocalActions: new Map(),
+  _creatingCards: new Set(),
   _lastLoadCardsTime: 0,
 
   // Project actions
@@ -261,37 +265,52 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { activeProjectSlug } = get();
     if (!activeProjectSlug) return;
 
-    const card = await cardsApi.create(activeProjectSlug, { title, lane });
+    // Track that we're creating this card (before API call)
+    const creationKey = `${activeProjectSlug}:${lane}:${title}`;
+    set((state) => ({
+      _creatingCards: new Set(state._creatingCards).add(creationKey),
+    }));
 
-    // Record local action for self-echo dedup
-    get()._recordLocalAction(`card:created:${card.slug}`);
+    try {
+      const card = await cardsApi.create(activeProjectSlug, { title, lane });
 
-    // Add to cardsByLane
-    set((state) => {
-      const laneCards = state.cardsByLane[lane] || [];
-      return {
-        cardsByLane: {
-          ...state.cardsByLane,
-          [lane]: [
-            ...laneCards,
-            {
-              slug: card.slug,
-              filename: card.filename,
-              lane: card.lane,
-              frontmatter: card.frontmatter,
-              taskProgress: { total: 0, checked: 0 },
-            },
-          ],
-        },
-      };
-    });
+      // Record local action for self-echo dedup
+      get()._recordLocalAction(`card:created:${card.slug}`);
 
-    // Add visual indicator for the new card
-    get().addChangeIndicator({
-      type: 'card:created',
-      cardSlug: card.slug,
-      lane,
-    });
+      // Add to cardsByLane
+      set((state) => {
+        const laneCards = state.cardsByLane[lane] || [];
+        return {
+          cardsByLane: {
+            ...state.cardsByLane,
+            [lane]: [
+              ...laneCards,
+              {
+                slug: card.slug,
+                filename: card.filename,
+                lane: card.lane,
+                frontmatter: card.frontmatter,
+                taskProgress: { total: 0, checked: 0 },
+              },
+            ],
+          },
+        };
+      });
+
+      // Add visual indicator for the new card
+      get().addChangeIndicator({
+        type: 'card:created',
+        cardSlug: card.slug,
+        lane,
+      });
+    } finally {
+      // Remove from in-progress tracking
+      set((state) => {
+        const newSet = new Set(state._creatingCards);
+        newSet.delete(creationKey);
+        return { _creatingCards: newSet };
+      });
+    }
   },
 
   archiveCard: async (cardSlug) => {
@@ -765,13 +784,28 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { card } = data;
     const { slug, lane } = card;
     const state = get();
-    
+
+    // Skip if this is a self-echo from our own action
+    const actionKey = `card:created:${slug}`;
+    if (state._isRecentLocalAction(actionKey)) {
+      console.log(`[wsHandleCardCreated] Skipping self-echo for ${slug}`);
+      return;
+    }
+
+    // Skip if we're currently creating a card with this title in this lane
+    const creationKey = `${state.activeProjectSlug}:${lane}:${card.frontmatter.title}`;
+    if (state._creatingCards.has(creationKey)) {
+      console.log(`[wsHandleCardCreated] Skipping - currently creating card "${card.frontmatter.title}" in ${lane}`);
+      return;
+    }
+
     // Check if card already exists (dedup)
     const existingCards = state.cardsByLane[lane] || [];
     if (existingCards.some(c => c.slug === slug)) {
+      console.log(`[wsHandleCardCreated] Card ${slug} already exists, skipping`);
       return;
     }
-    
+
     // Prepend new card to lane
     set((state) => ({
       cardsByLane: {
@@ -779,16 +813,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         [lane]: [card, ...(state.cardsByLane[lane] || [])],
       },
     }));
-    
-    // Add change indicator if not a recent local action
-    const actionKey = `card:created:${slug}`;
-    if (!state._isRecentLocalAction(actionKey)) {
-      state.addChangeIndicator({
-        type: 'card:created',
-        cardSlug: slug,
-        lane,
-      });
-    }
+
+    // Add change indicator (we know it's not a local action at this point)
+    state.addChangeIndicator({
+      type: 'card:created',
+      cardSlug: slug,
+      lane,
+    });
   },
 
   wsHandleCardUpdated: (data: CardUpdatedData) => {
