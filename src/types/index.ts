@@ -91,6 +91,21 @@ export interface Preferences {
   lastSelectedProject: string | null;
 }
 
+// File types
+export interface ProjectFileEntry {
+  filename: string;        // Stored filename (unique within project _files/ dir)
+  originalName: string;    // Original filename at upload time
+  description: string;     // User-provided description (empty string if none)
+  mimeType: string;        // e.g. "application/pdf", "text/markdown"
+  size: number;            // File size in bytes
+  created: string;         // ISO 8601 timestamp
+  cardSlugs: string[];     // Associated card slugs (many-to-many)
+}
+
+export interface ProjectFilesManifest {
+  files: ProjectFileEntry[];
+}
+
 // WebSocket types
 export type WebSocketEventType =
   | 'card:created'
@@ -101,7 +116,12 @@ export type WebSocketEventType =
   | 'lane:reordered'
   | 'project:updated'
   | 'project:deleted'
-  | 'history:event';
+  | 'history:event'
+  | 'file:added'
+  | 'file:deleted'
+  | 'file:updated'
+  | 'file:associated'
+  | 'file:disassociated';
 
 export interface WebSocketEvent {
   type: WebSocketEventType;
@@ -174,6 +194,29 @@ export interface ProjectUpdatedData {
 
 export interface ProjectDeletedData {
   slug: string;
+}
+
+// File event payload types
+export interface FileAddedData {
+  file: ProjectFileEntry;
+}
+
+export interface FileDeletedData {
+  filename: string;
+}
+
+export interface FileUpdatedData {
+  file: ProjectFileEntry;
+}
+
+export interface FileAssociatedData {
+  filename: string;
+  cardSlug: string;
+}
+
+export interface FileDisassociatedData {
+  filename: string;
+  cardSlug: string;
 }
 
 // History types
