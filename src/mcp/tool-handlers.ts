@@ -214,6 +214,7 @@ async function handleGetCard(input: GetCardInput): Promise<GetCardOutput> {
       card,
       files: files.map(f => ({
         filename: f.filename,
+        originalName: f.originalName,
         description: f.description,
         mimeType: f.mimeType,
         size: f.size,

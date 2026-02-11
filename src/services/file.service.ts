@@ -166,11 +166,8 @@ export class FileService {
     const filename = await this.generateUniqueFilename(projectSlug, originalName);
     const filePath = join(filesDir, filename);
 
-    // Write file
-    const buffer = Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer);
-    await Bun.write(filePath, buffer);
-
     // Create file entry
+    const buffer = Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer);
     const entry: ProjectFileEntry = {
       filename,
       originalName,
@@ -181,10 +178,24 @@ export class FileService {
       cardSlugs: [],
     };
 
-    // Update manifest
+    // Update manifest first
     const manifest = await this.readManifest(projectSlug);
     manifest.files.push(entry);
     await this.writeManifest(projectSlug, manifest);
+
+    // Write physical file after manifest is updated
+    try {
+      await Bun.write(filePath, buffer);
+    } catch (error) {
+      // Rollback: remove from manifest if file write fails
+      const rollbackManifest = await this.readManifest(projectSlug);
+      const index = rollbackManifest.files.findIndex(f => f.filename === filename);
+      if (index !== -1) {
+        rollbackManifest.files.splice(index, 1);
+        await this.writeManifest(projectSlug, rollbackManifest);
+      }
+      throw error;
+    }
 
     return entry;
   }
@@ -206,18 +217,18 @@ export class FileService {
     const file = manifest.files[fileIndex];
     const associatedCards = [...file.cardSlugs];
 
-    // Remove from manifest
-    manifest.files.splice(fileIndex, 1);
-    await this.writeManifest(projectSlug, manifest);
-
-    // Delete physical file
+    // Delete physical file first
     const filePath = join(this.getFilesDir(projectSlug), filename);
     try {
       await unlink(filePath);
     } catch (error) {
-      // File might already be deleted, that's okay
+      // If physical file doesn't exist, that's okay - continue with manifest cleanup
       console.warn(`Failed to delete file ${filePath}:`, error);
     }
+
+    // Remove from manifest (after physical deletion)
+    manifest.files.splice(fileIndex, 1);
+    await this.writeManifest(projectSlug, manifest);
 
     return { associatedCards };
   }

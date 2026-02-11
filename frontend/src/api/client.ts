@@ -196,7 +196,8 @@ export const filesApi = {
       {
         method: 'POST',
         body: formData,
-        // Do NOT set Content-Type header - browser sets it with boundary
+        // Do NOT set Content-Type header - the browser automatically sets it to
+        // 'multipart/form-data' with the correct boundary parameter required for file uploads
       }
     );
 

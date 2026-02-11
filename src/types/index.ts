@@ -209,6 +209,8 @@ export interface FileUpdatedData {
   file: ProjectFileEntry;
 }
 
+// Note: Files use 'filename' (e.g., "document.pdf") as their identifier,
+// not 'slug', because the actual filename is meaningful for files
 export interface FileAssociatedData {
   filename: string;
   cardSlug: string;
