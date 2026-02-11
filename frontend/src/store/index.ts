@@ -6,6 +6,7 @@ import type {
   Card,
   LaneConfig,
   HistoryEvent,
+  UpdateCardInput,
   CardCreatedData,
   CardUpdatedData,
   CardMovedData,
@@ -72,6 +73,13 @@ interface DevPlannerStore {
     checked: boolean
   ) => Promise<void>;
   addTask: (cardSlug: string, text: string) => Promise<void>;
+
+  // Card editing
+  updateCard: (cardSlug: string, updates: UpdateCardInput) => Promise<void>;
+
+  // Project tags (for autocomplete)
+  projectTags: string[];
+  loadProjectTags: () => Promise<void>;
 
   // Card preview task expansion (local UI state)
   expandedCardTasks: Set<string>;
@@ -150,6 +158,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   changeIndicators: new Map(),
   historyEvents: [],
   isActivityPanelOpen: false,
+  projectTags: [],
   wsConnected: false,
   wsReconnecting: false,
   _recentLocalActions: new Map(),
@@ -590,6 +599,68 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     });
     console.log(`[addTask] After SET #2, store activeCard.tasks:`, get().activeCard?.tasks);
     console.log(`[addTask] COMPLETE for ${cardSlug}`);
+  },
+
+  updateCard: async (cardSlug, updates) => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+
+    // Record local action for self-echo dedup
+    get()._recordLocalAction(`card:updated:${cardSlug}`);
+
+    const updatedCard = await cardsApi.update(activeProjectSlug, cardSlug, updates);
+
+    // Update activeCard if it matches
+    if (get().activeCard?.slug === cardSlug) {
+      set({ activeCard: updatedCard });
+    }
+
+    // Update card summary in cardsByLane
+    set((state) => {
+      const newCardsByLane = { ...state.cardsByLane };
+      for (const [lane, cards] of Object.entries(newCardsByLane)) {
+        const cardIndex = cards.findIndex((c) => c.slug === cardSlug);
+        if (cardIndex !== -1) {
+          newCardsByLane[lane] = cards.map((c, i) =>
+            i === cardIndex
+              ? {
+                  ...c,
+                  frontmatter: updatedCard.frontmatter,
+                  taskProgress: {
+                    total: updatedCard.tasks.length,
+                    checked: updatedCard.tasks.filter(t => t.checked).length,
+                  },
+                }
+              : c
+          );
+          break;
+        }
+      }
+      return { cardsByLane: newCardsByLane };
+    });
+
+    // Add visual indicator
+    get().addChangeIndicator({
+      type: 'card:updated',
+      cardSlug,
+    });
+
+    // Reload project tags in case new tags were added
+    if (updates.tags !== undefined) {
+      get().loadProjectTags();
+    }
+  },
+
+  loadProjectTags: async () => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+
+    try {
+      const { tags } = await cardsApi.listTags(activeProjectSlug);
+      set({ projectTags: tags });
+    } catch (error) {
+      console.error('Failed to load project tags:', error);
+    }
   },
 
   // Card task expansion

@@ -256,12 +256,21 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 **Spec:** `docs/features/description-editor-tags.md`
 
-- [ ] Add `GET /api/projects/:projectSlug/tags` backend endpoint to collect unique project tags
-- [ ] Implement `cardsApi.update()` in frontend API client
-- [ ] Add `updateCard()` store action with local action deduplication and change indicators
-- [ ] Rewrite `CardContent.tsx` with view/edit toggle (pencil icon, Save/Cancel, Cmd+Enter)
-- [ ] Create `TagInput.tsx` combobox component with autocomplete and "Create new" option
-- [ ] Update `CardMetadata.tsx` to use `TagInput` for tag management
+- [x] Add `GET /api/projects/:projectSlug/tags` backend endpoint to collect unique project tags
+- [x] Implement `cardsApi.update()` in frontend API client
+- [x] Add `updateCard()` store action with local action deduplication and change indicators
+- [x] Rewrite `CardContent.tsx` with view/edit toggle (pencil icon, Save/Cancel, Cmd+Enter)
+- [x] Create `TagInput.tsx` combobox component with autocomplete and "Create new" option
+- [x] Update `CardMetadata.tsx` to use `TagInput` for tag management
+
+### Title, Priority, Assignee Management
+
+- [ ] Add ability to update card titles
+- [ ] Add ability to select a card's priority from a dropdown
+- [ ] Ability to assign tasks to myself or an agent
+- [ ] Ability to delete a card (along with a confirmation modal)
+- [ ] Move the Attachments section to be fixed to the bottom of the editor area side panel
+
 
 ### Search and Highlight
 

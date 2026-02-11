@@ -68,6 +68,18 @@ export const cardRoutes = (workspacePath: string) => {
         }),
       }
     )
+    .get('/api/projects/:projectSlug/tags', async ({ params }) => {
+      const cards = await cardService.listCards(params.projectSlug);
+      const tagSet = new Set<string>();
+      for (const card of cards) {
+        if (card.frontmatter.tags) {
+          for (const tag of card.frontmatter.tags) {
+            tagSet.add(tag);
+          }
+        }
+      }
+      return { tags: Array.from(tagSet).sort() };
+    })
     .get('/api/projects/:projectSlug/cards/:cardSlug', async ({ params }) => {
       const card = await cardService.getCard(params.projectSlug, params.cardSlug);
       return card;

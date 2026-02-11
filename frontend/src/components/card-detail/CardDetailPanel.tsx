@@ -105,7 +105,7 @@ export function CardDetailPanel() {
                     </p>
                   </div>
 
-                  <CardContent content={activeCard.content} />
+                  <CardContent content={activeCard.content} cardSlug={activeCard.slug} />
 
                   <TaskList
                     tasks={activeCard.tasks}

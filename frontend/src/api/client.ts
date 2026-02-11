@@ -3,11 +3,13 @@ import type {
   ProjectConfig,
   Card,
   CreateCardInput,
+  UpdateCardInput,
   ProjectsResponse,
   CardsResponse,
   TaskToggleResponse,
   ReorderResponse,
   ArchiveResponse,
+  TagsResponse,
   Preferences,
 } from '../types';
 
@@ -118,6 +120,15 @@ export const cardsApi = {
         body: JSON.stringify({ order }),
       }
     ),
+
+  update: (projectSlug: string, cardSlug: string, updates: UpdateCardInput) =>
+    fetchJSON<Card>(`${API_BASE}/projects/${projectSlug}/cards/${cardSlug}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
+  listTags: (projectSlug: string) =>
+    fetchJSON<TagsResponse>(`${API_BASE}/projects/${projectSlug}/tags`),
 };
 
 // Task endpoints

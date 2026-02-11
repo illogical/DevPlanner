@@ -79,6 +79,15 @@ export interface CreateCardInput {
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
 }
 
+export interface UpdateCardInput {
+  title?: string;
+  status?: 'in-progress' | 'blocked' | 'review' | 'testing' | null;
+  priority?: 'low' | 'medium' | 'high' | null;
+  assignee?: 'user' | 'agent' | null;
+  tags?: string[] | null;
+  content?: string;
+}
+
 // API Response types
 export interface ProjectsResponse {
   projects: ProjectSummary[];
@@ -101,6 +110,10 @@ export interface ArchiveResponse {
   slug: string;
   archived?: boolean;
   lane?: string;
+}
+
+export interface TagsResponse {
+  tags: string[];
 }
 
 // Preferences types
