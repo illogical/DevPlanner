@@ -148,6 +148,7 @@ export interface ListCardsOutput {
 
 export interface GetCardOutput {
   card: Card;
+  files: FileMetadata[];
 }
 
 export interface CreateCardOutput {
@@ -276,14 +277,59 @@ export interface ArchiveCardOutput {
   card: Card;
 }
 
+// File Management Tools (18-20)
+
+export interface ListProjectFilesInput {
+  projectSlug: string;
+}
+
+export interface ListCardFilesInput {
+  projectSlug: string;
+  cardSlug: string;
+}
+
+export interface ReadFileContentInput {
+  projectSlug: string;
+  filename: string;
+}
+
+// ============================================================================
+// MCP Tool Output Types (20 tools)
+// ============================================================================
+
+// File Tool Outputs
+
+export interface FileMetadata {
+  filename: string;
+  originalName: string;
+  description: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface ListProjectFilesOutput {
+  files: Array<FileMetadata & {
+    associatedCards: string[];
+    created: string;
+  }>;
+  total: number;
+}
+
+export interface ListCardFilesOutput {
+  files: FileMetadata[];
+  total: number;
+}
+
+export interface ReadFileContentOutput {
+  filename: string;
+  mimeType: string;
+  size: number;
+  content: string;
+}
+
 // ============================================================================
 // MCP Resource Types
 // ============================================================================
-
-export interface ProjectsResourceContent {
-  projects: ProjectSummary[];
-  total: number;
-}
 
 export interface ProjectResourceContent {
   project: ProjectSummary;

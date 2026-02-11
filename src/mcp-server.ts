@@ -124,6 +124,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: 'Move a card to the archive lane.',
         inputSchema: (await import('./mcp/schemas.js')).ARCHIVE_CARD_SCHEMA,
       },
+      // File Management Tools
+      {
+        name: 'list_project_files',
+        description: 'List all files in a project with their descriptions and card associations. Use this to discover available reference materials before reading specific files.',
+        inputSchema: (await import('./mcp/schemas.js')).LIST_PROJECT_FILES_SCHEMA,
+      },
+      {
+        name: 'list_card_files',
+        description: 'List files associated with a specific card. Returns filenames, descriptions, and metadata. Call read_file_content to read the actual content of text-based files.',
+        inputSchema: (await import('./mcp/schemas.js')).LIST_CARD_FILES_SCHEMA,
+      },
+      {
+        name: 'read_file_content',
+        description: 'Read the text content of a file in a project. Only works for text-based files (markdown, plain text, JSON, code files, etc.). Returns an error for binary files like PDFs and images.',
+        inputSchema: (await import('./mcp/schemas.js')).READ_FILE_CONTENT_SCHEMA,
+      },
     ],
   };
 });
