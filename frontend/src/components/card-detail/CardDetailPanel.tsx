@@ -82,7 +82,14 @@ export function CardDetailPanel() {
                 <div className="p-6 space-y-6">
                   <CardMetadata card={activeCard} />
 
-                  {/* Future: Attachments section */}
+                  <CardContent content={activeCard.content} cardSlug={activeCard.slug} />
+
+                  <TaskList
+                    tasks={activeCard.tasks}
+                    cardSlug={activeCard.slug}
+                  />
+
+                  {/* Attachments section - moved to bottom */}
                   <div className="border-t border-gray-700 pt-4">
                     <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
                       <svg
@@ -104,13 +111,6 @@ export function CardDetailPanel() {
                       Coming soon...
                     </p>
                   </div>
-
-                  <CardContent content={activeCard.content} cardSlug={activeCard.slug} />
-
-                  <TaskList
-                    tasks={activeCard.tasks}
-                    cardSlug={activeCard.slug}
-                  />
                 </div>
               </>
             ) : null}

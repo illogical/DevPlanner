@@ -265,11 +265,13 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ### Title, Priority, Assignee Management
 
-- [ ] Add ability to update card titles
-- [ ] Add ability to select a card's priority from a dropdown
-- [ ] Ability to assign tasks to myself or an agent
-- [ ] Ability to delete a card (along with a confirmation modal)
-- [ ] Move the Attachments section to be fixed to the bottom of the editor area side panel
+**Spec:** `docs/features/card-editing.md`
+
+- [x] Add ability to update card titles
+- [x] Add ability to select a card's priority from a dropdown
+- [x] Ability to assign tasks to myself or an agent
+- [x] Ability to delete a card (along with a confirmation modal)
+- [x] Move the Attachments section to be fixed to the bottom of the editor area side panel
 
 
 ### Search and Highlight
