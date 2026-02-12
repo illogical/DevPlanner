@@ -1,5 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { CardService } from '../services/card.service';
+import { FileService } from '../services/file.service';
 import { WebSocketService } from '../services/websocket.service';
 import { HistoryService } from '../services/history.service';
 import { MarkdownService } from '../services/markdown.service';
@@ -13,6 +14,7 @@ import type {
 
 export const cardRoutes = (workspacePath: string) => {
   const cardService = new CardService(workspacePath);
+  const fileService = new FileService(workspacePath);
   const wsService = WebSocketService.getInstance();
   const historyService = HistoryService.getInstance();
 
@@ -141,6 +143,9 @@ export const cardRoutes = (workspacePath: string) => {
       const hardDelete = query.hard === 'true';
 
       if (hardDelete) {
+        // Clean up file associations
+        await fileService.removeCardFromAllFiles(params.projectSlug, params.cardSlug);
+
         // Permanently delete the card
         await cardService.deleteCard(params.projectSlug, params.cardSlug);
 

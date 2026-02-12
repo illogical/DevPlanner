@@ -170,6 +170,56 @@ export function taskTextTooLongError(maxLength: number): MCPError {
   );
 }
 
+export function fileNotFoundError(
+  filename: string,
+  projectSlug: string,
+  availableFiles?: string[]
+): MCPError {
+  const suggestions: MCPErrorSuggestion[] = [
+    {
+      action: `Call list_project_files with projectSlug="${projectSlug}" to see all files`,
+      reason: 'The file you specified does not exist in this project',
+    },
+  ];
+
+  if (availableFiles && availableFiles.length > 0) {
+    // Suggest similar filenames
+    const similar = availableFiles.filter(f => 
+      f.includes(filename.toLowerCase()) || filename.toLowerCase().includes(f)
+    );
+    if (similar.length > 0) {
+      suggestions.push({
+        action: `Try one of these similar files: ${similar.slice(0, 3).join(', ')}`,
+        reason: 'These filenames contain similar characters',
+      });
+    }
+  }
+
+  return new MCPError(
+    'FILE_NOT_FOUND',
+    `File "${filename}" not found in project "${projectSlug}".`,
+    suggestions
+  );
+}
+
+export function binaryFileError(filename: string, mimeType: string, size: number): MCPError {
+  const sizeKB = (size / 1024).toFixed(1);
+  return new MCPError(
+    'BINARY_FILE_ERROR',
+    `File "${filename}" is binary (${mimeType}, ${sizeKB} KB). Cannot read as text. Please rely on the file description instead.`,
+    [
+      {
+        action: `Use list_project_files or list_card_files to see the file description`,
+        reason: 'Binary files like PDFs and images cannot be read as text. Use their descriptions to understand their content.',
+      },
+      {
+        action: 'If this file should be readable, ensure it has a text-based format (.txt, .md, .json, etc.)',
+        reason: 'Only text-based files can be read through the read_file_content tool',
+      },
+    ]
+  );
+}
+
 /**
  * Convert any error to an MCP error response
  */

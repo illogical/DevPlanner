@@ -116,6 +116,21 @@ export interface TagsResponse {
   tags: string[];
 }
 
+// File types
+export interface ProjectFileEntry {
+  filename: string;
+  originalName: string;
+  description: string;
+  mimeType: string;
+  size: number;
+  created: string;
+  cardSlugs: string[];
+}
+
+export interface FilesResponse {
+  files: ProjectFileEntry[];
+}
+
 // Preferences types
 export interface Preferences {
   lastSelectedProject: string | null;
@@ -165,7 +180,12 @@ export type WebSocketEventType =
   | 'lane:reordered'
   | 'project:updated'
   | 'project:deleted'
-  | 'history:event';
+  | 'history:event'
+  | 'file:added'
+  | 'file:deleted'
+  | 'file:updated'
+  | 'file:associated'
+  | 'file:disassociated';
 
 export interface WebSocketEvent {
   type: WebSocketEventType;
@@ -224,6 +244,29 @@ export interface ProjectUpdatedData {
 
 export interface ProjectDeletedData {
   slug: string;
+}
+
+// File event data payloads
+export interface FileAddedData {
+  file: ProjectFileEntry;
+}
+
+export interface FileDeletedData {
+  filename: string;
+}
+
+export interface FileUpdatedData {
+  file: ProjectFileEntry;
+}
+
+export interface FileAssociatedData {
+  filename: string;
+  cardSlug: string;
+}
+
+export interface FileDisassociatedData {
+  filename: string;
+  cardSlug: string;
 }
 
 // Search types

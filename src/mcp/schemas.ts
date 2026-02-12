@@ -382,3 +382,46 @@ export const ARCHIVE_CARD_SCHEMA = {
   },
   required: ['projectSlug', 'cardSlug'],
 } as const;
+
+// File Management Tool Schemas
+
+export const LIST_PROJECT_FILES_SCHEMA = {
+  type: 'object',
+  properties: {
+    projectSlug: {
+      type: 'string',
+      description: 'Project identifier',
+    },
+  },
+  required: ['projectSlug'],
+} as const;
+
+export const LIST_CARD_FILES_SCHEMA = {
+  type: 'object',
+  properties: {
+    projectSlug: {
+      type: 'string',
+      description: 'Project identifier',
+    },
+    cardSlug: {
+      type: 'string',
+      description: 'Card identifier',
+    },
+  },
+  required: ['projectSlug', 'cardSlug'],
+} as const;
+
+export const READ_FILE_CONTENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    projectSlug: {
+      type: 'string',
+      description: 'Project identifier',
+    },
+    filename: {
+      type: 'string',
+      description: 'Filename to read (must be a text-based file)',
+    },
+  },
+  required: ['projectSlug', 'filename'],
+} as const;

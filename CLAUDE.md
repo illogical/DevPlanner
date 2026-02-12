@@ -90,6 +90,10 @@ Configured via `DEVPLANNER_WORKSPACE` env var (see `.env`). Structure:
 workspace/
 └── project-slug/
     ├── _project.json          # Project metadata + lane config
+    ├── _files.json            # File metadata & card associations
+    ├── _files/                # Uploaded reference files (gitignored)
+    │   ├── design-spec.pdf
+    │   └── api-docs.md
     ├── 01-upcoming/
     │   ├── _order.json        # Card display order
     │   └── card-slug.md       # YAML frontmatter + Markdown body + checklist
@@ -100,6 +104,8 @@ workspace/
 
 Cards are `.md` files with YAML frontmatter (title, status, priority, assignee, tags, dates) and a `## Tasks` section with `- [ ]`/`- [x]` checklists. Card slugs are unique across all lanes in a project — the card service searches all lane directories to locate a card by slug.
 
+**Files** are stored in `_files/` directory with metadata in `_files.json`. Each file can be associated with multiple cards (many-to-many). Filenames are deduplicated (`file.txt`, `file-2.txt`). MIME types are detected from extensions. Text files (`.md`, `.txt`, `.json`, etc.) can be read via MCP tools for AI agents. Binary files (PDFs, images) store descriptions only.
+
 ### API
 
 REST endpoints under `/api`:
@@ -108,6 +114,12 @@ REST endpoints under `/api`:
 - `/api/projects/:slug/cards/:cardSlug/move` — PATCH to move between lanes
 - `/api/projects/:slug/cards/:cardSlug/tasks` — POST to add, PATCH `/:index` to toggle
 - `/api/projects/:slug/lanes/:lane/order` — PATCH to reorder cards
+- `/api/projects/:slug/files` — File management CRUD
+- `/api/projects/:slug/files/:filename` — File metadata, update description, delete
+- `/api/projects/:slug/files/:filename/download` — Serve/download file
+- `/api/projects/:slug/files/:filename/associate` — POST to associate with card
+- `/api/projects/:slug/files/:filename/associate/:cardSlug` — DELETE to disassociate
+- `/api/projects/:slug/cards/:cardSlug/files` — GET files for specific card
 
 Error responses follow: `{ error: string, message: string, expected?: string }`
 

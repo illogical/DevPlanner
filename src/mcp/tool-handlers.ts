@@ -8,6 +8,7 @@
 import { ProjectService } from '../services/project.service.js';
 import { CardService } from '../services/card.service.js';
 import { TaskService } from '../services/task.service.js';
+import { FileService } from '../services/file.service.js';
 import { ConfigService } from '../services/config.service.js';
 
 import type {
@@ -45,6 +46,12 @@ import type {
   GetProjectProgressOutput,
   ArchiveCardInput,
   ArchiveCardOutput,
+  ListProjectFilesInput,
+  ListProjectFilesOutput,
+  ListCardFilesInput,
+  ListCardFilesOutput,
+  ReadFileContentInput,
+  ReadFileContentOutput,
   LaneOverview,
   NextTask,
   ProjectProgress,
@@ -57,6 +64,8 @@ import {
   taskIndexOutOfRangeError,
   emptyTaskTextError,
   taskTextTooLongError,
+  fileNotFoundError,
+  binaryFileError,
   MCPError,
 } from './errors.js';
 
@@ -71,6 +80,7 @@ const servicesCache = new Map<string, {
   projectService: ProjectService;
   cardService: CardService;
   taskService: TaskService;
+  fileService: FileService;
 }>();
 
 function getServices(workspacePath?: string) {
@@ -82,6 +92,7 @@ function getServices(workspacePath?: string) {
       projectService: new ProjectService(wsPath),
       cardService: new CardService(wsPath),
       taskService: new TaskService(wsPath),
+      fileService: new FileService(wsPath),
     };
     servicesCache.set(wsPath, services);
   }
@@ -195,7 +206,20 @@ async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> 
 async function handleGetCard(input: GetCardInput): Promise<GetCardOutput> {
   try {
     const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
-    return { card };
+    
+    // Get associated files
+    const files = await getServices().fileService.listCardFiles(input.projectSlug, input.cardSlug);
+    
+    return { 
+      card,
+      files: files.map(f => ({
+        filename: f.filename,
+        originalName: f.originalName,
+        description: f.description,
+        mimeType: f.mimeType,
+        size: f.size,
+      })),
+    };
   } catch (error) {
     // Get all cards to provide suggestions
     const allCards = await getServices().cardService.listCards(input.projectSlug);
@@ -687,6 +711,113 @@ async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOu
 }
 
 // ============================================================================
+// File Management Tool Handlers
+// ============================================================================
+
+async function handleListProjectFiles(input: ListProjectFilesInput): Promise<ListProjectFilesOutput> {
+  // Verify project exists
+  try {
+    await getServices().projectService.getProject(input.projectSlug);
+  } catch (error) {
+    const projects = await getServices().projectService.listProjects();
+    throw projectNotFoundError(
+      input.projectSlug,
+      projects.map(p => p.slug)
+    );
+  }
+
+  const files = await getServices().fileService.listFiles(input.projectSlug);
+  
+  return {
+    files: files.map(f => ({
+      filename: f.filename,
+      originalName: f.originalName,
+      description: f.description,
+      mimeType: f.mimeType,
+      size: f.size,
+      associatedCards: f.cardSlugs,
+      created: f.created,
+    })),
+    total: files.length,
+  };
+}
+
+async function handleListCardFiles(input: ListCardFilesInput): Promise<ListCardFilesOutput> {
+  // Verify card exists
+  try {
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+  } catch (error) {
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
+    throw cardNotFoundError(
+      input.cardSlug,
+      input.projectSlug,
+      allCards.map(c => c.slug)
+    );
+  }
+
+  const files = await getServices().fileService.listCardFiles(input.projectSlug, input.cardSlug);
+  
+  return {
+    files: files.map(f => ({
+      filename: f.filename,
+      originalName: f.originalName,
+      description: f.description,
+      mimeType: f.mimeType,
+      size: f.size,
+    })),
+    total: files.length,
+  };
+}
+
+async function handleReadFileContent(input: ReadFileContentInput): Promise<ReadFileContentOutput> {
+  // Verify project exists
+  try {
+    await getServices().projectService.getProject(input.projectSlug);
+  } catch (error) {
+    const projects = await getServices().projectService.listProjects();
+    throw projectNotFoundError(
+      input.projectSlug,
+      projects.map(p => p.slug)
+    );
+  }
+
+  // Get file metadata and content
+  try {
+    const file = await getServices().fileService.getFile(input.projectSlug, input.filename);
+    const { content, mimeType } = await getServices().fileService.getFileContent(
+      input.projectSlug,
+      input.filename
+    );
+    
+    return {
+      filename: file.filename,
+      mimeType,
+      size: file.size,
+      content,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      // Check if this is a binary file error
+      if (error.message.includes('File is binary')) {
+        const file = await getServices().fileService.getFile(input.projectSlug, input.filename);
+        throw binaryFileError(input.filename, file.mimeType, file.size);
+      }
+      
+      // Check if this is a file not found error
+      if (error.message.includes('not found')) {
+        const allFiles = await getServices().fileService.listFiles(input.projectSlug);
+        throw fileNotFoundError(
+          input.filename,
+          input.projectSlug,
+          allFiles.map(f => f.filename)
+        );
+      }
+    }
+    throw error;
+  }
+}
+
+// ============================================================================
 // Export tool handlers map
 // ============================================================================
 
@@ -708,4 +839,7 @@ export const toolHandlers: Record<string, (input: any) => Promise<any>> = {
   update_card_content: handleUpdateCardContent,
   get_project_progress: handleGetProjectProgress,
   archive_card: handleArchiveCard,
+  list_project_files: handleListProjectFiles,
+  list_card_files: handleListCardFiles,
+  read_file_content: handleReadFileContent,
 };
