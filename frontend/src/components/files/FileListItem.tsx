@@ -21,7 +21,9 @@ export function FileListItem({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [description, setDescription] = useState(file.description || '');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const { 
     updateFileDescription,
@@ -42,16 +44,47 @@ export function FileListItem({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Auto-focus and auto-resize textarea
+  useEffect(() => {
+    if (isEditingDescription && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [isEditingDescription]);
+
   const handleSaveDescription = async () => {
     if (description !== file.description) {
+      setIsSaving(true);
       try {
         await updateFileDescription(file.filename, description);
       } catch (error) {
         // Error already handled in store
         setDescription(file.description || '');
+      } finally {
+        setIsSaving(false);
       }
     }
     setIsEditingDescription(false);
+  };
+
+  const handleTextareaInput = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveDescription();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsEditingDescription(false);
+      setDescription(file.description || '');
+    }
   };
 
   const handleDownload = () => {
@@ -158,49 +191,70 @@ export function FileListItem({
           {isEditingDescription ? (
             <div className="mt-2">
               <textarea
+                ref={textareaRef}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500"
-                rows={2}
+                onKeyDown={handleKeyDown}
+                onInput={handleTextareaInput}
                 placeholder="Add a description..."
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSaveDescription();
-                  }
-                  if (e.key === 'Escape') {
-                    setIsEditingDescription(false);
-                    setDescription(file.description || '');
-                  }
-                }}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none min-h-[60px]"
+                disabled={isSaving}
               />
-              <div className="flex justify-end gap-2 mt-1">
-                <button
-                  onClick={() => {
-                    setIsEditingDescription(false);
-                    setDescription(file.description || '');
-                  }}
-                  className="text-xs text-gray-500 hover:text-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveDescription}
-                  className="text-xs text-blue-400 hover:text-blue-300"
-                >
-                  Save
-                </button>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-500">
+                  {isSaving ? 'Saving...' : 'Press Cmd/Ctrl+Enter to save'}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setIsEditingDescription(false);
+                      setDescription(file.description || '');
+                    }}
+                    disabled={isSaving}
+                    className="px-3 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDescription}
+                    disabled={isSaving}
+                    className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
-            description ? (
-              <p className="mt-1 text-xs text-gray-400 line-clamp-2" title={description}>
-                {description}
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-600 italic">No description</p>
-            )
+            <div className="relative mt-1 group/description">
+              {description ? (
+                <div className="flex items-start gap-2">
+                  <p
+                    className="flex-1 text-xs text-gray-400 line-clamp-2 cursor-pointer"
+                    title={description}
+                    onClick={() => setIsEditingDescription(true)}
+                  >
+                    {description}
+                  </p>
+                  <button
+                    onClick={() => setIsEditingDescription(true)}
+                    className="flex-shrink-0 p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-gray-300 opacity-0 group-hover/description:opacity-100 transition-opacity"
+                    title="Edit description"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <p
+                  className="text-xs text-gray-600 italic cursor-pointer hover:text-gray-500 transition-colors"
+                  onClick={() => setIsEditingDescription(true)}
+                >
+                  Click to add a description...
+                </p>
+              )}
+            </div>
           )}
           
           <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-500">

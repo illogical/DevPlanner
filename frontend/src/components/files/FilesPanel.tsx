@@ -14,6 +14,7 @@ export function FilesPanel({ isOpen, onClose }: FilesPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'text' | 'unassociated'>('all');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -56,6 +57,32 @@ export function FilesPanel({ isOpen, onClose }: FilesPanelProps) {
         // Error handled in store/UI
       }
       // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      try {
+        await uploadFile(file);
+      } catch (error) {
+        // Error handled in store
+      }
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -122,15 +149,28 @@ export function FilesPanel({ isOpen, onClose }: FilesPanelProps) {
 
             {/* Toolbar */}
             <div className="p-4 space-y-4 border-b border-gray-800 bg-gray-900/50">
-              <button
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-4 transition-colors cursor-pointer text-center",
+                  isDragging
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-gray-700 hover:border-gray-600 hover:bg-gray-800/50"
+                )}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                Upload File
-              </button>
+                <div className="flex flex-col items-center gap-2 text-gray-400">
+                  <svg className="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span className="text-sm font-medium">
+                    {isDragging ? "Drop to upload" : "Drop file or click to upload"}
+                  </span>
+                </div>
+              </div>
               <input
                 type="file"
                 ref={fileInputRef}

@@ -511,11 +511,12 @@ function App() {
 
 ## Files Created/Modified Summary
 
-### New Files (4)
+### New Files (5)
 1. `frontend/src/utils/file.ts` - Utility functions
 2. `frontend/src/components/files/FileListItem.tsx` - Reusable file row
 3. `frontend/src/components/files/FilesPanel.tsx` - Sidebar panel
 4. `frontend/src/components/card-detail/CardFiles.tsx` - Card attachments section
+5. `frontend/src/components/card-detail/FileAssociationInput.tsx` - File association autocomplete (added in refinements)
 
 ### Modified Files (5)
 1. `frontend/src/store/index.ts` - State, actions, WebSocket handlers
@@ -537,6 +538,83 @@ function App() {
 7. **Inline Editing**: Descriptions edited inline, no separate modal
 8. **Reusable Component**: `FileListItem` used in both card and project contexts
 9. **No File Preview**: Clicking downloads file; preview can be added later
+10. **File Association as Tags**: Files are managed at project level and "tagged" to cards via associations
+
+---
+
+## Post-Implementation Refinements
+
+After the initial implementation, three UX refinements were added to improve the file management workflow:
+
+### Refinement 1: Drag-and-Drop in FilesPanel ✅ Complete
+
+**Goal**: Enable drag-and-drop upload in the Files sidebar, matching the pattern in CardFiles.
+
+**Implementation**:
+- Added `isDragging` state to FilesPanel component
+- Implemented `handleDragOver`, `handleDragLeave`, and `handleDrop` handlers
+- Replaced upload button with drag-and-drop zone (dashed border, visual feedback)
+- Files dropped in FilesPanel are uploaded WITHOUT auto-association to any card
+- Zone supports both drag-and-drop and click-to-upload workflows
+
+**Files Modified**:
+- `frontend/src/components/files/FilesPanel.tsx` - Added drag state, handlers, and updated toolbar UI
+
+### Refinement 2: File Association Autocomplete ✅ Complete
+
+**Goal**: Add tag-style file association UI to attach existing project files to cards.
+
+**Pattern**: Follows TagInput component pattern - search, filter, select from available files.
+
+**Implementation**:
+- Created `FileAssociationInput` component based on TagInput pattern
+- Filters out files already associated with current card
+- Search by filename or description with real-time filtering
+- Dropdown shows file icon, name, size, and description preview
+- Keyboard shortcuts: Enter to select first result, Escape to close
+- Click outside to close dropdown
+- Keeps input open after selection for adding multiple files
+- Returns null if no unassociated files exist (no UI clutter)
+
+**Integration**:
+- Rendered in `CardFiles` component below the file list
+- Shows "Add existing file" button with dashed border (matches tag input style)
+- Activates search input on click with auto-focus
+- Calls `associateFile(filename, cardSlug)` from store on selection
+
+**Files Created**:
+- `frontend/src/components/card-detail/FileAssociationInput.tsx` - New autocomplete component
+
+**Files Modified**:
+- `frontend/src/components/card-detail/CardFiles.tsx` - Import and render FileAssociationInput
+
+### Refinement 3: Enhanced Description Editing ✅ Complete
+
+**Goal**: Improve file description editing to match card description editing quality.
+
+**Improvements**:
+1. **Auto-expanding Textarea**: Grows vertically as user types (no fixed height)
+2. **Keyboard Shortcuts**:
+   - Cmd/Ctrl+Enter to save
+   - Escape to cancel (was already supported)
+3. **Better Visual Feedback**:
+   - Helper text: "Press Cmd/Ctrl+Enter to save" / "Saving..."
+   - Improved button styling (blue Save button, prominent Cancel)
+   - Loading state with disabled textarea during save
+4. **Enhanced Styling**: Rounded borders, better padding, min-height constraint
+
+**Pattern**: Follows CardContent textarea pattern for consistent UX across app.
+
+**Files Modified**:
+- `frontend/src/components/files/FileListItem.tsx` - Enhanced description editing UI
+
+**Code Changes**:
+- Added `isSaving` state and `textareaRef`
+- Added auto-focus and auto-resize effect
+- Added `handleTextareaInput()` for dynamic height adjustment
+- Added `handleKeyDown()` for Cmd/Ctrl+Enter and Escape shortcuts
+- Updated textarea JSX with ref, handlers, and improved styling
+- Updated Save/Cancel buttons with better visual hierarchy
 
 ---
 
@@ -567,6 +645,37 @@ function App() {
 
 ---
 
+## Testing the Refinements
+
+### Refinement 1: Drag-and-Drop in FilesPanel
+1. Open Files panel from header button
+2. Drag a file over the upload zone → border turns blue, background highlights
+3. Drop the file → uploads to project with 0 cards associated
+4. Click zone without dragging → file picker opens
+5. Verify both workflows work seamlessly
+
+### Refinement 2: File Association Autocomplete
+1. Upload 2-3 files via Files panel (unassociated)
+2. Open a card detail panel
+3. See "Add existing file" button at bottom of Files section
+4. Click button → search input appears with auto-focus
+5. Type to search → dropdown filters files by name/description in real-time
+6. Press Enter or click file → associates with card
+7. File appears in card files list above
+8. Test: Escape closes, Enter selects first, click outside closes
+9. Add another file → input stays open for multiple additions
+
+### Refinement 3: Enhanced Description Editing
+1. Click file menu → "Edit description"
+2. Textarea auto-focuses and auto-expands as you type multiple lines
+3. See helper text: "Press Cmd/Ctrl+Enter to save"
+4. Press Cmd/Ctrl+Enter → saves successfully
+5. Edit again, press Escape → cancels without saving
+6. Edit again, click Save → shows "Saving..." then saves
+7. Verify description persists after reload
+
+---
+
 ## Future Enhancements (Out of Scope)
 
 - File preview modal for text files
@@ -574,5 +683,6 @@ function App() {
 - Progress bars for large uploads
 - File organization (folders, tags)
 - Image/PDF support with thumbnails
-- Drag files between cards
+- Drag files between cards (currently can only associate)
 - File version history
+- Markdown support in file descriptions (like card descriptions)

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store';
 import { FileListItem } from '../files/FileListItem';
+import { FileAssociationInput } from './FileAssociationInput';
 import { cn } from '../../utils/cn';
 
 interface CardFilesProps {
@@ -116,6 +117,9 @@ export function CardFiles({ cardSlug }: CardFilesProps) {
           ))
         )}
       </div>
+
+      {/* File association autocomplete */}
+      <FileAssociationInput cardSlug={cardSlug} />
     </div>
   );
 }

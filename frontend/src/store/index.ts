@@ -887,9 +887,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       created: new Date().toISOString(),
       cardSlugs: autoAssociateCardSlug ? [autoAssociateCardSlug] : [],
     };
-    
-    // Optimistically update
-    get()._recordLocalAction(`file:added:${optimisticFile.filename}`);
+
+    // Optimistically update (don't record action yet - we need the actual filename after deduplication)
     set((state) => ({
       projectFiles: [optimisticFile, ...state.projectFiles]
     }));
@@ -898,30 +897,28 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       // NOTE: We don't have the real filename yet if deduplication happens on server
       // But we'll update it when the API call returns
       const uploadedFile = await filesApi.upload(activeProjectSlug, file, description);
-      
+
+      // Record the action with the actual filename (after potential deduplication) to prevent WebSocket echo
+      get()._recordLocalAction(`file:added:${uploadedFile.filename}`);
+
       // If auto-associate requested
       if (autoAssociateCardSlug) {
         get()._recordLocalAction(`file:associated:${uploadedFile.filename}:${autoAssociateCardSlug}`);
         await filesApi.associate(activeProjectSlug, uploadedFile.filename, autoAssociateCardSlug);
-        
-        // Update local state to reflect association
-        set((state) => ({
-          projectFiles: state.projectFiles.map(f => 
-            f.filename === uploadedFile.filename 
-              ? { ...f, cardSlugs: [...f.cardSlugs, autoAssociateCardSlug] }
-              : f
-          )
-        }));
+
+        // Update uploadedFile with the association so the final state replacement includes it
+        uploadedFile.cardSlugs = [...uploadedFile.cardSlugs, autoAssociateCardSlug];
       }
-      
+
       // Update with server response (handling potential filename changes due to deduplication)
-      // We match by the optimistic filename assuming the user didn't upload multiple files
-      // with same name simultaneously in this session.
-      // A better approach would be using a temporay ID, but filename is the key.
+      // Remove both optimistic file and any existing file with the uploaded filename to prevent duplicates
       set((state) => ({
-        projectFiles: state.projectFiles.map(f => 
-          f.filename === optimisticFile.filename ? uploadedFile : f
-        )
+        projectFiles: [
+          uploadedFile,
+          ...state.projectFiles.filter(f =>
+            f.filename !== optimisticFile.filename && f.filename !== uploadedFile.filename
+          )
+        ]
       }));
 
     } catch (error) {
