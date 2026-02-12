@@ -10,6 +10,7 @@ import type {
   ProjectUpdatedData,
   ProjectDeletedData,
   HistoryEvent,
+  ProjectFileEntry,
 } from '../types';
 
 export function useWebSocket() {
@@ -29,6 +30,11 @@ export function useWebSocket() {
   const wsHandleLaneReordered = useStore((state) => state.wsHandleLaneReordered);
   const wsHandleProjectUpdated = useStore((state) => state.wsHandleProjectUpdated);
   const wsHandleProjectDeleted = useStore((state) => state.wsHandleProjectDeleted);
+  const wsHandleFileAdded = useStore((state) => state.wsHandleFileAdded);
+  const wsHandleFileDeleted = useStore((state) => state.wsHandleFileDeleted);
+  const wsHandleFileUpdated = useStore((state) => state.wsHandleFileUpdated);
+  const wsHandleFileAssociated = useStore((state) => state.wsHandleFileAssociated);
+  const wsHandleFileDisassociated = useStore((state) => state.wsHandleFileDisassociated);
   const addHistoryEvent = useStore((state) => state.addHistoryEvent);
 
   // Connect on mount, disconnect on unmount
@@ -81,6 +87,21 @@ export function useWebSocket() {
       client.on('history:event', (data) => {
         addHistoryEvent(data as HistoryEvent);
       }),
+      client.on('file:added', (data) => {
+        wsHandleFileAdded?.(data as { file: ProjectFileEntry });
+      }),
+      client.on('file:deleted', (data) => {
+        wsHandleFileDeleted?.(data as { filename: string });
+      }),
+      client.on('file:updated', (data) => {
+        wsHandleFileUpdated?.(data as { file: ProjectFileEntry });
+      }),
+      client.on('file:associated', (data) => {
+        wsHandleFileAssociated?.(data as { filename: string; cardSlug: string });
+      }),
+      client.on('file:disassociated', (data) => {
+        wsHandleFileDisassociated?.(data as { filename: string; cardSlug: string });
+      }),
     ];
 
     return () => unsubscribers.forEach(unsub => unsub());
@@ -95,6 +116,11 @@ export function useWebSocket() {
     wsHandleProjectUpdated,
     wsHandleProjectDeleted,
     addHistoryEvent,
+    wsHandleFileAdded,
+    wsHandleFileDeleted,
+    wsHandleFileUpdated,
+    wsHandleFileAssociated,
+    wsHandleFileDisassociated,
   ]);
 
   // Handle reconnection - refresh data

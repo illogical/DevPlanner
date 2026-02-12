@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { projectsApi, cardsApi, tasksApi, preferencesApi } from '../api/client';
+import { projectsApi, cardsApi, tasksApi, preferencesApi, filesApi } from '../api/client';
 import type {
   ProjectSummary,
   CardSummary,
@@ -16,6 +16,7 @@ import type {
   ProjectUpdatedData,
   ProjectDeletedData,
   SearchResult,
+  ProjectFileEntry,
 } from '../types';
 
 // Search debounce timer
@@ -117,6 +118,20 @@ interface DevPlannerStore {
   toggleActivityPanel: () => void;
   setActivityPanelOpen: (open: boolean) => void;
 
+  // File Management
+  projectFiles: ProjectFileEntry[];
+  isLoadingFiles: boolean;
+  isUploadingFile: boolean;
+  isFilesPanelOpen: boolean;
+  loadProjectFiles: () => Promise<void>;
+  uploadFile: (file: File, description?: string, autoAssociateCardSlug?: string) => Promise<void>;
+  deleteFile: (filename: string) => Promise<void>;
+  updateFileDescription: (filename: string, description: string) => Promise<void>;
+  associateFile: (filename: string, cardSlug: string) => Promise<void>;
+  disassociateFile: (filename: string, cardSlug: string) => Promise<void>;
+  toggleFilesPanel: () => void;
+  setFilesPanelOpen: (open: boolean) => void;
+
   // WebSocket state
   wsConnected: boolean;
   wsReconnecting: boolean;
@@ -130,6 +145,11 @@ interface DevPlannerStore {
 
   // Track in-progress card creations (to prevent race with WebSocket)
   _creatingCards: Set<string>; // Set of card titles being created
+  wsHandleFileAdded?: (data: { file: ProjectFileEntry }) => void;
+  wsHandleFileDeleted?: (data: { filename: string }) => void;
+  wsHandleFileUpdated?: (data: { file: ProjectFileEntry }) => void;
+  wsHandleFileAssociated?: (data: { filename: string; cardSlug: string }) => void;
+  wsHandleFileDisassociated?: (data: { filename: string; cardSlug: string }) => void;
 
   // Debounced loadCards for fallback scenarios
   _lastLoadCardsTime: number;
@@ -180,6 +200,12 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   searchQuery: '',
   searchResults: [],
   isSearching: false,
+
+  // File management initial state
+  projectFiles: [],
+  isLoadingFiles: false,
+  isUploadingFile: false,
+  isFilesPanelOpen: false,
 
   // Project actions
   loadProjects: async () => {
@@ -821,11 +847,204 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   toggleActivityPanel: () => {
     set((state) => ({
       isActivityPanelOpen: !state.isActivityPanelOpen,
+      isFilesPanelOpen: !state.isActivityPanelOpen ? false : state.isFilesPanelOpen,
     }));
   },
 
   setActivityPanelOpen: (open: boolean) => {
     set({ isActivityPanelOpen: open });
+  },
+
+  // File Management Actions
+  loadProjectFiles: async () => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+    
+    set({ isLoadingFiles: true });
+    try {
+      const { files } = await filesApi.list(activeProjectSlug);
+      set({ projectFiles: files });
+    } catch (error) {
+      console.error('Failed to load project files:', error);
+    } finally {
+      set({ isLoadingFiles: false });
+    }
+  },
+
+  uploadFile: async (file: File, description?: string, autoAssociateCardSlug?: string) => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+
+    set({ isUploadingFile: true });
+    
+    // Create optimistic file entry
+    const optimisticFile: ProjectFileEntry = {
+      filename: file.name,
+      originalName: file.name,
+      description: description || '',
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size,
+      created: new Date().toISOString(),
+      cardSlugs: autoAssociateCardSlug ? [autoAssociateCardSlug] : [],
+    };
+    
+    // Optimistically update
+    get()._recordLocalAction(`file:added:${optimisticFile.filename}`);
+    set((state) => ({
+      projectFiles: [optimisticFile, ...state.projectFiles]
+    }));
+
+    try {
+      // NOTE: We don't have the real filename yet if deduplication happens on server
+      // But we'll update it when the API call returns
+      const uploadedFile = await filesApi.upload(activeProjectSlug, file, description);
+      
+      // If auto-associate requested
+      if (autoAssociateCardSlug) {
+        get()._recordLocalAction(`file:associated:${uploadedFile.filename}:${autoAssociateCardSlug}`);
+        await filesApi.associate(activeProjectSlug, uploadedFile.filename, autoAssociateCardSlug);
+        
+        // Update local state to reflect association
+        set((state) => ({
+          projectFiles: state.projectFiles.map(f => 
+            f.filename === uploadedFile.filename 
+              ? { ...f, cardSlugs: [...f.cardSlugs, autoAssociateCardSlug] }
+              : f
+          )
+        }));
+      }
+      
+      // Update with server response (handling potential filename changes due to deduplication)
+      // We match by the optimistic filename assuming the user didn't upload multiple files
+      // with same name simultaneously in this session.
+      // A better approach would be using a temporay ID, but filename is the key.
+      set((state) => ({
+        projectFiles: state.projectFiles.map(f => 
+          f.filename === optimisticFile.filename ? uploadedFile : f
+        )
+      }));
+
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      // Revert optimistic update
+      set((state) => ({
+        projectFiles: state.projectFiles.filter(f => f.filename !== optimisticFile.filename)
+      }));
+      throw error;
+    } finally {
+      set({ isUploadingFile: false });
+    }
+  },
+
+  deleteFile: async (filename: string) => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+
+    get()._recordLocalAction(`file:deleted:${filename}`);
+    
+    // Optimistic removal
+    const previousFiles = get().projectFiles;
+    set((state) => ({
+      projectFiles: state.projectFiles.filter(f => f.filename !== filename)
+    }));
+
+    try {
+      await filesApi.delete(activeProjectSlug, filename);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      set({ projectFiles: previousFiles }); // Revert
+      throw error;
+    }
+  },
+  
+  updateFileDescription: async (filename: string, description: string) => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+    
+    get()._recordLocalAction(`file:updated:${filename}`);
+    
+    // Optimistic update
+    const previousFiles = get().projectFiles;
+    set((state) => ({
+      projectFiles: state.projectFiles.map(f => 
+        f.filename === filename ? { ...f, description } : f
+      )
+    }));
+    
+    try {
+      await filesApi.updateDescription(activeProjectSlug, filename, description);
+    } catch (error) {
+      console.error('Failed to update file description:', error);
+      set({ projectFiles: previousFiles }); // Revert
+      throw error;
+    }
+  },
+  
+  associateFile: async (filename: string, cardSlug: string) => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+    
+    get()._recordLocalAction(`file:associated:${filename}:${cardSlug}`);
+    
+    // Optimistic update
+    const previousFiles = get().projectFiles;
+    set((state) => ({
+      projectFiles: state.projectFiles.map(f => 
+        f.filename === filename && !f.cardSlugs.includes(cardSlug)
+          ? { ...f, cardSlugs: [...f.cardSlugs, cardSlug] }
+          : f
+      )
+    }));
+    
+    try {
+      await filesApi.associate(activeProjectSlug, filename, cardSlug);
+    } catch (error) {
+      console.error('Failed to associate file:', error);
+      set({ projectFiles: previousFiles }); // Revert
+      throw error;
+    }
+  },
+
+  disassociateFile: async (filename: string, cardSlug: string) => {
+    const { activeProjectSlug } = get();
+    if (!activeProjectSlug) return;
+    
+    get()._recordLocalAction(`file:disassociated:${filename}:${cardSlug}`);
+    
+    // Optimistic update
+    const previousFiles = get().projectFiles;
+    set((state) => ({
+      projectFiles: state.projectFiles.map(f => 
+        f.filename === filename
+          ? { ...f, cardSlugs: f.cardSlugs.filter(s => s !== cardSlug) }
+          : f
+      )
+    }));
+    
+    try {
+      await filesApi.disassociate(activeProjectSlug, filename, cardSlug);
+    } catch (error) {
+      console.error('Failed to disassociate file:', error);
+      set({ projectFiles: previousFiles }); // Revert
+      throw error;
+    }
+  },
+  
+  toggleFilesPanel: () => {
+    set((state) => {
+      const willOpen = !state.isFilesPanelOpen;
+      return {
+        isFilesPanelOpen: willOpen,
+        isActivityPanelOpen: willOpen ? false : state.isActivityPanelOpen, // Close activity if opening files
+      };
+    });
+  },
+  
+  setFilesPanelOpen: (open: boolean) => {
+    set((state) => ({
+      isFilesPanelOpen: open,
+      isActivityPanelOpen: open ? false : state.isActivityPanelOpen
+    }));
   },
 
   // WebSocket state setters
@@ -1233,6 +1452,89 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     } else {
       set({ projects });
     }
+  },
+
+  wsHandleFileAdded: (data: { file: ProjectFileEntry }) => {
+    const { file } = data;
+    const state = get();
+    
+    // Check self-echo
+    if (state._isRecentLocalAction(`file:added:${file.filename}`)) {
+      return;
+    }
+    
+    set((state) => {
+      // Dedup by filename
+      const exists = state.projectFiles.some(f => f.filename === file.filename);
+      if (exists) {
+        return {
+          projectFiles: state.projectFiles.map(f => f.filename === file.filename ? file : f)
+        };
+      }
+      return {
+        projectFiles: [file, ...state.projectFiles]
+      };
+    });
+  },
+
+  wsHandleFileDeleted: (data: { filename: string }) => {
+    const { filename } = data;
+    const state = get();
+    
+    if (state._isRecentLocalAction(`file:deleted:${filename}`)) {
+      return;
+    }
+    
+    set((state) => ({
+      projectFiles: state.projectFiles.filter(f => f.filename !== filename)
+    }));
+  },
+
+  wsHandleFileUpdated: (data: { file: ProjectFileEntry }) => {
+    const { file } = data;
+    const state = get();
+    
+    if (state._isRecentLocalAction(`file:updated:${file.filename}`)) {
+      return;
+    }
+    
+    set((state) => ({
+      projectFiles: state.projectFiles.map(f => f.filename === file.filename ? file : f)
+    }));
+  },
+
+  wsHandleFileAssociated: (data: { filename: string; cardSlug: string }) => {
+    const { filename, cardSlug } = data;
+    const state = get();
+    
+    if (state._isRecentLocalAction(`file:associated:${filename}:${cardSlug}`)) {
+      return;
+    }
+    
+    set((state) => ({
+      projectFiles: state.projectFiles.map(f => 
+        f.filename === filename && !f.cardSlugs.includes(cardSlug)
+          ? { ...f, cardSlugs: [...f.cardSlugs, cardSlug] }
+          : f
+      )
+    }));
+  },
+
+  wsHandleFileDisassociated: (data: { filename: string; cardSlug: string }) => {
+    const { filename, cardSlug } = data;
+    const state = get();
+    
+    if (state._isRecentLocalAction(`file:disassociated:${filename}:${cardSlug}`)) {
+      return;
+    }
+    
+    set((state) => ({
+      projectFiles: state.projectFiles.map(f => 
+        f.filename === filename
+          ? { ...f, cardSlugs: f.cardSlugs.filter(s => s !== cardSlug) }
+          : f
+      )
+    }));
   },
 
   // Search actions

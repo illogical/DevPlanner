@@ -288,7 +288,8 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ### Reference/File Management
 
-**Spec:** `docs/features/reference-file-management.md`
+**Backend Spec:** `docs/features/reference-file-management.md`
+**Frontend Spec:** `docs/features/frontend-file-management.md`
 
 **Backend Complete** ✓
 - [x] Implement FileService with CRUD, associations, MIME type detection (30 unit tests passing)
@@ -298,20 +299,21 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 - [x] Enhance get_card MCP tool to include file metadata
 - [x] Add comprehensive error handling with LLM-friendly messages
 
-**Frontend In Progress** ~
+**Frontend Ready for Implementation** 📋
 - [x] Add file types and WebSocket event interfaces
 - [x] Create filesApi client with upload, delete, associate, disassociate endpoints
-- [ ] Add file state and actions to Zustand store
-- [ ] Register WebSocket handlers for real-time file updates
-- [ ] Create CardFiles component for card detail panel
-- [ ] Build FilesPanel sidebar for project-level file management
-- [ ] Add Files toggle button in header
+- [x] Document frontend implementation plan (see frontend spec above)
+- [x] Add file state and actions to Zustand store
+- [x] Register WebSocket handlers for real-time file updates
+- [x] Create CardFiles component for card detail panel
+- [x] Build FilesPanel sidebar for project-level file management
+- [x] Add Files toggle button in header
 
 **Testing & Integration**
 - [ ] End-to-end test: file upload/download through UI
 - [ ] Verify WebSocket synchronization across clients
 - [ ] Test MCP tools with AI agent workflows
-- [ ] Manual testing with various file types (text, binary, PDFs)
+- [ ] Manual testing with various file types (text, scripts)
 
 #### Future: URL References
 - [ ] Extend `_files.json` to support URL references alongside file uploads (type discriminator, metadata fetching, MCP tools)

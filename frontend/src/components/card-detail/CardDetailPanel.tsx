@@ -5,6 +5,7 @@ import { CardDetailHeader } from './CardDetailHeader';
 import { CardMetadata } from './CardMetadata';
 import { CardContent } from './CardContent';
 import { TaskList } from './TaskList';
+import { CardFiles } from './CardFiles';
 import { Spinner } from '../ui/Spinner';
 
 export function CardDetailPanel() {
@@ -91,25 +92,7 @@ export function CardDetailPanel() {
 
                   {/* Attachments section - moved to bottom */}
                   <div className="border-t border-gray-700 pt-4">
-                    <h3 className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                        />
-                      </svg>
-                      Attachments
-                    </h3>
-                    <p className="text-sm text-gray-600 italic">
-                      Coming soon...
-                    </p>
+                    <CardFiles cardSlug={activeCard.slug} />
                   </div>
                 </div>
               </>
