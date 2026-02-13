@@ -143,6 +143,9 @@ interface DevPlannerStore {
   _recordLocalAction: (key: string) => void;
   _isRecentLocalAction: (key: string) => boolean;
 
+  // Refetch debouncing to prevent rapid card refetches
+  _lastRefetchTime: Map<string, number>;
+
   // Track in-progress card creations (to prevent race with WebSocket)
   _creatingCards: Set<string>; // Set of card titles being created
   wsHandleFileAdded?: (data: { file: ProjectFileEntry }) => void;
@@ -195,6 +198,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   wsConnected: false,
   wsReconnecting: false,
   _recentLocalActions: new Map(),
+  _lastRefetchTime: new Map(),
   _creatingCards: new Set(),
   _lastLoadCardsTime: 0,
   searchQuery: '',
@@ -1211,8 +1215,18 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       willRefetch: state.activeCard?.slug === slug && !isRecentAction,
     });
     if (state.activeCard?.slug === slug && !isRecentAction) {
-      console.log(`[wsHandleCardUpdated] REFETCHING ${slug} from API`);
-      state.openCardDetail(slug);
+      // Add debouncing to prevent rapid refetches
+      const now = Date.now();
+      const lastRefetch = state._lastRefetchTime.get(slug) || 0;
+      const REFETCH_COOLDOWN = 2000; // 2 seconds
+
+      if (now - lastRefetch > REFETCH_COOLDOWN) {
+        console.log(`[wsHandleCardUpdated] REFETCHING ${slug} from API`);
+        state._lastRefetchTime.set(slug, now);
+        state.openCardDetail(slug);
+      } else {
+        console.log(`[wsHandleCardUpdated] Skipping refetch (cooldown active) for ${slug}`);
+      }
     } else {
       console.log(`[wsHandleCardUpdated] SKIPPING refetch for ${slug}`);
     }

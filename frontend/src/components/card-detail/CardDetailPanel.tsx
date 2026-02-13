@@ -9,13 +9,12 @@ import { CardFiles } from './CardFiles';
 import { Spinner } from '../ui/Spinner';
 
 export function CardDetailPanel() {
-  const {
-    activeCard,
-    activeProjectSlug,
-    isDetailPanelOpen,
-    isLoadingCardDetail,
-    closeCardDetail,
-  } = useStore();
+  // Use selective subscriptions to prevent unnecessary re-renders
+  const activeCard = useStore((state) => state.activeCard);
+  const activeProjectSlug = useStore((state) => state.activeProjectSlug);
+  const isDetailPanelOpen = useStore((state) => state.isDetailPanelOpen);
+  const isLoadingCardDetail = useStore((state) => state.isLoadingCardDetail);
+  const closeCardDetail = useStore((state) => state.closeCardDetail);
 
   console.log(`[CardDetailPanel] RENDER:`, {
     slug: activeCard?.slug,

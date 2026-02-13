@@ -6,6 +6,7 @@ import type {
   CardUpdatedData,
   CardMovedData,
   CardDeletedData,
+  TaskToggledData,
   LaneReorderedData,
   ProjectUpdatedData,
   ProjectDeletedData,

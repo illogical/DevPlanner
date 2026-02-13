@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { marked } from 'marked';
 import { useStore } from '../../store';
 
@@ -7,7 +7,7 @@ interface CardContentProps {
   cardSlug: string;
 }
 
-export function CardContent({ content, cardSlug }: CardContentProps) {
+export const CardContent = memo(function CardContent({ content, cardSlug }: CardContentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -152,4 +152,4 @@ export function CardContent({ content, cardSlug }: CardContentProps) {
       )}
     </div>
   );
-}
+});

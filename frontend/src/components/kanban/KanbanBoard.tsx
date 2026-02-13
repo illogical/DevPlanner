@@ -15,17 +15,16 @@ import { CardPreview } from './CardPreview';
 import type { CardSummary } from '../../types';
 
 export function KanbanBoard() {
-  const {
-    projects,
-    activeProjectSlug,
-    cardsByLane,
-    laneCollapsedState,
-    isLoadingCards,
-    loadCards,
-    toggleLaneCollapsed,
-    moveCard,
-    reorderCards,
-  } = useStore();
+  // Use selective subscriptions to prevent unnecessary re-renders
+  const projects = useStore((state) => state.projects);
+  const activeProjectSlug = useStore((state) => state.activeProjectSlug);
+  const cardsByLane = useStore((state) => state.cardsByLane);
+  const laneCollapsedState = useStore((state) => state.laneCollapsedState);
+  const isLoadingCards = useStore((state) => state.isLoadingCards);
+  const loadCards = useStore((state) => state.loadCards);
+  const toggleLaneCollapsed = useStore((state) => state.toggleLaneCollapsed);
+  const moveCard = useStore((state) => state.moveCard);
+  const reorderCards = useStore((state) => state.reorderCards);
 
   const [activeCard, setActiveCard] = useState<CardSummary | null>(null);
 

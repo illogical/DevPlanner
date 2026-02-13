@@ -16,9 +16,14 @@ export class WebSocketService {
 
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
   private readonly PING_TIMEOUT = 5000; // 5 seconds
+  private readonly HEARTBEAT_ENABLED: boolean;
 
   private constructor() {
-    console.log('[WebSocket] Service initialized');
+    // Read heartbeat config from environment variable (default: false for local use)
+    this.HEARTBEAT_ENABLED = process.env.WEBSOCKET_HEARTBEAT_ENABLED === 'true';
+    console.log('[WebSocket] Service initialized', {
+      heartbeatEnabled: this.HEARTBEAT_ENABLED,
+    });
   }
 
   /**
@@ -185,6 +190,11 @@ export class WebSocketService {
    * Start heartbeat to detect stale connections
    */
   private startHeartbeat(): void {
+    if (!this.HEARTBEAT_ENABLED) {
+      console.log('[WebSocket] Heartbeat disabled via WEBSOCKET_HEARTBEAT_ENABLED env var');
+      return;
+    }
+
     if (this.heartbeatInterval) {
       return; // Already running
     }
