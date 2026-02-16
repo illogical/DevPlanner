@@ -13,7 +13,10 @@
     "verify:mcp:json": "bun scripts/verify-mcp-agent.ts --json",
     "demo:e2e": "bun scripts/e2e-demo.ts",
     "mcp": "bun src/mcp-server.ts",
-    "migrate:card-ids": "bun scripts/migrate-card-ids.ts"
+    "migrate:card-ids": "bun scripts/migrate-card-ids.ts",
+    "test:mcp-tools": "bun scripts/test-mcp-tools.ts",
+    "test:mcp-tools:quick": "bun scripts/test-mcp-tools.ts llama3.1",
+    "test:mcp-tools:all": "bun scripts/test-mcp-tools.ts llama3.1 qwen2.5 mistral gemma2 phi3"
   },
   "devDependencies": {
     "@types/bun": "^1.3.8",
