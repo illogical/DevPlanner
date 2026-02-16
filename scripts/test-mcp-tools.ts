@@ -513,9 +513,9 @@ async function validateModels(
 
   // Flatten all available models
   const allModels = new Set<string>();
-  for (const models of availableServers.values()) {
+  Array.from(availableServers.values()).forEach(models => {
     models.forEach(m => allModels.add(m));
-  }
+  });
 
   if (allModels.size === 0) {
     console.error('❌ No models available on any LMAPI server!');
@@ -701,7 +701,7 @@ function calculateStats(results: TestResult[]): ModelStats[] {
   // Calculate stats for each model
   const stats: ModelStats[] = [];
 
-  for (const [model, modelResults] of modelMap) {
+  Array.from(modelMap.entries()).forEach(([model, modelResults]) => {
     const totalTests = modelResults.length;
     const correctCalls = modelResults.filter(r => r.correct).length;
     const accuracyPercent = Math.round((correctCalls / totalTests) * 100);
@@ -746,7 +746,7 @@ function calculateStats(results: TestResult[]): ModelStats[] {
       byCategory,
       byDifficulty,
     });
-  }
+  });
 
   // Sort by accuracy descending
   stats.sort((a, b) => b.accuracyPercent - a.accuracyPercent);
