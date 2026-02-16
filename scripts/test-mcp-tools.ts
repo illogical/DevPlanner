@@ -546,6 +546,7 @@ async function testModelWithPrompt(
   prompt: string,
   tools: OpenAITool[],
   lmapiEndpoint: string,
+  temperature: number = 0.1,
   verbose: boolean = false
 ): Promise<{
   toolCalls: Array<{ function: { name: string; arguments: any } }>;
@@ -569,7 +570,7 @@ async function testModelWithPrompt(
     tools,
     tool_choice: 'auto',
     stream: false,
-    temperature: 0.1, // Low temperature for deterministic tool selection
+    temperature, // Configurable temperature
   };
 
   if (verbose) {
@@ -608,6 +609,8 @@ async function runTests(
   models: string[],
   testCases: TestCase[],
   lmapiEndpoint: string,
+  temperature: number = 0.1,
+  delayMs: number = 500,
   verbose: boolean = false
 ): Promise<TestResult[]> {
   const results: TestResult[] = [];
@@ -628,6 +631,7 @@ async function runTests(
           testCase.prompt,
           tools,
           lmapiEndpoint,
+          temperature,
           verbose
         );
 
@@ -675,8 +679,8 @@ async function runTests(
         console.log(`  \x1b[31m✗\x1b[0m ${testCase.id} (ERROR: ${error})`);
       }
 
-      // Small delay to avoid overwhelming LMAPI/Ollama
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Configurable delay to avoid overwhelming LMAPI/Ollama
+      await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
 
@@ -1356,8 +1360,41 @@ async function generateHTMLDashboard(report: TestReport, outputDir: string): Pro
     }
 
     function sortTable(columnIndex) {
-      // Simple sorting - can be enhanced
-      console.log('Sorting by column', columnIndex);
+      const table = document.getElementById('model-table');
+      const tbody = table.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      
+      // Toggle sort direction
+      if (!table.dataset.sortCol || table.dataset.sortCol != columnIndex) {
+        table.dataset.sortDir = 'desc';
+      } else {
+        table.dataset.sortDir = table.dataset.sortDir === 'desc' ? 'asc' : 'desc';
+      }
+      table.dataset.sortCol = columnIndex;
+      
+      const dir = table.dataset.sortDir;
+      
+      // Sort rows
+      rows.sort((a, b) => {
+        const aText = a.children[columnIndex].textContent.trim();
+        const bText = b.children[columnIndex].textContent.trim();
+        
+        // Try to parse as number (remove % sign if present)
+        const aNum = parseFloat(aText.replace('%', '').replace('ms', ''));
+        const bNum = parseFloat(bText.replace('%', '').replace('ms', ''));
+        
+        let comparison = 0;
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          comparison = aNum - bNum;
+        } else {
+          comparison = aText.localeCompare(bText);
+        }
+        
+        return dir === 'desc' ? -comparison : comparison;
+      });
+      
+      // Re-append rows in sorted order
+      rows.forEach(row => tbody.appendChild(row));
     }
 
     function renderCharts() {
@@ -1499,6 +1536,8 @@ async function main() {
   let outputDir = './test-reports';
   let generateHtml = true;
   let verbose = false;
+  let temperature = 0.1;
+  let delayMs = 500;
   const requestedModels: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -1507,6 +1546,18 @@ async function main() {
       lmapiBaseUrl = args[++i];
     } else if (arg === '--output' && i + 1 < args.length) {
       outputDir = args[++i];
+    } else if (arg === '--temperature' && i + 1 < args.length) {
+      temperature = parseFloat(args[++i]);
+      if (isNaN(temperature) || temperature < 0 || temperature > 2) {
+        console.error('❌ Invalid temperature value. Must be between 0 and 2.');
+        process.exit(1);
+      }
+    } else if (arg === '--delay' && i + 1 < args.length) {
+      delayMs = parseInt(args[++i]);
+      if (isNaN(delayMs) || delayMs < 0) {
+        console.error('❌ Invalid delay value. Must be a positive number.');
+        process.exit(1);
+      }
     } else if (arg === '--no-html') {
       generateHtml = false;
     } else if (arg === '--verbose') {
@@ -1519,15 +1570,18 @@ Usage:
   bun run scripts/test-mcp-tools.ts [options] [model1] [model2] ...
 
 Options:
-  --endpoint <url>    LMAPI base URL (default: http://localhost:17103)
-  --output <dir>      Output directory (default: ./test-reports)
-  --no-html           Skip HTML dashboard generation
-  --verbose           Show detailed request/response information
-  --help, -h          Show this help message
+  --endpoint <url>      LMAPI base URL (default: http://localhost:17103)
+  --output <dir>        Output directory (default: ./test-reports)
+  --temperature <value> Temperature for LLM (default: 0.1, range: 0-2)
+  --delay <ms>          Delay between tests in milliseconds (default: 500)
+  --no-html             Skip HTML dashboard generation
+  --verbose             Show detailed request/response information
+  --help, -h            Show this help message
 
 Examples:
   bun run scripts/test-mcp-tools.ts
   bun run scripts/test-mcp-tools.ts llama3.1 qwen2.5
+  bun run scripts/test-mcp-tools.ts --temperature 0.2 --delay 1000 llama3.1
   bun run scripts/test-mcp-tools.ts --endpoint http://localhost:8000
       `);
       process.exit(0);
@@ -1568,12 +1622,14 @@ Examples:
   console.log(`Models: ${models.join(', ')}`);
   console.log(`Test Cases: ${TEST_CASES.length}`);
   console.log(`Total Tests: ${models.length * TEST_CASES.length}`);
+  console.log(`Temperature: ${temperature}`);
+  console.log(`Delay: ${delayMs}ms`);
   console.log(`Output Directory: ${outputDir}`);
   console.log('═'.repeat(60));
 
   // Run tests
   const lmapiEndpoint = `${lmapiBaseUrl}/api/chat/completions/any`;
-  const results = await runTests(models, TEST_CASES, lmapiEndpoint, verbose);
+  const results = await runTests(models, TEST_CASES, lmapiEndpoint, temperature, delayMs, verbose);
 
   // Generate report
   const report = generateReport(results, TEST_CASES);

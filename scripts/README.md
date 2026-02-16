@@ -289,11 +289,16 @@ bun run test:mcp-tools:all
 # Custom options
 bun scripts/test-mcp-tools.ts --endpoint http://localhost:8000 \
   --output ./my-reports --verbose llama3.1
+
+# Adjust temperature and delay
+bun scripts/test-mcp-tools.ts --temperature 0.2 --delay 1000 llama3.1
 ```
 
 **Command Line Options:**
 - `--endpoint <url>` - LMAPI base URL (default: http://localhost:17103)
 - `--output <dir>` - Output directory (default: ./test-reports)
+- `--temperature <value>` - Temperature for LLM inference (default: 0.1, range: 0-2)
+- `--delay <ms>` - Delay between test cases in milliseconds (default: 500)
 - `--no-html` - Skip HTML dashboard generation
 - `--verbose` - Show detailed request/response information
 - `--help, -h` - Show help message
