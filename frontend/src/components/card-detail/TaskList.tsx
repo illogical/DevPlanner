@@ -47,9 +47,9 @@ export function TaskList({ tasks, cardSlug }: TaskListProps) {
       {/* Task list with animations */}
       <div className="space-y-1 mb-4">
         <AnimatePresence mode="popLayout">
-          {tasks.map((task) => (
+          {tasks.map((task, idx) => (
             <motion.div
-              key={task.index}
+              key={`${task.index}-${task.text}-${idx}`}
               variants={taskVariants}
               initial="initial"
               animate="animate"

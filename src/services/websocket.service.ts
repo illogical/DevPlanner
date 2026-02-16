@@ -130,7 +130,14 @@ export class WebSocketService {
       return;
     }
 
-    const messageStr = JSON.stringify(message);
+    let messageStr: string;
+    try {
+      messageStr = JSON.stringify(message);
+    } catch (err) {
+      console.error(`[WebSocket] Failed to serialize message for broadcast:`, err);
+      return;
+    }
+
     let successCount = 0;
 
     subscribers.forEach((clientId) => {

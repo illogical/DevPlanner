@@ -294,8 +294,8 @@ export class FileWatcherService {
 
     try {
       const fileContent = readFileSync(fullPath, 'utf-8');
-      const orderData = JSON.parse(fileContent);
-      const order = orderData.order || [];
+      // _order.json is a flat array, not an object
+      const order = JSON.parse(fileContent) as string[];
 
       const event: WebSocketEvent = {
         type: 'lane:reordered',
@@ -309,7 +309,7 @@ export class FileWatcherService {
         event,
       });
 
-      console.log(`[FileWatcher] Lane reordered: ${projectSlug}/${lane}`);
+      console.log(`[FileWatcher] Lane reordered: ${projectSlug}/${lane}`, order);
     } catch (error) {
       console.error(`[FileWatcher] Error reading order file ${fullPath}:`, error);
     }
