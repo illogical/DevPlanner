@@ -33,7 +33,7 @@ export function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/30 z-40"
+            className="fixed inset-0 bg-black/30 z-20"
             onClick={onClose}
           />
 
@@ -48,7 +48,7 @@ export function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
               stiffness: 300,
             }}
             className={cn(
-              'fixed top-0 right-0 h-full z-50',
+              'fixed top-14 bottom-0 right-0 z-40',
               'w-full md:w-[400px]',
               'bg-gray-900 border-l border-gray-700',
               'flex flex-col',

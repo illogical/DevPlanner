@@ -118,7 +118,7 @@ export function FilesPanel({ isOpen, onClose }: FilesPanelProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20"
           />
 
           {/* Panel */}
@@ -127,7 +127,7 @@ export function FilesPanel({ isOpen, onClose }: FilesPanelProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 w-full md:w-[500px] bg-gray-900 border-l border-gray-800 z-50 shadow-2xl flex flex-col"
+            className="fixed top-14 bottom-0 right-0 lg:right-80 w-full md:w-[500px] bg-gray-900 border-l border-gray-800 z-40 shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-800">

@@ -66,7 +66,7 @@ export function CardDetailPanel() {
           {/* Panel - positions left of activity sidebar on desktop (lg+) */}
           <motion.div
             ref={panelRef}
-            className="fixed right-0 lg:right-80 top-0 h-full w-full md:max-w-2xl lg:max-w-xl bg-gray-900 border-l border-r border-gray-700 z-30 overflow-y-auto shadow-2xl"
+            className="fixed right-0 lg:right-80 top-14 bottom-0 w-full md:max-w-2xl lg:max-w-xl bg-gray-900 border-l border-r border-gray-700 z-30 overflow-y-auto shadow-2xl"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
