@@ -1,9 +1,11 @@
 import { Elysia, t } from 'elysia';
 import { CardService } from '../services/card.service';
 import { FileService } from '../services/file.service';
+import { ProjectService } from '../services/project.service';
 import { WebSocketService } from '../services/websocket.service';
 import { HistoryService } from '../services/history.service';
 import { MarkdownService } from '../services/markdown.service';
+import { recordAndBroadcastHistory } from '../utils/history-helper';
 import type {
   CardCreatedData,
   CardUpdatedData,
@@ -15,6 +17,7 @@ import type {
 export const cardRoutes = (workspacePath: string) => {
   const cardService = new CardService(workspacePath);
   const fileService = new FileService(workspacePath);
+  const projectService = new ProjectService(workspacePath);
   const wsService = WebSocketService.getInstance();
   const historyService = HistoryService.getInstance();
 
@@ -48,6 +51,20 @@ export const cardRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        const project = await projectService.getProject(params.projectSlug);
+        const laneName = project.lanes[card.lane]?.displayName || card.lane;
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'card:created',
+          `Card "${card.frontmatter.title}" created in ${laneName}`,
+          {
+            cardSlug: card.slug,
+            cardTitle: card.frontmatter.title,
+            lane: card.lane,
+          }
+        );
 
         return card;
       },
@@ -164,17 +181,17 @@ export const cardRoutes = (workspacePath: string) => {
           },
         });
 
-        // Record history event
-        historyService.recordEvent({
-          projectSlug: params.projectSlug,
-          action: 'card:deleted',
-          description: `Card "${card.frontmatter.title}" was permanently deleted`,
-          metadata: {
+        // Record history event (now broadcasts via helper)
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'card:deleted',
+          `Card "${card.frontmatter.title}" was permanently deleted`,
+          {
             cardSlug: params.cardSlug,
             cardTitle: card.frontmatter.title,
             lane: sourceLane,
-          },
-        });
+          }
+        );
 
         return {
           slug: params.cardSlug,
@@ -200,18 +217,18 @@ export const cardRoutes = (workspacePath: string) => {
           },
         });
 
-        // Record history event
-        historyService.recordEvent({
-          projectSlug: params.projectSlug,
-          action: 'card:archived',
-          description: `Card "${card.frontmatter.title}" moved to Archive`,
-          metadata: {
+        // Record history event (now broadcasts via helper)
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'card:archived',
+          `Card "${card.frontmatter.title}" moved to Archive`,
+          {
             cardSlug: params.cardSlug,
             cardTitle: card.frontmatter.title,
             sourceLane,
             targetLane: '04-archive',
-          },
-        });
+          }
+        );
 
         return {
           slug: params.cardSlug,
@@ -251,6 +268,21 @@ export const cardRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        const project = await projectService.getProject(params.projectSlug);
+        const targetLaneName = project.lanes[body.lane]?.displayName || body.lane;
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'card:moved',
+          `Card "${card.frontmatter.title}" moved to ${targetLaneName}`,
+          {
+            cardSlug: params.cardSlug,
+            cardTitle: card.frontmatter.title,
+            sourceLane,
+            targetLane: body.lane,
+          }
+        );
 
         return card;
       },
@@ -319,6 +351,20 @@ export const cardRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        const changedFields = Object.keys(body).filter(k => body[k as keyof typeof body] !== undefined);
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'card:updated',
+          `Card "${card.frontmatter.title}" updated (${changedFields.join(', ')})`,
+          {
+            cardSlug: card.slug,
+            cardTitle: card.frontmatter.title,
+            lane: card.lane,
+            changedFields,
+          }
+        );
 
         return card;
       },

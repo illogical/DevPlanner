@@ -37,3 +37,48 @@ export function formatRelativeTime(timestamp: string): string {
     year: now.getFullYear() !== date.getFullYear() ? 'numeric' : undefined,
   });
 }
+
+/**
+ * Format a timestamp as absolute date/time (e.g., "2:45 PM", "Yesterday 2:45 PM", "Feb 17, 2:45 PM")
+ * This format remains accurate even when the page sits idle, unlike relative time.
+ */
+export function formatAbsoluteTime(timestamp: string): string {
+  const now = new Date();
+  const date = new Date(timestamp);
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const eventDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const timeStr = date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  // Today - show just time
+  if (eventDate.getTime() === today.getTime()) {
+    return timeStr;
+  }
+
+  // Yesterday - show "Yesterday" + time
+  if (eventDate.getTime() === yesterday.getTime()) {
+    return `Yesterday ${timeStr}`;
+  }
+
+  // This year - show "Mon DD, HH:MM AM/PM"
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    }) + `, ${timeStr}`;
+  }
+
+  // Different year - show "Mon DD, YYYY, HH:MM AM/PM"
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }) + `, ${timeStr}`;
+}

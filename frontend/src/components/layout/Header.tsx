@@ -162,12 +162,12 @@ export function Header({ connectionState }: HeaderProps) {
         </svg>
       </IconButton>
 
-      {/* Activity History Toggle */}
+      {/* Activity History Toggle - mobile only (desktop has always-on sidebar) */}
       <IconButton
         label="Activity history"
         onClick={toggleActivityPanel}
         className={cn(
-          'transition-colors',
+          'transition-colors lg:hidden',
           isActivityPanelOpen && 'bg-blue-500/20 text-blue-400'
         )}
       >

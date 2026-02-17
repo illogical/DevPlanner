@@ -896,7 +896,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   toggleActivityPanel: () => {
     set((state) => ({
       isActivityPanelOpen: !state.isActivityPanelOpen,
-      isFilesPanelOpen: !state.isActivityPanelOpen ? false : state.isFilesPanelOpen,
+      // Removed: isFilesPanelOpen mutual exclusion (can coexist on mobile)
     }));
   },
 
@@ -1077,20 +1077,17 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   },
   
   toggleFilesPanel: () => {
-    set((state) => {
-      const willOpen = !state.isFilesPanelOpen;
-      return {
-        isFilesPanelOpen: willOpen,
-        isActivityPanelOpen: willOpen ? false : state.isActivityPanelOpen, // Close activity if opening files
-      };
-    });
-  },
-  
-  setFilesPanelOpen: (open: boolean) => {
     set((state) => ({
+      isFilesPanelOpen: !state.isFilesPanelOpen,
+      // Removed: isActivityPanelOpen mutual exclusion (can coexist on mobile)
+    }))
+  },
+
+  setFilesPanelOpen: (open: boolean) => {
+    set({
       isFilesPanelOpen: open,
-      isActivityPanelOpen: open ? false : state.isActivityPanelOpen
-    }));
+      // Removed: isActivityPanelOpen mutual exclusion (can coexist on mobile)
+    })
   },
 
   // WebSocket state setters

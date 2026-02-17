@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia';
 import { ProjectService } from '../services/project.service';
 import { slugify } from '../utils/slug';
 import { WebSocketService } from '../services/websocket.service';
+import { recordAndBroadcastHistory } from '../utils/history-helper';
 import type { ProjectUpdatedData } from '../types';
 
 export const projectRoutes = (workspacePath: string) => {
@@ -21,6 +22,14 @@ export const projectRoutes = (workspacePath: string) => {
         const project = await projectService.createProject(body.name, body.description);
         const slug = slugify(body.name);
         set.status = 201;
+
+        // Record history
+        recordAndBroadcastHistory(
+          slug,
+          'project:created',
+          `Project "${body.name}" created`,
+          { projectName: body.name }
+        );
 
         // Return ProjectSummary format with cardCounts
         return {
@@ -69,6 +78,15 @@ export const projectRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        const changedFields = Object.keys(body).filter(k => body[k as keyof typeof body] !== undefined);
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'project:updated',
+          `Project "${project.name}" updated (${changedFields.join(', ')})`,
+          { projectName: project.name, changedFields }
+        );
 
         return project;
       },
@@ -129,6 +147,14 @@ export const projectRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'project:archived',
+          `Project "${project.name}" archived`,
+          { projectName: project.name }
+        );
 
         return {
           slug: params.projectSlug,

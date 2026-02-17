@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia';
 import { FileService } from '../services/file.service';
 import { CardService } from '../services/card.service';
 import { WebSocketService } from '../services/websocket.service';
+import { recordAndBroadcastHistory } from '../utils/history-helper';
 import type {
   FileAddedData,
   FileDeletedData,
@@ -53,6 +54,14 @@ export const fileRoutes = (workspacePath: string) => {
           },
         });
 
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'file:uploaded',
+          `File uploaded: ${fileEntry.originalName}`,
+          { filename: fileEntry.filename }
+        );
+
         return fileEntry;
       },
       {
@@ -91,6 +100,14 @@ export const fileRoutes = (workspacePath: string) => {
           },
         });
 
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'file:updated',
+          `File description updated: ${params.filename}`,
+          { filename: params.filename }
+        );
+
         return file;
       },
       {
@@ -115,6 +132,14 @@ export const fileRoutes = (workspacePath: string) => {
           data: eventData,
         },
       });
+
+      // Record history
+      recordAndBroadcastHistory(
+        params.projectSlug,
+        'file:deleted',
+        `File deleted: ${params.filename}`,
+        { filename: params.filename }
+      );
 
       return result;
     })
@@ -146,6 +171,17 @@ export const fileRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'file:associated',
+          `File "${params.filename}" associated with card "${body.cardSlug}"`,
+          {
+            filename: params.filename,
+            cardSlug: body.cardSlug,
+          }
+        );
 
         return file;
       },
@@ -180,6 +216,17 @@ export const fileRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'file:disassociated',
+          `File "${params.filename}" disassociated from card "${params.cardSlug}"`,
+          {
+            filename: params.filename,
+            cardSlug: params.cardSlug,
+          }
+        );
 
         return file;
       }

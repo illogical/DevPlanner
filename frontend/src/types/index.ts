@@ -138,22 +138,48 @@ export interface Preferences {
 
 // History types
 export type HistoryActionType =
+  // Existing
   | 'task:completed'
   | 'task:uncompleted'
   | 'card:created'
   | 'card:moved'
   | 'card:updated'
-  | 'card:archived';
+  | 'card:archived'
+  // NEW - Fix type bug
+  | 'card:deleted'
+  // NEW - Task operations
+  | 'task:added'
+  // NEW - Project operations
+  | 'project:created'
+  | 'project:updated'
+  | 'project:archived'
+  // NEW - File operations
+  | 'file:uploaded'
+  | 'file:deleted'
+  | 'file:associated'
+  | 'file:disassociated'
+  | 'file:updated';
 
 export interface HistoryEventMetadata {
-  cardSlug: string;
-  cardTitle: string;
+  // Card-related (now optional - not all events are card-related)
+  cardSlug?: string;
+  cardTitle?: string;
   lane?: string;
   sourceLane?: string;
   targetLane?: string;
+
+  // Task-related
   taskIndex?: number;
   taskText?: string;
+
+  // Update tracking
   changedFields?: string[];
+
+  // NEW - File operations
+  filename?: string;
+
+  // NEW - Project operations
+  projectName?: string;
 }
 
 export interface HistoryEvent {

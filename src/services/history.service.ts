@@ -4,20 +4,25 @@ import type {
   HistoryEventMetadata,
   HistoryEvent,
 } from '../types';
+import { HistoryPersistenceService } from './history-persistence.service';
+import { ConfigService } from './config.service';
 
 /**
  * Service for managing activity history logs
- * Stores events in-memory with a max limit per project
+ * Stores events in-memory with persistent JSON file backup
  * Singleton pattern - use getInstance() to access
  */
 export class HistoryService {
   private static instance: HistoryService;
 
   private events: Map<string, HistoryEvent[]> = new Map();
-  private readonly MAX_EVENTS_PER_PROJECT = 50;
+  private readonly MAX_EVENTS_PER_PROJECT = 500; // Increased from 50 to match persistence limit
+  private persistenceService: HistoryPersistenceService;
 
   private constructor() {
-    console.log('[History] Service initialized');
+    const config = ConfigService.getInstance();
+    this.persistenceService = HistoryPersistenceService.getInstance(config.workspacePath);
+    console.log('[History] Service initialized with persistent storage');
   }
 
   /**
@@ -33,6 +38,7 @@ export class HistoryService {
   /**
    * Record a new history event
    * Returns the full event with generated ID and timestamp
+   * Automatically persists to disk (debounced)
    */
   public recordEvent(
     event: Omit<HistoryEvent, 'id' | 'timestamp'>
@@ -53,6 +59,9 @@ export class HistoryService {
 
     this.events.set(event.projectSlug, projectEvents);
 
+    // Schedule persistent write (debounced)
+    this.persistenceService.scheduleWrite(event.projectSlug, projectEvents);
+
     console.log(
       `[History] Recorded ${fullEvent.action} for ${event.projectSlug}: ${fullEvent.description}`
     );
@@ -62,18 +71,32 @@ export class HistoryService {
 
   /**
    * Get recent events for a project
+   * Loads from disk if not in memory (e.g., after server restart)
    */
-  public getEvents(projectSlug: string, limit: number = 50): HistoryEvent[] {
-    const events = this.events.get(projectSlug) || [];
-    return events.slice(0, Math.min(limit, this.MAX_EVENTS_PER_PROJECT));
+  public async getEvents(projectSlug: string, limit: number = 50): Promise<HistoryEvent[]> {
+    // Check in-memory cache first
+    let events = this.events.get(projectSlug);
+
+    // Load from disk if not in memory
+    if (!events) {
+      events = await this.persistenceService.loadHistory(projectSlug);
+      if (events.length > 0) {
+        this.events.set(projectSlug, events);
+        console.log(`[History] Loaded ${events.length} events from disk for ${projectSlug}`);
+      }
+    }
+
+    return events ? events.slice(0, Math.min(limit, this.MAX_EVENTS_PER_PROJECT)) : [];
   }
 
   /**
    * Clear all events for a project
    * Useful when a project is deleted or archived
+   * Also deletes persistent files on disk
    */
-  public clearEvents(projectSlug: string): void {
+  public async clearEvents(projectSlug: string): Promise<void> {
     this.events.delete(projectSlug);
+    await this.persistenceService.deleteHistory(projectSlug);
     console.log(`[History] Cleared events for ${projectSlug}`);
   }
 

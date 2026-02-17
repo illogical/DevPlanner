@@ -3,6 +3,7 @@ import { TaskService } from '../services/task.service';
 import { MarkdownService } from '../services/markdown.service';
 import { CardService } from '../services/card.service';
 import { WebSocketService } from '../services/websocket.service';
+import { recordAndBroadcastHistory } from '../utils/history-helper';
 import type { TaskToggledData, CardUpdatedData } from '../types';
 
 export const taskRoutes = (workspacePath: string) => {
@@ -45,6 +46,20 @@ export const taskRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'task:added',
+          `Task added to "${card.frontmatter.title}": ${body.text}`,
+          {
+            cardSlug: params.cardSlug,
+            cardTitle: card.frontmatter.title,
+            lane: card.lane,
+            taskIndex: task.index,
+            taskText: body.text,
+          }
+        );
 
         return {
           ...task,
@@ -93,6 +108,20 @@ export const taskRoutes = (workspacePath: string) => {
             data: eventData,
           },
         });
+
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          body.checked ? 'task:completed' : 'task:uncompleted',
+          `Task ${body.checked ? 'completed' : 'uncompleted'} in "${card.frontmatter.title}": ${task.text}`,
+          {
+            cardSlug: params.cardSlug,
+            cardTitle: card.frontmatter.title,
+            lane: card.lane,
+            taskIndex,
+            taskText: task.text,
+          }
+        );
 
         return {
           ...task,

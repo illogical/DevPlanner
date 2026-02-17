@@ -5,18 +5,18 @@ const historyService = HistoryService.getInstance();
 
 export const historyRoutes = new Elysia({ prefix: '/api' }).get(
   '/projects/:projectSlug/history',
-  ({ params, query }) => {
+  async ({ params, query }) => {
     const { projectSlug } = params;
     const limit = Math.min(
       parseInt((query.limit as string) || '50'),
-      100
+      500 // Increased max from 100 to 500 to match persistence
     );
 
-    const events = historyService.getEvents(projectSlug, limit);
+    const events = await historyService.getEvents(projectSlug, limit);
 
     return {
       events,
-      total: historyService.getEventCount(projectSlug),
+      total: events.length, // Use actual length since getEventCount would need to be async too
     };
   },
   {
