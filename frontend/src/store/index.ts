@@ -58,6 +58,7 @@ interface DevPlannerStore {
   loadCards: () => Promise<void>;
   createCard: (title: string, lane?: string) => Promise<void>;
   archiveCard: (cardSlug: string) => Promise<void>;
+  deleteCard: (cardSlug: string) => Promise<void>;
   moveCard: (
     cardSlug: string,
     targetLane: string,
@@ -400,6 +401,37 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
           ...state.cardsByLane,
           [currentLane]: sourceCards.filter((c) => c.slug !== cardSlug),
           '04-archive': [...archiveCards, { ...card, lane: '04-archive' }],
+        },
+      };
+    });
+  },
+
+  deleteCard: async (cardSlug) => {
+    const { activeProjectSlug, cardsByLane } = get();
+    if (!activeProjectSlug) return;
+
+    // Find current lane
+    let currentLane = '';
+    for (const [lane, cards] of Object.entries(cardsByLane)) {
+      if (cards.some((c) => c.slug === cardSlug)) {
+        currentLane = lane;
+        break;
+      }
+    }
+
+    // Record local action BEFORE API call to prevent race condition with WebSocket
+    get()._recordLocalAction(`card:deleted:${cardSlug}`);
+
+    await cardsApi.delete(activeProjectSlug, cardSlug);
+
+    // Remove card from lane
+    set((state) => {
+      const sourceCards = state.cardsByLane[currentLane] || [];
+
+      return {
+        cardsByLane: {
+          ...state.cardsByLane,
+          [currentLane]: sourceCards.filter((c) => c.slug !== cardSlug),
         },
       };
     });

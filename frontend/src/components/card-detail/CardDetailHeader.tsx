@@ -24,7 +24,7 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { updateCard, archiveCard, closeCardDetail } = useStore();
+  const { updateCard, archiveCard, deleteCard, closeCardDetail } = useStore();
   const activeProjectSlug = useStore(state => state.activeProjectSlug);
   const projectPrefix = useStore(
     state => state.projects.find(p => p.slug === activeProjectSlug)?.prefix
@@ -89,9 +89,30 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
     }
   };
 
-  const handleDelete = async () => {
+  const isInArchive = card.lane === '04-archive';
+
+  const handleDeleteClick = () => {
+    if (isInArchive) {
+      // Show confirmation for permanent delete
+      setShowDeleteModal(true);
+    } else {
+      // Archive immediately without confirmation
+      handleArchive();
+    }
+  };
+
+  const handleArchive = async () => {
     try {
       await archiveCard(card.slug);
+      closeCardDetail();
+    } catch (error) {
+      console.error('Failed to archive card:', error);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    try {
+      await deleteCard(card.slug);
       closeCardDetail();
     } catch (error) {
       console.error('Failed to delete card:', error);
@@ -133,8 +154,8 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
           <div className="flex items-center gap-2">
             {/* Delete button */}
             <IconButton
-              label="Delete card"
-              onClick={() => setShowDeleteModal(true)}
+              label={isInArchive ? "Delete card permanently" : "Archive card"}
+              onClick={handleDeleteClick}
               className="text-gray-500 hover:text-red-400"
             >
               <svg
@@ -172,14 +193,14 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
         </div>
       </div>
 
-      {/* Delete confirmation modal */}
-      {showDeleteModal && (
+      {/* Delete confirmation modal - only shown for permanent delete */}
+      {showDeleteModal && isInArchive && (
         <ConfirmModal
-          title="Delete Card?"
-          message={`Are you sure you want to delete "${card.frontmatter.title}"? This action cannot be undone.`}
-          confirmLabel="Delete"
+          title="Permanently Delete Card?"
+          message={`Are you sure you want to permanently delete "${card.frontmatter.title}"? This action cannot be undone.`}
+          confirmLabel="Delete Permanently"
           confirmVariant="danger"
-          onConfirm={handleDelete}
+          onConfirm={handlePermanentDelete}
           onCancel={() => setShowDeleteModal(false)}
         />
       )}

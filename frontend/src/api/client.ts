@@ -101,6 +101,12 @@ export const cardsApi = {
       { method: 'DELETE' }
     ),
 
+  delete: (projectSlug: string, cardSlug: string) =>
+    fetchJSON<{ slug: string; deleted: boolean }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}?hard=true`,
+      { method: 'DELETE' }
+    ),
+
   move: (
     projectSlug: string,
     cardSlug: string,
