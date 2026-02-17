@@ -4,16 +4,9 @@ type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
 type EventHandler = (data: unknown) => void;
 
 function getWebSocketUrl(): string {
-  // In development, Vite proxies /api but not WebSocket by default
-  // Use the same host but with ws:// protocol
+  // Always use window.location.host - works for both local and remote access
+  // Vite dev server proxies WebSocket connections to the backend
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-
-  // In dev mode, connect directly to backend port
-  if (import.meta.env.DEV) {
-    return 'ws://localhost:17103/api/ws';
-  }
-
-  // In production, use same host
   return `${protocol}//${window.location.host}/api/ws`;
 }
 

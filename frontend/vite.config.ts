@@ -7,7 +7,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      '/api': 'http://localhost:17103',
+      '/api': {
+        target: 'http://localhost:17103',
+        ws: true,  // Enable WebSocket upgrade proxying
+      },
     },
   },
 });
