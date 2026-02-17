@@ -243,24 +243,37 @@ Some text after.
   });
 
   describe('appendTask', () => {
-    test('appends task to existing content', () => {
-      const content = `
-Existing content.
+    test('appends task to existing content with ## Tasks heading', () => {
+      const content = `Existing content.
 
-- [ ] Existing task
-`;
+## Tasks
+- [ ] Existing task`;
 
       const result = MarkdownService.appendTask(content, 'New task');
 
       expect(result).toContain('Existing content.');
+      expect(result).toContain('## Tasks');
       expect(result).toContain('- [ ] Existing task');
       expect(result).toContain('- [ ] New task');
+      // Should not create duplicate heading
+      expect(result.match(/## Tasks/g)?.length).toBe(1);
     });
 
-    test('appends task to empty content', () => {
+    test('creates ## Tasks heading when adding first task to content without heading', () => {
+      const content = 'Existing description without tasks.';
+
+      const result = MarkdownService.appendTask(content, 'First task');
+
+      expect(result).toContain('Existing description without tasks.');
+      expect(result).toContain('## Tasks');
+      expect(result).toContain('- [ ] First task');
+      expect(result).toBe('Existing description without tasks.\n\n## Tasks\n- [ ] First task');
+    });
+
+    test('creates ## Tasks heading for empty content', () => {
       const result = MarkdownService.appendTask('', 'First task');
 
-      expect(result).toBe('- [ ] First task');
+      expect(result).toBe('## Tasks\n- [ ] First task');
     });
 
     test('handles content without trailing newline', () => {
@@ -268,7 +281,8 @@ Existing content.
 
       const result = MarkdownService.appendTask(content, 'New task');
 
-      expect(result).toBe('Content without newline\n- [ ] New task');
+      expect(result).toBe('Content without newline\n\n## Tasks\n- [ ] New task');
+      expect(result).toContain('## Tasks');
     });
   });
 

@@ -604,30 +604,45 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     const { activeProjectSlug, activeCard } = get();
     if (!activeProjectSlug) return;
 
-    console.log(`[addTask] Starting for ${cardSlug}, current tasks:`, activeCard?.tasks);
-    const result = await tasksApi.add(activeProjectSlug, cardSlug, text);
-    console.log(`[addTask] API returned:`, result);
-    
-    // Record this as a local action to prevent self-echo from file watcher events
+    // Record this as a local action BEFORE API call to prevent race with WebSocket
     get()._recordLocalAction(`card:updated:${cardSlug}`);
-    console.log(`[addTask] Recorded local action at`, Date.now());
+
+    const result = await tasksApi.add(activeProjectSlug, cardSlug, text);
 
     // Update active card if it matches
     if (activeCard && activeCard.slug === cardSlug) {
       set((state) => {
-        console.log(`[addTask] SET #1 - Before update, state.activeCard.tasks:`, state.activeCard?.tasks);
-        const updated = {
-          activeCard: state.activeCard
-            ? {
-                ...state.activeCard,
-                tasks: [...state.activeCard.tasks, result],
-              }
-            : null,
+        if (!state.activeCard) return { activeCard: null };
+
+        // Update tasks array
+        const updatedTasks = [...state.activeCard.tasks, result];
+
+        // Update content to include the new task (keeping it in sync with tasks)
+        let updatedContent = state.activeCard.content;
+        const newTaskLine = `- [ ] ${text}`;
+
+        if (!updatedContent) {
+          // Empty content: create Tasks section
+          updatedContent = `## Tasks\n${newTaskLine}`;
+        } else {
+          const trimmedContent = updatedContent.trimEnd();
+          if (/^## Tasks$/m.test(updatedContent)) {
+            // Heading exists, append task
+            updatedContent = `${trimmedContent}\n${newTaskLine}`;
+          } else {
+            // No heading: add it before first task
+            updatedContent = `${trimmedContent}\n\n## Tasks\n${newTaskLine}`;
+          }
+        }
+
+        return {
+          activeCard: {
+            ...state.activeCard,
+            tasks: updatedTasks,
+            content: updatedContent,
+          },
         };
-        console.log(`[addTask] SET #1 - After update, new tasks:`, updated.activeCard?.tasks);
-        return updated;
       });
-      console.log(`[addTask] After SET #1, store activeCard.tasks:`, get().activeCard?.tasks);
     }
 
     // Update card summary
@@ -644,8 +659,6 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       }
       return { cardsByLane: newCardsByLane };
     });
-    console.log(`[addTask] After SET #2, store activeCard.tasks:`, get().activeCard?.tasks);
-    console.log(`[addTask] COMPLETE for ${cardSlug}`);
   },
 
   updateCard: async (cardSlug, updates) => {
@@ -1215,18 +1228,8 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
       willRefetch: state.activeCard?.slug === slug && !isRecentAction,
     });
     if (state.activeCard?.slug === slug && !isRecentAction) {
-      // Add debouncing to prevent rapid refetches
-      const now = Date.now();
-      const lastRefetch = state._lastRefetchTime.get(slug) || 0;
-      const REFETCH_COOLDOWN = 2000; // 2 seconds
-
-      if (now - lastRefetch > REFETCH_COOLDOWN) {
-        console.log(`[wsHandleCardUpdated] REFETCHING ${slug} from API`);
-        state._lastRefetchTime.set(slug, now);
-        state.openCardDetail(slug);
-      } else {
-        console.log(`[wsHandleCardUpdated] Skipping refetch (cooldown active) for ${slug}`);
-      }
+      console.log(`[wsHandleCardUpdated] REFETCHING ${slug} from API`);
+      state.openCardDetail(slug);
     } else {
       console.log(`[wsHandleCardUpdated] SKIPPING refetch for ${slug}`);
     }

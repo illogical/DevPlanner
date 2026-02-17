@@ -52,7 +52,7 @@ export function CardPreviewTasks({
     return () => {
       mounted = false;
     };
-  }, [projectSlug, cardSlug]);
+  }, [projectSlug, cardSlug, taskProgress]);
 
   if (isLoading) {
     return (

@@ -86,18 +86,27 @@ export class MarkdownService {
 
   /**
    * Append a new checklist item to the content.
-   * Adds it at the end of the content with proper formatting.
+   * Ensures a ## Tasks heading exists before adding tasks.
+   * This allows the frontend to properly extract and preserve tasks during description edits.
    */
   static appendTask(content: string, text: string): string {
     const newTask = `- [ ] ${text}`;
 
-    // If content is empty or doesn't end with newline, add one
+    // If content is empty, create Tasks section with heading
     if (!content) {
-      return newTask;
+      return `## Tasks\n${newTask}`;
     }
 
     const trimmedContent = content.trimEnd();
-    return `${trimmedContent}\n${newTask}`;
+
+    // Check if ## Tasks heading already exists
+    if (/^## Tasks$/m.test(content)) {
+      // Heading exists, just append task
+      return `${trimmedContent}\n${newTask}`;
+    } else {
+      // No heading: add it before first task
+      return `${trimmedContent}\n\n## Tasks\n${newTask}`;
+    }
   }
 
   /**
