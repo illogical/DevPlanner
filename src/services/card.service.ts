@@ -301,7 +301,21 @@ export class CardService {
     frontmatter.updated = new Date().toISOString();
 
     // Use updated content if provided, otherwise keep existing
-    const updatedContent = updates.content !== undefined ? updates.content : content;
+    let updatedContent: string;
+    if (updates.content !== undefined) {
+      const newContent = updates.content;
+      // If the new content omits the ## Tasks section but the existing card has one,
+      // re-append the existing tasks block to prevent silent data loss.
+      const existingTasksMatch = content.match(/((?:^|\n)## Tasks[\s\S]*$)/);
+      const newContentHasTasks = /^## Tasks$/m.test(newContent);
+      if (existingTasksMatch && !newContentHasTasks) {
+        updatedContent = newContent.trimEnd() + '\n\n' + existingTasksMatch[1].trimStart();
+      } else {
+        updatedContent = newContent;
+      }
+    } else {
+      updatedContent = content;
+    }
 
     // Serialize and write back to disk
     const markdown = MarkdownService.serialize(frontmatter, updatedContent);

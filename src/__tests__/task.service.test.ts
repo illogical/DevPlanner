@@ -156,4 +156,77 @@ describe('TaskService', () => {
       expect(card.tasks[1].text).toBe('Existing task 2');
     });
   });
+
+  describe('addTask — side effects', () => {
+    const sideEffectsCardSlug = 'original-title'; // Slug is generated from 'Original Title'
+
+    beforeEach(async () => {
+      // Create card with metadata and description
+      await cardService.createCard(projectSlug, {
+        title: 'Original Title',
+        priority: 'high',
+        assignee: 'user',
+        content: 'Original description text\n\n## Tasks\n- [ ] Pre-existing task',
+      });
+    });
+
+    test('adding a task: card title unchanged', async () => {
+      await taskService.addTask(projectSlug, sideEffectsCardSlug, 'New task');
+
+      const card = await cardService.getCard(projectSlug, sideEffectsCardSlug);
+      expect(card.frontmatter.title).toBe('Original Title');
+    });
+
+    test('adding a task: card description text unchanged', async () => {
+      await taskService.addTask(projectSlug, sideEffectsCardSlug, 'New task');
+
+      const card = await cardService.getCard(projectSlug, sideEffectsCardSlug);
+      expect(card.content).toContain('Original description text');
+    });
+
+    test('adding a task: card priority and assignee unchanged', async () => {
+      await taskService.addTask(projectSlug, sideEffectsCardSlug, 'New task');
+
+      const card = await cardService.getCard(projectSlug, sideEffectsCardSlug);
+      expect(card.frontmatter.priority).toBe('high');
+      expect(card.frontmatter.assignee).toBe('user');
+    });
+  });
+
+  describe('setTaskChecked — side effects', () => {
+    const toggleCardSlug = 'toggle-title'; // Slug is generated from 'Toggle Title'
+
+    beforeEach(async () => {
+      // Create card with description and three tasks
+      await cardService.createCard(projectSlug, {
+        title: 'Toggle Title',
+        content: 'Toggle description\n\n## Tasks\n- [ ] Task Zero\n- [ ] Task One\n- [ ] Task Two',
+      });
+    });
+
+    test('toggling a task: card title unchanged', async () => {
+      await taskService.setTaskChecked(projectSlug, toggleCardSlug, 1, true);
+
+      const card = await cardService.getCard(projectSlug, toggleCardSlug);
+      expect(card.frontmatter.title).toBe('Toggle Title');
+    });
+
+    test('toggling a task: card description text unchanged', async () => {
+      await taskService.setTaskChecked(projectSlug, toggleCardSlug, 1, true);
+
+      const card = await cardService.getCard(projectSlug, toggleCardSlug);
+      expect(card.content).toContain('Toggle description');
+    });
+
+    test('toggling a task: non-toggled tasks unchanged in text and completion state', async () => {
+      await taskService.setTaskChecked(projectSlug, toggleCardSlug, 1, true);
+
+      const card = await cardService.getCard(projectSlug, toggleCardSlug);
+      expect(card.tasks[0].text).toBe('Task Zero');
+      expect(card.tasks[0].checked).toBe(false);
+      expect(card.tasks[1].checked).toBe(true);
+      expect(card.tasks[2].text).toBe('Task Two');
+      expect(card.tasks[2].checked).toBe(false);
+    });
+  });
 });

@@ -4,6 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { ProjectService } from '../services/project.service';
 import { CardService } from '../services/card.service';
+import { TaskService } from '../services/task.service';
 
 describe('CardService', () => {
   let testWorkspace: string;
@@ -482,6 +483,105 @@ describe('CardService', () => {
       await expect(
         cardService.updateCard(projectSlug, 'non-existent', { title: 'Test' })
       ).rejects.toThrow('Card not found');
+    });
+  });
+
+  describe('updateCard — task preservation', () => {
+    let taskService: TaskService;
+    const testCardSlug = 'task-preservation-card';
+
+    beforeEach(async () => {
+      // Initialize TaskService with test workspace
+      taskService = new TaskService(testWorkspace);
+      
+      // Create a card with tasks using the full service stack
+      await cardService.createCard(projectSlug, {
+        title: 'Task Preservation Card',
+      });
+      // Add tasks
+      await taskService.addTask(projectSlug, testCardSlug, 'Task A');
+      await taskService.addTask(projectSlug, testCardSlug, 'Task B');
+      // Check the second task
+      await taskService.setTaskChecked(projectSlug, testCardSlug, 1, true);
+    });
+
+    test('updating title only: task count unchanged', async () => {
+      const result = await cardService.updateCard(projectSlug, testCardSlug, {
+        title: 'New Title',
+      });
+
+      expect(result.tasks.length).toBe(2);
+    });
+
+    test('updating title only: task completion states unchanged', async () => {
+      const result = await cardService.updateCard(projectSlug, testCardSlug, {
+        title: 'New Title',
+      });
+
+      expect(result.tasks[0].checked).toBe(false);
+      expect(result.tasks[1].checked).toBe(true);
+    });
+
+    test('updating content with description only (no ## Tasks section): tasks preserved', async () => {
+      const result = await cardService.updateCard(projectSlug, testCardSlug, {
+        content: 'New description text only',
+      });
+
+      expect(result.tasks.length).toBe(2);
+      expect(result.tasks[0].text).toBe('Task A');
+      expect(result.tasks[1].text).toBe('Task B');
+    });
+
+    test('updating content with description only: task completion states preserved', async () => {
+      const result = await cardService.updateCard(projectSlug, testCardSlug, {
+        content: 'New description text only',
+      });
+
+      expect(result.tasks[0].checked).toBe(false);
+      expect(result.tasks[1].checked).toBe(true);
+    });
+
+    test('updating content AND title simultaneously: tasks preserved', async () => {
+      // Create a card with 3 tasks (2 unchecked, 1 checked)
+      const card3Slug = 'three-task-card';
+      await cardService.createCard(projectSlug, {
+        title: 'Three Task Card',
+      });
+      await taskService.addTask(projectSlug, card3Slug, 'Task One');
+      await taskService.addTask(projectSlug, card3Slug, 'Task Two');
+      await taskService.addTask(projectSlug, card3Slug, 'Task Three');
+      await taskService.setTaskChecked(projectSlug, card3Slug, 2, true);
+
+      const result = await cardService.updateCard(projectSlug, card3Slug, {
+        title: 'New Title',
+        content: 'Combined update description',
+      });
+
+      expect(result.tasks.length).toBe(3);
+      expect(result.tasks[2].checked).toBe(true);
+    });
+
+    test('re-reading card from disk after title update confirms tasks persisted', async () => {
+      await cardService.updateCard(projectSlug, testCardSlug, {
+        title: 'Disk Verify Title',
+      });
+
+      // Fresh read from disk
+      const card = await cardService.getCard(projectSlug, testCardSlug);
+
+      expect(card.tasks.length).toBe(2);
+    });
+
+    test('re-reading card from disk after description update confirms tasks persisted', async () => {
+      await cardService.updateCard(projectSlug, testCardSlug, {
+        content: 'Disk verify description',
+      });
+
+      // Fresh read from disk
+      const card = await cardService.getCard(projectSlug, testCardSlug);
+
+      expect(card.tasks.length).toBe(2);
+      expect(card.tasks[1].checked).toBe(true);
     });
   });
 });
