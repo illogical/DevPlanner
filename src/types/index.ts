@@ -86,6 +86,12 @@ export interface UpdateCardInput {
   content?: string;
 }
 
+export interface AddFileToCardInput {
+  filename: string;
+  content: string;
+  description?: string;
+}
+
 // Preferences types
 export interface Preferences {
   lastSelectedProject: string | null;

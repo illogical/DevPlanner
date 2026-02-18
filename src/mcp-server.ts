@@ -140,6 +140,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: 'Read the text content of a file in a project. Only works for text-based files (markdown, plain text, JSON, code files, etc.). Returns an error for binary files like PDFs and images.',
         inputSchema: (await import('./mcp/schemas.js')).READ_FILE_CONTENT_SCHEMA,
       },
+      {
+        name: 'add_file_to_card',
+        description: 'Create a text file and associate it with a card in one atomic operation. Useful for creating technical specs, design docs, or implementation notes linked to specific cards.',
+        inputSchema: (await import('./mcp/schemas.js')).ADD_FILE_TO_CARD_SCHEMA,
+      },
     ],
   };
 });

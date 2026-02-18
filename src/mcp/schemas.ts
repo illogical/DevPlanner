@@ -425,3 +425,30 @@ export const READ_FILE_CONTENT_SCHEMA = {
   },
   required: ['projectSlug', 'filename'],
 } as const;
+
+export const ADD_FILE_TO_CARD_SCHEMA = {
+  type: 'object',
+  properties: {
+    projectSlug: {
+      type: 'string',
+      description: 'Project identifier',
+    },
+    cardSlug: {
+      type: 'string',
+      description: 'Card identifier to associate the file with',
+    },
+    filename: {
+      type: 'string',
+      description: 'Filename (e.g., "spec.md", "api-docs.txt")',
+    },
+    content: {
+      type: 'string',
+      description: 'UTF-8 text content for the file',
+    },
+    description: {
+      type: 'string',
+      description: 'Optional file description',
+    },
+  },
+  required: ['projectSlug', 'cardSlug', 'filename', 'content'],
+} as const;
