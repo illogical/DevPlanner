@@ -270,24 +270,16 @@ export const fileRoutes = (workspacePath: string) => {
           throw new Error('Either file or filename+content must be provided');
         }
 
-        // Add .md extension if no extension is provided
-        if (!filename.includes('.')) {
-          filename = `${filename}.md`;
-        }
-
-        // Prepend card ID to filename (format: {PREFIX}-{cardNumber}_{filename})
-        if (project.prefix && card.frontmatter.cardNumber) {
-          const cardId = `${project.prefix}-${card.frontmatter.cardNumber}`;
-          filename = `${cardId}_${filename}`;
-        }
-
-        // Create file and associate with card
+        // Create file and associate with card (service handles filename formatting)
         const fileEntry = await fileService.addFileToCard(
           params.projectSlug,
           params.cardSlug,
           filename,
           buffer.toString('utf-8'),
-          description
+          description,
+          project.prefix,
+          card.frontmatter.cardNumber
+        );
         );
 
         set.status = 201;

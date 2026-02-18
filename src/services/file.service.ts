@@ -362,7 +362,9 @@ export class FileService {
     cardSlug: string,
     filename: string,
     content: string,
-    description: string = ''
+    description: string = '',
+    cardPrefix?: string,
+    cardNumber?: number
   ): Promise<ProjectFileEntry> {
     // Validate inputs
     if (!filename || filename.trim() === '') {
@@ -375,6 +377,17 @@ export class FileService {
     
     if (!content || content.trim() === '') {
       throw new Error('File content cannot be empty');
+    }
+
+    // Add .md extension if no extension is provided
+    if (!filename.includes('.')) {
+      filename = `${filename}.md`;
+    }
+
+    // Prepend card ID to filename (format: {PREFIX}-{cardNumber}_{filename})
+    if (cardPrefix && cardNumber) {
+      const cardId = `${cardPrefix}-${cardNumber}`;
+      filename = `${cardId}_${filename}`;
     }
 
     // Create file buffer from UTF-8 string

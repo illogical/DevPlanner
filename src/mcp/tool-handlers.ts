@@ -859,26 +859,16 @@ async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileTo
     );
   }
 
-  // Process filename: add .md extension if no extension provided
-  let filename = input.filename;
-  if (!filename.includes('.')) {
-    filename = `${filename}.md`;
-  }
-
-  // Prepend card ID to filename (format: {PREFIX}-{cardNumber}_{filename})
-  if (project.prefix && card.frontmatter.cardNumber) {
-    const cardId = `${project.prefix}-${card.frontmatter.cardNumber}`;
-    filename = `${cardId}_${filename}`;
-  }
-
-  // Create file and associate with card
+  // Create file and associate with card (service handles filename formatting)
   try {
     const fileEntry = await getServices().fileService.addFileToCard(
       input.projectSlug,
       input.cardSlug,
-      filename,
+      input.filename,
       input.content,
-      input.description || ''
+      input.description || '',
+      project.prefix,
+      card.frontmatter.cardNumber
     );
 
     // Format file size for message
