@@ -188,7 +188,7 @@ All endpoints are under `/api` and return JSON.
 | `POST` | `/api/projects/:slug/cards/:card/tasks` | Add checklist item |
 | `PATCH` | `/api/projects/:slug/cards/:card/tasks/:index` | Toggle task |
 | `PATCH` | `/api/projects/:slug/lanes/:lane/order` | Reorder cards in lane |
-| `GET` | `/api/projects/:slug/history` | Get activity history (last 50 events) |
+| `GET` | `/api/projects/:slug/history` | Get activity history (last 10 events) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
 See [SPECIFICATION.md](SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.

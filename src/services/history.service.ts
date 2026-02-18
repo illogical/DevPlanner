@@ -16,7 +16,7 @@ export class HistoryService {
   private static instance: HistoryService;
 
   private events: Map<string, HistoryEvent[]> = new Map();
-  private readonly MAX_EVENTS_PER_PROJECT = 500; // Increased from 50 to match persistence limit
+  private readonly MAX_EVENTS_PER_PROJECT = 50; // Increased from 50 to match persistence limit
   private persistenceService: HistoryPersistenceService;
 
   private constructor() {
@@ -73,7 +73,7 @@ export class HistoryService {
    * Get recent events for a project
    * Loads from disk if not in memory (e.g., after server restart)
    */
-  public async getEvents(projectSlug: string, limit: number = 50): Promise<HistoryEvent[]> {
+  public async getEvents(projectSlug: string, limit: number = 10): Promise<HistoryEvent[]> {
     // Check in-memory cache first
     let events = this.events.get(projectSlug);
 

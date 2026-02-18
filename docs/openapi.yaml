@@ -1,0 +1,1278 @@
+openapi: 3.1.0
+info:
+  title: DevPlanner API
+  description: >
+    File-based Kanban board API. All project data is stored as plain-text Markdown
+    and JSON files — no database. Base URL for local development is http://localhost:17103.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:17103
+    description: Local development server
+
+tags:
+  - name: projects
+    description: Project CRUD
+  - name: cards
+    description: Card CRUD and lane management
+  - name: tasks
+    description: Checklist item management within cards
+  - name: files
+    description: Reference file upload and card associations
+  - name: history
+    description: Per-project activity log
+  - name: preferences
+    description: Global workspace preferences
+  - name: websocket
+    description: Real-time event stream
+
+paths:
+  # ─────────────────────────────────────────────
+  # Projects
+  # ─────────────────────────────────────────────
+  /api/projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects
+      parameters:
+        - name: includeArchived
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+          description: Include archived projects. Default excludes them.
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [projects]
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectSummary"
+
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 500
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/projects/{projectSlug}:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project configuration
+      responses:
+        "200":
+          description: Project config (no slug or cardCounts)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update project metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                description:
+                  type: string
+                  maxLength: 500
+                archived:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated project config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Archive (soft) or permanently delete a project
+      parameters:
+        - name: hard
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+          description: "When 'true', permanently removes from disk. Default: soft archive."
+      responses:
+        "200":
+          description: Archive or deletion confirmation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [slug, archived]
+                    properties:
+                      slug:
+                        type: string
+                      archived:
+                        type: boolean
+                        enum: [true]
+                  - type: object
+                    required: [slug, deleted]
+                    properties:
+                      slug:
+                        type: string
+                      deleted:
+                        type: boolean
+                        enum: [true]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Cards
+  # ─────────────────────────────────────────────
+  /api/projects/{projectSlug}/cards:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+
+    get:
+      operationId: listCards
+      tags: [cards]
+      summary: List cards, optionally filtered by lane
+      parameters:
+        - name: lane
+          in: query
+          schema:
+            type: string
+          description: "Lane slug (e.g. '02-in-progress'). Omit for all lanes."
+          example: "02-in-progress"
+      responses:
+        "200":
+          description: Card list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cards]
+                properties:
+                  cards:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CardSummary"
+
+    post:
+      operationId: createCard
+      tags: [cards]
+      summary: Create a new card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                lane:
+                  type: string
+                  description: "Lane slug. Defaults to '01-upcoming'."
+                  example: "01-upcoming"
+                priority:
+                  $ref: "#/components/schemas/Priority"
+                assignee:
+                  $ref: "#/components/schemas/Assignee"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                content:
+                  type: string
+                  description: Markdown body
+                status:
+                  $ref: "#/components/schemas/CardStatus"
+      responses:
+        "201":
+          description: Created card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/projects/{projectSlug}/cards/search:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+
+    get:
+      operationId: searchCards
+      tags: [cards]
+      summary: Search cards by title or task text
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query. Returns empty results if blank.
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results, query]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SearchResult"
+                  query:
+                    type: string
+
+  /api/projects/{projectSlug}/tags:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+
+    get:
+      operationId: listTags
+      tags: [cards]
+      summary: List all unique tags used across cards in a project
+      responses:
+        "200":
+          description: Sorted tag list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tags]
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: string
+
+  /api/projects/{projectSlug}/cards/{cardSlug}:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/cardSlug"
+
+    get:
+      operationId: getCard
+      tags: [cards]
+      summary: Get a single card with full content and tasks
+      responses:
+        "200":
+          description: Full card object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateCard
+      tags: [cards]
+      summary: Update card metadata and/or content. Pass null to clear optional fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                status:
+                  oneOf:
+                    - $ref: "#/components/schemas/CardStatus"
+                    - type: "null"
+                priority:
+                  oneOf:
+                    - $ref: "#/components/schemas/Priority"
+                    - type: "null"
+                assignee:
+                  oneOf:
+                    - $ref: "#/components/schemas/Assignee"
+                    - type: "null"
+                tags:
+                  oneOf:
+                    - type: array
+                      items:
+                        type: string
+                    - type: "null"
+                content:
+                  type: string
+                  description: Full Markdown body replacement
+      responses:
+        "200":
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteCard
+      tags: [cards]
+      summary: Archive (soft) or permanently delete a card
+      parameters:
+        - name: hard
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+          description: "When 'true', deletes file permanently. Default: moves to '04-archive' lane."
+      responses:
+        "200":
+          description: Archive or deletion confirmation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [slug, archived]
+                    properties:
+                      slug:
+                        type: string
+                      archived:
+                        type: boolean
+                        enum: [true]
+                  - type: object
+                    required: [slug, deleted]
+                    properties:
+                      slug:
+                        type: string
+                      deleted:
+                        type: boolean
+                        enum: [true]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/projects/{projectSlug}/cards/{cardSlug}/move:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/cardSlug"
+
+    patch:
+      operationId: moveCard
+      tags: [cards]
+      summary: Move a card to a different lane or reposition within a lane
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lane]
+              properties:
+                lane:
+                  type: string
+                  description: Target lane slug
+                  example: "02-in-progress"
+                position:
+                  type: integer
+                  minimum: 0
+                  description: 0-based index in target lane. Appended to end if omitted.
+      responses:
+        "200":
+          description: Card at new position
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/projects/{projectSlug}/lanes/{laneSlug}/order:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - name: laneSlug
+        in: path
+        required: true
+        schema:
+          type: string
+        description: "Lane slug (e.g. '01-upcoming')"
+        example: "01-upcoming"
+
+    patch:
+      operationId: reorderLane
+      tags: [cards]
+      summary: Reorder cards within a lane
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order]
+              properties:
+                order:
+                  type: array
+                  items:
+                    type: string
+                  description: "Array of card filenames in desired order (e.g. ['user-auth.md', 'fix-bug.md'])"
+                  example: ["user-auth.md", "fix-bug.md"]
+      responses:
+        "200":
+          description: Confirmed new order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [lane, order]
+                properties:
+                  lane:
+                    type: string
+                  order:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Tasks
+  # ─────────────────────────────────────────────
+  /api/projects/{projectSlug}/cards/{cardSlug}/tasks:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/cardSlug"
+
+    post:
+      operationId: addTask
+      tags: [tasks]
+      summary: Add a checklist item to a card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        "201":
+          description: Created task with progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/projects/{projectSlug}/cards/{cardSlug}/tasks/{taskIndex}:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/cardSlug"
+      - name: taskIndex
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 0
+        description: 0-based task index
+
+    patch:
+      operationId: toggleTask
+      tags: [tasks]
+      summary: Toggle a task's checked state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [checked]
+              properties:
+                checked:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated task with progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Files
+  # ─────────────────────────────────────────────
+  /api/projects/{projectSlug}/files:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List all files for a project
+      responses:
+        "200":
+          description: File list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [files]
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectFileEntry"
+
+    post:
+      operationId: uploadFile
+      tags: [files]
+      summary: Upload a file to a project
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                description:
+                  type: string
+      responses:
+        "201":
+          description: Uploaded file metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectFileEntry"
+
+  /api/projects/{projectSlug}/files/{filename}:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/filename"
+
+    get:
+      operationId: getFile
+      tags: [files]
+      summary: Get metadata for a specific file
+      responses:
+        "200":
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectFileEntry"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateFile
+      tags: [files]
+      summary: Update a file's description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description:
+                  type: string
+      responses:
+        "200":
+          description: Updated file metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectFileEntry"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      summary: Delete a file and all its card associations
+      responses:
+        "200":
+          description: Returns the card slugs that were associated before deletion
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [associatedCards]
+                properties:
+                  associatedCards:
+                    type: array
+                    items:
+                      type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/projects/{projectSlug}/files/{filename}/download:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/filename"
+
+    get:
+      operationId: downloadFile
+      tags: [files]
+      summary: Download/serve a file with its proper MIME type
+      responses:
+        "200":
+          description: Binary file content
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/projects/{projectSlug}/files/{filename}/associate:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/filename"
+
+    post:
+      operationId: associateFile
+      tags: [files]
+      summary: Associate a file with a card (many-to-many)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cardSlug]
+              properties:
+                cardSlug:
+                  type: string
+      responses:
+        "200":
+          description: Updated file metadata with new cardSlugs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectFileEntry"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/projects/{projectSlug}/files/{filename}/associate/{cardSlug}:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/filename"
+      - $ref: "#/components/parameters/cardSlug"
+
+    delete:
+      operationId: disassociateFile
+      tags: [files]
+      summary: Remove a file-card association
+      responses:
+        "200":
+          description: Updated file metadata without the card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectFileEntry"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/projects/{projectSlug}/cards/{cardSlug}/files:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/cardSlug"
+
+    get:
+      operationId: listCardFiles
+      tags: [files]
+      summary: List files associated with a specific card
+      responses:
+        "200":
+          description: Files for this card
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [files]
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectFileEntry"
+
+  # ─────────────────────────────────────────────
+  # History
+  # ─────────────────────────────────────────────
+  /api/projects/{projectSlug}/history:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+
+    get:
+      operationId: getHistory
+      tags: [history]
+      summary: Get activity history events for a project (newest first)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+          description: Max events to return. Default 50, max 500.
+      responses:
+        "200":
+          description: History events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, total]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HistoryEvent"
+                  total:
+                    type: integer
+
+  # ─────────────────────────────────────────────
+  # Preferences
+  # ─────────────────────────────────────────────
+  /api/preferences:
+    get:
+      operationId: getPreferences
+      tags: [preferences]
+      summary: Get global workspace preferences
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+
+    patch:
+      operationId: updatePreferences
+      tags: [preferences]
+      summary: Update workspace preferences (partial)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lastSelectedProject:
+                  type:
+                    - string
+                    - "null"
+                  description: Last selected project slug, or null to clear.
+      responses:
+        "200":
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+
+  # ─────────────────────────────────────────────
+  # WebSocket
+  # ─────────────────────────────────────────────
+  /api/ws:
+    get:
+      operationId: websocket
+      tags: [websocket]
+      summary: Real-time event stream (WebSocket upgrade)
+      description: |
+        Connect via WebSocket. All messages are JSON.
+
+        **Client → Server:**
+        ```json
+        { "type": "subscribe",   "projectSlug": "my-project" }
+        { "type": "unsubscribe", "projectSlug": "my-project" }
+        { "type": "ping" }
+        { "type": "pong" }
+        ```
+
+        **Server → Client:**
+        ```json
+        { "type": "subscribed",   "projectSlug": "my-project" }
+        { "type": "unsubscribed", "projectSlug": "my-project" }
+        { "type": "ping" }
+        { "type": "pong" }
+        { "type": "error", "error": "string" }
+        {
+          "type": "event",
+          "event": {
+            "type": "card:created | card:updated | card:moved | card:deleted | task:toggled | lane:reordered | project:updated | project:deleted | file:added | file:updated | file:deleted | file:associated | file:disassociated | history:event",
+            "projectSlug": "string",
+            "timestamp": "ISO 8601",
+            "data": { }
+          }
+        }
+        ```
+
+        **Event data payloads by type:**
+        | Event | data fields |
+        |---|---|
+        | `card:created` | `{ card: CardSummary }` |
+        | `card:updated` | `{ card: CardSummary }` |
+        | `card:moved` | `{ slug, sourceLane, targetLane, position? }` |
+        | `card:deleted` | `{ slug, lane }` |
+        | `task:toggled` | `{ cardSlug, taskIndex, checked, taskProgress }` |
+        | `lane:reordered` | `{ lane, order: string[] }` |
+        | `project:updated` | `{ slug, config: ProjectConfig }` |
+        | `project:deleted` | `{ slug }` |
+        | `file:added` | `{ file: ProjectFileEntry }` |
+        | `file:updated` | `{ file: ProjectFileEntry }` |
+        | `file:deleted` | `{ filename }` |
+        | `file:associated` | `{ filename, cardSlug }` |
+        | `file:disassociated` | `{ filename, cardSlug }` |
+      responses:
+        "101":
+          description: Switching Protocols (WebSocket handshake)
+
+# ─────────────────────────────────────────────
+# Components
+# ─────────────────────────────────────────────
+components:
+  parameters:
+    projectSlug:
+      name: projectSlug
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Project slug (directory name)
+      example: "my-project"
+
+    cardSlug:
+      name: cardSlug
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Card slug (filename without .md)
+      example: "user-authentication"
+
+    filename:
+      name: filename
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Stored filename (may differ from original; deduplicated)
+      example: "design-spec.pdf"
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error: not_found
+            message: Card 'my-card' not found
+
+    BadRequest:
+      description: Validation or bad request error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error: bad_request
+            message: "name is required"
+
+  schemas:
+    # ── Primitives / Enums ──────────────────────
+    CardStatus:
+      type: string
+      enum: [in-progress, blocked, review, testing]
+
+    Priority:
+      type: string
+      enum: [low, medium, high]
+
+    Assignee:
+      type: string
+      enum: [user, agent]
+
+    LaneName:
+      type: string
+      enum: ["01-upcoming", "02-in-progress", "03-complete", "04-archive"]
+      description: Default lane slugs; custom lanes may exist with different slugs.
+
+    # ── Lane ────────────────────────────────────
+    LaneConfig:
+      type: object
+      required: [displayName, color, collapsed]
+      properties:
+        displayName:
+          type: string
+          example: "In Progress"
+        color:
+          type: string
+          description: Hex color
+          example: "#3b82f6"
+        collapsed:
+          type: boolean
+
+    # ── Project ─────────────────────────────────
+    ProjectConfig:
+      type: object
+      required: [name, created, updated, archived, lanes]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        created:
+          type: string
+          format: date-time
+        updated:
+          type: string
+          format: date-time
+        archived:
+          type: boolean
+        lanes:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/LaneConfig"
+          description: Keys are lane slugs (e.g. '01-upcoming')
+          example:
+            "01-upcoming":
+              displayName: "Upcoming"
+              color: "#6b7280"
+              collapsed: false
+        prefix:
+          type: string
+          description: 2–4 uppercase chars, unique across projects (e.g. 'DP')
+          example: "DP"
+        nextCardNumber:
+          type: integer
+          description: Auto-incrementing card counter
+
+    ProjectSummary:
+      allOf:
+        - $ref: "#/components/schemas/ProjectConfig"
+        - type: object
+          required: [slug, cardCounts]
+          properties:
+            slug:
+              type: string
+              example: "my-project"
+            cardCounts:
+              type: object
+              additionalProperties:
+                type: integer
+              description: Card count per lane slug
+              example:
+                "01-upcoming": 3
+                "02-in-progress": 1
+                "03-complete": 0
+                "04-archive": 0
+
+    # ── Card ─────────────────────────────────────
+    CardFrontmatter:
+      type: object
+      required: [title, created, updated]
+      properties:
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/CardStatus"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        assignee:
+          $ref: "#/components/schemas/Assignee"
+        created:
+          type: string
+          format: date-time
+        updated:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+        cardNumber:
+          type: integer
+          description: Sequential number within the project
+
+    Card:
+      type: object
+      required: [slug, filename, lane, frontmatter, content, tasks]
+      properties:
+        slug:
+          type: string
+          description: Filename without .md
+          example: "user-authentication"
+        filename:
+          type: string
+          example: "user-authentication.md"
+        lane:
+          type: string
+          example: "02-in-progress"
+        frontmatter:
+          $ref: "#/components/schemas/CardFrontmatter"
+        content:
+          type: string
+          description: Full Markdown body (includes ## Tasks section)
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskItem"
+
+    CardSummary:
+      type: object
+      required: [slug, filename, lane, frontmatter, taskProgress]
+      properties:
+        slug:
+          type: string
+        filename:
+          type: string
+        lane:
+          type: string
+        frontmatter:
+          $ref: "#/components/schemas/CardFrontmatter"
+        taskProgress:
+          $ref: "#/components/schemas/TaskProgress"
+
+    # ── Tasks ────────────────────────────────────
+    TaskItem:
+      type: object
+      required: [index, text, checked]
+      properties:
+        index:
+          type: integer
+          minimum: 0
+          description: 0-based position in checklist
+        text:
+          type: string
+        checked:
+          type: boolean
+
+    TaskProgress:
+      type: object
+      required: [total, checked]
+      properties:
+        total:
+          type: integer
+        checked:
+          type: integer
+
+    TaskResponse:
+      allOf:
+        - $ref: "#/components/schemas/TaskItem"
+        - type: object
+          required: [taskProgress]
+          properties:
+            taskProgress:
+              $ref: "#/components/schemas/TaskProgress"
+
+    # ── Files ────────────────────────────────────
+    ProjectFileEntry:
+      type: object
+      required: [filename, originalName, description, mimeType, size, created, cardSlugs]
+      properties:
+        filename:
+          type: string
+          description: Stored unique filename (deduplicated; e.g. 'file-2.txt')
+          example: "design-spec.pdf"
+        originalName:
+          type: string
+          description: Original filename at upload time
+          example: "Design Spec.pdf"
+        description:
+          type: string
+        mimeType:
+          type: string
+          description: >
+            Detected from extension. Supported: pdf, md, txt, json, png, jpg/jpeg,
+            gif, svg, html, css, js, ts, yaml/yml, xml, csv.
+            Unknown → application/octet-stream.
+          example: "application/pdf"
+        size:
+          type: integer
+          description: File size in bytes
+        created:
+          type: string
+          format: date-time
+        cardSlugs:
+          type: array
+          items:
+            type: string
+          description: Card slugs associated with this file (many-to-many)
+
+    # ── History ──────────────────────────────────
+    HistoryActionType:
+      type: string
+      enum:
+        - "task:completed"
+        - "task:uncompleted"
+        - "task:added"
+        - "card:created"
+        - "card:moved"
+        - "card:updated"
+        - "card:archived"
+        - "card:deleted"
+        - "project:created"
+        - "project:updated"
+        - "project:archived"
+        - "file:uploaded"
+        - "file:deleted"
+        - "file:associated"
+        - "file:disassociated"
+        - "file:updated"
+
+    HistoryEventMetadata:
+      type: object
+      properties:
+        cardSlug:
+          type: string
+        cardTitle:
+          type: string
+        lane:
+          type: string
+        sourceLane:
+          type: string
+        targetLane:
+          type: string
+        taskIndex:
+          type: integer
+        taskText:
+          type: string
+        changedFields:
+          type: array
+          items:
+            type: string
+        filename:
+          type: string
+        projectName:
+          type: string
+
+    HistoryEvent:
+      type: object
+      required: [id, projectSlug, timestamp, action, description, metadata]
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectSlug:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        action:
+          $ref: "#/components/schemas/HistoryActionType"
+        description:
+          type: string
+          description: Human-readable description
+        metadata:
+          $ref: "#/components/schemas/HistoryEventMetadata"
+
+    # ── Search ───────────────────────────────────
+    SearchResult:
+      type: object
+      required: [slug, lane, matchedFields, matchedTaskIndices]
+      properties:
+        slug:
+          type: string
+        lane:
+          type: string
+        matchedFields:
+          type: array
+          items:
+            type: string
+            enum: [title, tags, tasks]
+        matchedTaskIndices:
+          type: array
+          items:
+            type: integer
+
+    # ── Preferences ──────────────────────────────
+    Preferences:
+      type: object
+      required: [lastSelectedProject]
+      properties:
+        lastSelectedProject:
+          type:
+            - string
+            - "null"
+
+    # ── Errors ───────────────────────────────────
+    ApiError:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          enum: [not_found, validation_error, bad_request, internal_server_error]
+        message:
+          type: string
+        expected:
+          type: string
+          description: Correct format hint (validation errors only)
