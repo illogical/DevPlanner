@@ -59,27 +59,27 @@ describe('MCP Tool: add_file_to_card', () => {
 
     const result = await toolHandlers.add_file_to_card(input);
 
-    // Verify response structure
-    expect(result.filename).toBe('technical-spec.md');
-    expect(result.originalName).toBe('technical-spec.md');
+    // Verify response structure (filename should be prefixed with card ID: TP-1_technical-spec.md)
+    expect(result.filename).toBe('TP-1_technical-spec.md');
+    expect(result.originalName).toBe('TP-1_technical-spec.md');
     expect(result.description).toBe('Technical spec for test card');
     expect(result.mimeType).toBe('text/markdown');
     expect(result.size).toBeGreaterThan(0);
     expect(result.created).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(result.associatedCards).toContain(cardSlug);
     expect(result.message).toContain('Successfully created');
-    expect(result.message).toContain('technical-spec.md');
+    expect(result.message).toContain('TP-1_technical-spec.md');
     expect(result.message).toContain(cardSlug);
 
     // Verify file exists in project
     const files = await fileService.listFiles(projectSlug);
     expect(files).toHaveLength(1);
-    expect(files[0].filename).toBe('technical-spec.md');
+    expect(files[0].filename).toBe('TP-1_technical-spec.md');
 
     // Verify file is associated with card
     const cardFiles = await fileService.listCardFiles(projectSlug, cardSlug);
     expect(cardFiles).toHaveLength(1);
-    expect(cardFiles[0].filename).toBe('technical-spec.md');
+    expect(cardFiles[0].filename).toBe('TP-1_technical-spec.md');
   });
 
   test('throws error if project not found', async () => {
@@ -148,7 +148,7 @@ describe('MCP Tool: add_file_to_card', () => {
       content: 'First spec',
     };
     const result1 = await toolHandlers.add_file_to_card(input1);
-    expect(result1.filename).toBe('spec.md');
+    expect(result1.filename).toBe('TP-1_spec.md');
     expect(result1.message).not.toContain('deduplicated');
 
     // Create second file with same name
@@ -159,8 +159,8 @@ describe('MCP Tool: add_file_to_card', () => {
       content: 'Second spec',
     };
     const result2 = await toolHandlers.add_file_to_card(input2);
-    expect(result2.filename).toBe('spec-2.md');
-    expect(result2.originalName).toBe('spec.md');
+    expect(result2.filename).toBe('TP-1_spec-2.md');
+    expect(result2.originalName).toBe('TP-1_spec.md');
     expect(result2.message).toContain('deduplicated');
     
     // Both files should be associated with the card
@@ -189,5 +189,20 @@ describe('MCP Tool: add_file_to_card', () => {
 
     const result2 = await toolHandlers.add_file_to_card(inputWithDesc);
     expect(result2.description).toBe('Custom description');
+  });
+
+  test('adds .md extension when no extension provided', async () => {
+    const input: AddFileToCardInput = {
+      projectSlug,
+      cardSlug,
+      filename: 'spec-without-extension',
+      content: 'Content for file without extension',
+    };
+
+    const result = await toolHandlers.add_file_to_card(input);
+    
+    // Should add .md extension and prepend card ID
+    expect(result.filename).toBe('TP-1_spec-without-extension.md');
+    expect(result.mimeType).toBe('text/markdown');
   });
 });

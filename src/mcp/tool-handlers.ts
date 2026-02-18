@@ -820,9 +820,10 @@ async function handleReadFileContent(input: ReadFileContentInput): Promise<ReadF
 }
 
 async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileToCardOutput> {
-  // Verify project exists
+  // Verify project exists and get project details
+  let project;
   try {
-    await getServices().projectService.getProject(input.projectSlug);
+    project = await getServices().projectService.getProject(input.projectSlug);
   } catch (error) {
     const projects = await getServices().projectService.listProjects();
     throw projectNotFoundError(
@@ -831,9 +832,10 @@ async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileTo
     );
   }
 
-  // Verify card exists
+  // Verify card exists and get card details
+  let card;
   try {
-    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+    card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
     const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
@@ -857,12 +859,24 @@ async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileTo
     );
   }
 
+  // Process filename: add .md extension if no extension provided
+  let filename = input.filename;
+  if (!filename.includes('.')) {
+    filename = `${filename}.md`;
+  }
+
+  // Prepend card ID to filename (format: {PREFIX}-{cardNumber}_{filename})
+  if (project.prefix && card.frontmatter.cardNumber) {
+    const cardId = `${project.prefix}-${card.frontmatter.cardNumber}`;
+    filename = `${cardId}_${filename}`;
+  }
+
   // Create file and associate with card
   try {
     const fileEntry = await getServices().fileService.addFileToCard(
       input.projectSlug,
       input.cardSlug,
-      input.filename,
+      filename,
       input.content,
       input.description || ''
     );

@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { FileService } from '../services/file.service';
 import { CardService } from '../services/card.service';
+import { ProjectService } from '../services/project.service';
 import { WebSocketService } from '../services/websocket.service';
 import { recordAndBroadcastHistory } from '../utils/history-helper';
 import type {
@@ -14,6 +15,7 @@ import type {
 export const fileRoutes = (workspacePath: string) => {
   const fileService = new FileService(workspacePath);
   const cardService = new CardService(workspacePath);
+  const projectService = new ProjectService(workspacePath);
   const wsService = WebSocketService.getInstance();
 
   return new Elysia()
@@ -242,8 +244,11 @@ export const fileRoutes = (workspacePath: string) => {
     .post(
       '/api/projects/:projectSlug/cards/:cardSlug/files',
       async ({ params, body, set }) => {
-        // Verify card exists first (fail-fast)
-        await cardService.getCard(params.projectSlug, params.cardSlug);
+        // Verify card exists first (fail-fast) and get card details
+        const card = await cardService.getCard(params.projectSlug, params.cardSlug);
+        
+        // Get project to access prefix
+        const project = await projectService.getProject(params.projectSlug);
 
         // Support both JSON content and multipart file upload
         let filename: string;
@@ -263,6 +268,17 @@ export const fileRoutes = (workspacePath: string) => {
           description = body.description || '';
         } else {
           throw new Error('Either file or filename+content must be provided');
+        }
+
+        // Add .md extension if no extension is provided
+        if (!filename.includes('.')) {
+          filename = `${filename}.md`;
+        }
+
+        // Prepend card ID to filename (format: {PREFIX}-{cardNumber}_{filename})
+        if (project.prefix && card.frontmatter.cardNumber) {
+          const cardId = `${project.prefix}-${card.frontmatter.cardNumber}`;
+          filename = `${cardId}_${filename}`;
         }
 
         // Create file and associate with card
