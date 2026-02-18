@@ -8,6 +8,7 @@
     "test": "bun test",
     "seed": "bun src/seed.ts",
     "verify:websocket": "bun scripts/verify-websocket.ts",
+    "verify:api-workflows": "bun scripts/verify-api-workflows.ts",
     "verify:mcp": "bun scripts/verify-mcp-agent.ts",
     "verify:mcp:verbose": "bun scripts/verify-mcp-agent.ts --verbose",
     "verify:mcp:json": "bun scripts/verify-mcp-agent.ts --json",
