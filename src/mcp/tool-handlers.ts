@@ -848,7 +848,12 @@ async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileTo
     throw new MCPError(
       'INVALID_INPUT',
       'File content cannot be empty.',
-      'Provide text content for the file. Minimum 1 character required.'
+      [
+        {
+          action: 'Provide text content for the file',
+          reason: 'Minimum 1 character required',
+        },
+      ]
     );
   }
 
@@ -893,7 +898,12 @@ async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileTo
         throw new MCPError(
           'INVALID_INPUT',
           error.message,
-          'Provide a valid filename without path separators and non-empty content.'
+          [
+            {
+              action: 'Provide a valid filename without path separators and non-empty content',
+              reason: 'Filename and content must meet basic validation requirements',
+            },
+          ]
         );
       }
     }
