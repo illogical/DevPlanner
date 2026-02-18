@@ -318,6 +318,37 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 #### Future: URL References
 - [ ] Extend `_files.json` to support URL references alongside file uploads (type discriminator, metadata fetching, MCP tools)
 
+---
+
+## Phase 19B: AI Agent File Creation ("Add File to Card")
+
+**Feature Doc:** `docs/features/add-file-to-card.md`
+
+Add atomic "create text file and link to card" operation for AI agent workflows. Closes critical gap where agents can read files but not create them.
+
+**Backend Implementation**
+- [ ] Add `addFileToCard()` method to FileService (validate card exists, create file, associate)
+- [ ] Add `POST /api/projects/:projectSlug/cards/:cardSlug/files` REST endpoint (supports JSON with content and multipart upload)
+- [ ] Add MCP tool: `add_file_to_card` schema in `schemas.ts` (required: projectSlug, cardSlug, filename, content; optional: description)
+- [ ] Add MCP tool handler: `handleAddFileToCard()` in `tool-handlers.ts` (LLM-friendly errors, deduplication feedback)
+- [ ] Register MCP tool in `mcp-server.ts` (18 → 19 tools)
+- [ ] Add TypeScript interfaces: `AddFileToCardInput`, `AddFileToCardOutput` in `src/types/index.ts`
+
+**Testing**
+- [ ] Unit tests: Add 6 test cases to `file.service.test.ts` (success, card not found, deduplication, UTF-8, empty content, optional description)
+- [ ] MCP tool tests: Create `mcp/__tests__/add-file-to-card.test.ts` with 6 test cases (valid input, project not found, card not found, empty content, deduplication, description handling)
+- [ ] E2E demo: Add Act 7B to `scripts/e2e-demo.ts` (create technical spec for navigation-system card, verify file exists)
+
+**Documentation**
+- [ ] Update `docs/SPECIFICATION.md` section 3.3 (Card Endpoints) with new POST endpoint
+- [ ] Update `docs/openapi.yaml` with endpoint definition and examples
+- [ ] Update `docs/features/e2e-demo.md` with Act 7B description
+
+**Frontend Preparation**
+- [ ] Add `addFileToCard()` to `frontend/src/api/client.ts` filesApi object
+- [ ] Mirror types in `frontend/src/types/index.ts`
+
+---
 
 ### Frontend Features
 - [ ] Sub-task support with multiple levels of indenting ideally via tab and shift-tab

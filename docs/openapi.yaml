@@ -761,6 +761,88 @@ paths:
                     items:
                       $ref: "#/components/schemas/ProjectFileEntry"
 
+    post:
+      operationId: addFileToCard
+      tags: [files]
+      summary: Create a text file and associate it with this card (atomic operation)
+      description: |
+        Create a new text file and link it to the specified card in one operation.
+        Designed for AI agent workflows where creating reference files (specs, docs) for cards is common.
+        
+        Supports two request formats:
+        - **JSON**: For creating text files with inline content (preferred for agents)
+        - **Multipart**: For uploading files from disk (UI workflows)
+        
+        Filename deduplication: If `filename` already exists, a numeric suffix is added
+        (e.g., `spec.md` → `spec-2.md`). The response includes both `filename` (actual)
+        and `originalName` (requested).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, content]
+              properties:
+                filename:
+                  type: string
+                  description: Desired filename (e.g., "spec.md"). Will be deduplicated if exists.
+                  example: "technical-spec.md"
+                content:
+                  type: string
+                  description: UTF-8 text content for the file
+                  example: "# Technical Specification\n\n## Overview\n\nDetailed technical specifications..."
+                description:
+                  type: string
+                  description: Optional description of the file's purpose
+                  example: "Technical specifications for implementation"
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to upload
+                description:
+                  type: string
+                  description: Optional description of the file's purpose
+      responses:
+        "201":
+          description: File created and associated with card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectFileEntry"
+              examples:
+                success:
+                  summary: File created successfully
+                  value:
+                    filename: "technical-spec.md"
+                    originalName: "technical-spec.md"
+                    description: "Technical specifications for implementation"
+                    mimeType: "text/markdown"
+                    size: 1247
+                    created: "2026-02-17T10:30:00.000Z"
+                    cardSlugs: ["navigation-system"]
+                deduplicated:
+                  summary: Filename was deduplicated
+                  value:
+                    filename: "technical-spec-2.md"
+                    originalName: "technical-spec.md"
+                    description: "Updated specifications"
+                    mimeType: "text/markdown"
+                    size: 1580
+                    created: "2026-02-17T11:45:00.000Z"
+                    cardSlugs: ["navigation-system"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+          description: Invalid input (empty content, invalid filename, missing required fields)
+        "404":
+          $ref: "#/components/responses/NotFound"
+          description: Project or card not found
+
   # ─────────────────────────────────────────────
   # History
   # ─────────────────────────────────────────────
