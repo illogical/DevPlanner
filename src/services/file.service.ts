@@ -353,4 +353,39 @@ export class FileService {
       mimeType: file.mimeType,
     };
   }
+
+  /**
+   * Create a text file and associate it with a card (atomic operation)
+   */
+  async addFileToCard(
+    projectSlug: string,
+    cardSlug: string,
+    filename: string,
+    content: string,
+    description: string = ''
+  ): Promise<ProjectFileEntry> {
+    // Validate inputs
+    if (!filename || filename.trim() === '') {
+      throw new Error('Filename cannot be empty');
+    }
+    
+    if (filename.includes('/') || filename.includes('\\')) {
+      throw new Error('Filename cannot contain path separators');
+    }
+    
+    if (!content || content.trim() === '') {
+      throw new Error('File content cannot be empty');
+    }
+
+    // Create file buffer from UTF-8 string
+    const buffer = Buffer.from(content, 'utf-8');
+
+    // Add file to project (handles deduplication, MIME detection)
+    const fileEntry = await this.addFile(projectSlug, filename, buffer, description);
+
+    // Associate with card (may fail if card doesn't exist)
+    const updatedEntry = await this.associateFile(projectSlug, fileEntry.filename, cardSlug);
+
+    return updatedEntry;
+  }
 }

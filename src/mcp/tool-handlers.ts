@@ -52,6 +52,8 @@ import type {
   ListCardFilesOutput,
   ReadFileContentInput,
   ReadFileContentOutput,
+  AddFileToCardInput,
+  AddFileToCardOutput,
   LaneOverview,
   NextTask,
   ProjectProgress,
@@ -817,6 +819,88 @@ async function handleReadFileContent(input: ReadFileContentInput): Promise<ReadF
   }
 }
 
+async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileToCardOutput> {
+  // Verify project exists
+  try {
+    await getServices().projectService.getProject(input.projectSlug);
+  } catch (error) {
+    const projects = await getServices().projectService.listProjects();
+    throw projectNotFoundError(
+      input.projectSlug,
+      projects.map(p => p.slug)
+    );
+  }
+
+  // Verify card exists
+  try {
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+  } catch (error) {
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
+    throw cardNotFoundError(
+      input.cardSlug,
+      input.projectSlug,
+      allCards.map(c => c.slug)
+    );
+  }
+
+  // Validate content
+  if (!input.content || input.content.trim() === '') {
+    throw new MCPError(
+      'INVALID_INPUT',
+      'File content cannot be empty.',
+      'Provide text content for the file. Minimum 1 character required.'
+    );
+  }
+
+  // Create file and associate with card
+  try {
+    const fileEntry = await getServices().fileService.addFileToCard(
+      input.projectSlug,
+      input.cardSlug,
+      input.filename,
+      input.content,
+      input.description || ''
+    );
+
+    // Format file size for message
+    const sizeKB = (fileEntry.size / 1024).toFixed(1);
+    const sizeStr = fileEntry.size < 1024 
+      ? `${fileEntry.size} bytes` 
+      : `${sizeKB} KB`;
+
+    // Build message based on whether filename was deduplicated
+    let message = `Successfully created '${fileEntry.filename}' (${sizeStr})`;
+    if (fileEntry.filename !== fileEntry.originalName) {
+      message += ' (filename was deduplicated)';
+    }
+    message += ` and linked to card '${input.cardSlug}'`;
+
+    return {
+      filename: fileEntry.filename,
+      originalName: fileEntry.originalName,
+      description: fileEntry.description,
+      mimeType: fileEntry.mimeType,
+      size: fileEntry.size,
+      created: fileEntry.created,
+      associatedCards: fileEntry.cardSlugs,
+      message,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      // Re-throw validation errors from service
+      if (error.message.includes('cannot be empty') || 
+          error.message.includes('path separator')) {
+        throw new MCPError(
+          'INVALID_INPUT',
+          error.message,
+          'Provide a valid filename without path separators and non-empty content.'
+        );
+      }
+    }
+    throw error;
+  }
+}
+
 // ============================================================================
 // Export tool handlers map
 // ============================================================================
@@ -842,4 +926,5 @@ export const toolHandlers: Record<string, (input: any) => Promise<any>> = {
   list_project_files: handleListProjectFiles,
   list_card_files: handleListCardFiles,
   read_file_content: handleReadFileContent,
+  add_file_to_card: handleAddFileToCard,
 };

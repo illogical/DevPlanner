@@ -4,6 +4,7 @@ import type {
   Card,
   CreateCardInput,
   UpdateCardInput,
+  AddFileToCardInput,
   ProjectsResponse,
   CardsResponse,
   TaskToggleResponse,
@@ -254,6 +255,19 @@ export const filesApi = {
       `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}/associate/${cardSlug}`,
       {
         method: 'DELETE',
+      }
+    ),
+
+  addFileToCard: (
+    projectSlug: string,
+    cardSlug: string,
+    data: { filename: string; content: string; description?: string }
+  ) =>
+    fetchJSON<ProjectFileEntry>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/files`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
       }
     ),
 

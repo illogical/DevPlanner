@@ -293,8 +293,16 @@ export interface ReadFileContentInput {
   filename: string;
 }
 
+export interface AddFileToCardInput {
+  projectSlug: string;
+  cardSlug: string;
+  filename: string;
+  content: string;
+  description?: string;
+}
+
 // ============================================================================
-// MCP Tool Output Types (20 tools)
+// MCP Tool Output Types (21 tools)
 // ============================================================================
 
 // File Tool Outputs
@@ -325,6 +333,17 @@ export interface ReadFileContentOutput {
   mimeType: string;
   size: number;
   content: string;
+}
+
+export interface AddFileToCardOutput {
+  filename: string;
+  originalName: string;
+  description: string;
+  mimeType: string;
+  size: number;
+  created: string;
+  associatedCards: string[];
+  message: string;
 }
 
 // ============================================================================

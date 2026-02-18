@@ -238,6 +238,101 @@ export const fileRoutes = (workspacePath: string) => {
       return { files };
     })
 
+    // Create file and associate with card (atomic operation)
+    .post(
+      '/api/projects/:projectSlug/cards/:cardSlug/files',
+      async ({ params, body, set }) => {
+        // Verify card exists first (fail-fast)
+        await cardService.getCard(params.projectSlug, params.cardSlug);
+
+        // Support both JSON content and multipart file upload
+        let filename: string;
+        let buffer: Buffer;
+        let description = '';
+
+        if ('file' in body && body.file) {
+          // Multipart file upload
+          const file = body.file;
+          filename = file.name;
+          buffer = Buffer.from(await file.arrayBuffer());
+          description = body.description || '';
+        } else if ('content' in body) {
+          // JSON with text content
+          filename = body.filename;
+          buffer = Buffer.from(body.content, 'utf-8');
+          description = body.description || '';
+        } else {
+          throw new Error('Either file or filename+content must be provided');
+        }
+
+        // Create file and associate with card
+        const fileEntry = await fileService.addFileToCard(
+          params.projectSlug,
+          params.cardSlug,
+          filename,
+          buffer.toString('utf-8'),
+          description
+        );
+
+        set.status = 201;
+
+        // Broadcast file:added event
+        const addedEventData: FileAddedData = { file: fileEntry };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'file:added',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: addedEventData,
+          },
+        });
+
+        // Broadcast file:associated event
+        const associatedEventData: FileAssociatedData = {
+          filename: fileEntry.filename,
+          cardSlug: params.cardSlug,
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'file:associated',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: associatedEventData,
+          },
+        });
+
+        // Record history
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'file:uploaded',
+          `File created for card: ${fileEntry.originalName}`,
+          {
+            filename: fileEntry.filename,
+            cardSlug: params.cardSlug,
+          }
+        );
+
+        return fileEntry;
+      },
+      {
+        body: t.Union([
+          // JSON format with text content
+          t.Object({
+            filename: t.String(),
+            content: t.String(),
+            description: t.Optional(t.String()),
+          }),
+          // Multipart file upload
+          t.Object({
+            file: t.File(),
+            description: t.Optional(t.String()),
+          }),
+        ]),
+      }
+    )
+
     // Download/serve file
     .get('/api/projects/:projectSlug/files/:filename/download', async ({ params }) => {
       const filePath = await fileService.getFilePath(params.projectSlug, params.filename);

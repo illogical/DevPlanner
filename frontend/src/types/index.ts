@@ -88,6 +88,12 @@ export interface UpdateCardInput {
   content?: string;
 }
 
+export interface AddFileToCardInput {
+  filename: string;
+  content: string;
+  description?: string;
+}
+
 // API Response types
 export interface ProjectsResponse {
   projects: ProjectSummary[];
