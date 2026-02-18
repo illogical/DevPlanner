@@ -280,7 +280,6 @@ export const fileRoutes = (workspacePath: string) => {
           project.prefix,
           card.frontmatter.cardNumber
         );
-        );
 
         set.status = 201;
 

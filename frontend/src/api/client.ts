@@ -4,7 +4,6 @@ import type {
   Card,
   CreateCardInput,
   UpdateCardInput,
-  AddFileToCardInput,
   ProjectsResponse,
   CardsResponse,
   TaskToggleResponse,

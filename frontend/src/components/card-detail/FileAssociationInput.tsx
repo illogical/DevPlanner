@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
-import { formatFileSize, getFileIconClass, getFileExtension } from '../../utils/file';
+import { formatFileSize, getFileIconClass } from '../../utils/file';
 
 interface FileAssociationInputProps {
   cardSlug: string;
@@ -114,7 +114,6 @@ export function FileAssociationInput({ cardSlug }: FileAssociationInputProps) {
           {isDropdownOpen && availableFiles.length > 0 && (
             <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {availableFiles.map(file => {
-                const extension = getFileExtension(file.filename).toUpperCase();
                 const iconColorClass = getFileIconClass(file.mimeType);
 
                 return (
