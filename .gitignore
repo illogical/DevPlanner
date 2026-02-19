@@ -143,3 +143,4 @@ vite.config.ts.timestamp-*
 # DevPlanner workspace
 workspace/
 .github/skills/*
+.claude/settings.local.json

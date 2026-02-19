@@ -16,7 +16,7 @@ export function MainLayout({ children, connectionState }: MainLayoutProps) {
         <ProjectSidebar />
 
         {/* Main content area - flexes to accommodate panels */}
-        <main className="flex-1 overflow-hidden transition-all duration-300 ease-out">
+        <main className="flex-1 overflow-x-auto overflow-y-hidden transition-all duration-300 ease-out">
           {children}
         </main>
 
