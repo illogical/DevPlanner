@@ -31,6 +31,9 @@ export interface CardFrontmatter {
   updated: string; // ISO 8601
   tags?: string[];
   cardNumber?: number; // Sequential within project
+  blockedReason?: string; // Free-text reason when status is "blocked"
+  dueDate?: string; // ISO date string (YYYY-MM-DD), no time component
+  taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps
 }
 
 export interface Card {
@@ -58,6 +61,8 @@ export interface TaskItem {
   index: number; // 0-based position in the checklist
   text: string; // Task description text
   checked: boolean; // true = [x], false = [ ]
+  addedAt?: string; // ISO 8601 timestamp when the task was added
+  completedAt?: string | null; // ISO 8601 timestamp when checked, null if unchecked
 }
 
 // API types
@@ -75,6 +80,8 @@ export interface CreateCardInput {
   tags?: string[];
   content?: string;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
+  blockedReason?: string;
+  dueDate?: string; // ISO date string (YYYY-MM-DD)
 }
 
 export interface UpdateCardInput {
@@ -84,6 +91,8 @@ export interface UpdateCardInput {
   assignee?: 'user' | 'agent' | null;
   tags?: string[] | null;
   content?: string;
+  blockedReason?: string | null;
+  dueDate?: string | null; // ISO date string (YYYY-MM-DD)
 }
 
 export interface AddFileToCardInput {
@@ -95,6 +104,7 @@ export interface AddFileToCardInput {
 // Preferences types
 export interface Preferences {
   lastSelectedProject: string | null;
+  digestAnchor?: string | null; // ISO 8601 timestamp of the last successful digest run
 }
 
 // File types

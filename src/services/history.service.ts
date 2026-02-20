@@ -72,8 +72,9 @@ export class HistoryService {
   /**
    * Get recent events for a project
    * Loads from disk if not in memory (e.g., after server restart)
+   * Optionally filter to events at or after a given ISO timestamp
    */
-  public async getEvents(projectSlug: string, limit: number = 10): Promise<HistoryEvent[]> {
+  public async getEvents(projectSlug: string, limit: number = 10, since?: string): Promise<HistoryEvent[]> {
     // Check in-memory cache first
     let events = this.events.get(projectSlug);
 
@@ -86,7 +87,15 @@ export class HistoryService {
       }
     }
 
-    return events ? events.slice(0, Math.min(limit, this.MAX_EVENTS_PER_PROJECT)) : [];
+    let result = events || [];
+
+    // Apply since filter (events are stored newest-first)
+    if (since) {
+      const sinceTime = new Date(since).getTime();
+      result = result.filter(e => new Date(e.timestamp).getTime() >= sinceTime);
+    }
+
+    return result.slice(0, Math.min(limit, this.MAX_EVENTS_PER_PROJECT));
   }
 
   /**
@@ -105,5 +114,28 @@ export class HistoryService {
    */
   public getEventCount(projectSlug: string): number {
     return (this.events.get(projectSlug) || []).length;
+  }
+
+  /**
+   * Get a merged activity feed across all given project slugs.
+   * Events are sorted newest-first. Optionally filtered by since and limited.
+   */
+  public async getActivityFeed(
+    projectSlugs: string[],
+    limit: number = 50,
+    since?: string
+  ): Promise<HistoryEvent[]> {
+    const allEvents: HistoryEvent[] = [];
+
+    for (const slug of projectSlugs) {
+      // Load enough events per project (up to MAX) so we can sort across projects
+      const events = await this.getEvents(slug, this.MAX_EVENTS_PER_PROJECT, since);
+      allEvents.push(...events);
+    }
+
+    // Sort newest-first across all projects
+    allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return allEvents.slice(0, limit);
   }
 }

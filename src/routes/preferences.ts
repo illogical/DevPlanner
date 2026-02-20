@@ -18,6 +18,7 @@ export const preferencesRoutes = (workspacePath: string) => {
       {
         body: t.Object({
           lastSelectedProject: t.Optional(t.Union([t.String(), t.Null()])),
+          digestAnchor: t.Optional(t.Union([t.String(), t.Null()])),
         }),
       }
     );

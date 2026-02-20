@@ -17,6 +17,17 @@ export class MarkdownService {
     const frontmatter = data as CardFrontmatter;
     const tasks = this.parseTasks(content);
 
+    // Merge per-task timestamp metadata from frontmatter if available
+    if (frontmatter.taskMeta) {
+      for (const task of tasks) {
+        const meta = frontmatter.taskMeta[task.index];
+        if (meta) {
+          task.addedAt = meta.addedAt;
+          task.completedAt = meta.completedAt;
+        }
+      }
+    }
+
     return {
       frontmatter,
       content,
