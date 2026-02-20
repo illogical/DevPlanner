@@ -95,7 +95,7 @@ mkdir -p workspace
 DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run dev
 
 # Start frontend (in a separate terminal)
-bun run frontend
+bun run dev:frontend
 
 # Seed sample data (3 demo projects)
 DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run seed
