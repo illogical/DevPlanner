@@ -122,12 +122,23 @@ export class CardService {
   }
 
   /**
-   * List all cards in a project, optionally filtered by lane
+   * List all cards in a project, optionally filtered by lane, since date, or staleness
    */
-  async listCards(projectSlug: string, lane?: string): Promise<CardSummary[]> {
+  async listCards(
+    projectSlug: string,
+    lane?: string,
+    since?: string,
+    staleDays?: number
+  ): Promise<CardSummary[]> {
     const lanes = lane ? [lane] : ALL_LANES;
 
     const cards: CardSummary[] = [];
+
+    const sinceTime = since ? new Date(since).getTime() : undefined;
+    const staleThreshold =
+      staleDays !== undefined
+        ? new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000).getTime()
+        : undefined;
 
     for (const laneName of lanes) {
       const filenames = await this.getOrderedCardFilenames(projectSlug, laneName);
@@ -138,6 +149,22 @@ export class CardService {
           const content = await readFile(cardPath, 'utf-8');
           const { frontmatter, tasks } = MarkdownService.parse(content);
           const taskProgress = MarkdownService.taskProgress(tasks);
+
+          // Apply since filter on updated timestamp
+          if (sinceTime !== undefined) {
+            const updatedTime = new Date(frontmatter.updated).getTime();
+            if (updatedTime < sinceTime) {
+              continue;
+            }
+          }
+
+          // Apply staleDays filter: keep cards whose updated is OLDER than the threshold
+          if (staleThreshold !== undefined) {
+            const updatedTime = new Date(frontmatter.updated).getTime();
+            if (updatedTime >= staleThreshold) {
+              continue; // Not stale yet
+            }
+          }
 
           cards.push({
             slug: filename.replace(/\.md$/, ''),
@@ -204,6 +231,7 @@ export class CardService {
     if (data.priority) frontmatter.priority = data.priority;
     if (data.assignee) frontmatter.assignee = data.assignee;
     if (data.tags) frontmatter.tags = data.tags;
+    if (data.blockedReason !== undefined) frontmatter.blockedReason = data.blockedReason;
 
     // Assign card number from project config
     const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
@@ -294,6 +322,13 @@ export class CardService {
         delete frontmatter.tags;
       } else {
         frontmatter.tags = updates.tags;
+      }
+    }
+    if (updates.blockedReason !== undefined) {
+      if (updates.blockedReason === null) {
+        delete frontmatter.blockedReason;
+      } else {
+        frontmatter.blockedReason = updates.blockedReason;
       }
     }
 

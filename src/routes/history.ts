@@ -12,11 +12,11 @@ export const historyRoutes = new Elysia({ prefix: '/api' }).get(
       500 // Increased max from 100 to 500 to match persistence
     );
 
-    const events = await historyService.getEvents(projectSlug, limit);
+    const events = await historyService.getEvents(projectSlug, limit, query.since || undefined);
 
     return {
       events,
-      total: events.length, // Use actual length since getEventCount would need to be async too
+      total: events.length,
     };
   },
   {
@@ -25,6 +25,7 @@ export const historyRoutes = new Elysia({ prefix: '/api' }).get(
     }),
     query: t.Object({
       limit: t.Optional(t.String()),
+      since: t.Optional(t.String()),
     }),
   }
 );

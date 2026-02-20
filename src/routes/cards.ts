@@ -23,7 +23,11 @@ export const cardRoutes = (workspacePath: string) => {
 
   return new Elysia()
     .get('/api/projects/:projectSlug/cards', async ({ params, query }) => {
-      const cards = await cardService.listCards(params.projectSlug, query.lane);
+      const since = query.since || undefined;
+      const parsedStaleDays =
+        query.staleDays !== undefined ? parseInt(query.staleDays as string) : NaN;
+      const staleDays = !isNaN(parsedStaleDays) && parsedStaleDays >= 0 ? parsedStaleDays : undefined;
+      const cards = await cardService.listCards(params.projectSlug, query.lane, since, staleDays);
       return { cards };
     })
     .post(
@@ -84,6 +88,7 @@ export const cardRoutes = (workspacePath: string) => {
               t.Literal('testing'),
             ])
           ),
+          blockedReason: t.Optional(t.String()),
         }),
       }
     )
@@ -386,6 +391,7 @@ export const cardRoutes = (workspacePath: string) => {
           assignee: t.Optional(t.Union([t.Literal('user'), t.Literal('agent'), t.Null()])),
           tags: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
           content: t.Optional(t.String()),
+          blockedReason: t.Optional(t.Union([t.String(), t.Null()])),
         }),
       }
     );

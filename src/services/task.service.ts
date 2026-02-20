@@ -93,7 +93,14 @@ export class TaskService {
       const updatedContent = MarkdownService.appendTask(content, text);
 
       // Update timestamp
-      frontmatter.updated = new Date().toISOString();
+      const now = new Date().toISOString();
+      frontmatter.updated = now;
+
+      // Record task timestamp metadata
+      if (!frontmatter.taskMeta) {
+        frontmatter.taskMeta = [];
+      }
+      frontmatter.taskMeta.push({ addedAt: now, completedAt: null });
 
       // Serialize and write
       const markdown = MarkdownService.serialize(frontmatter, updatedContent);
@@ -102,6 +109,11 @@ export class TaskService {
       // Parse tasks to get the new task with its index
       const tasks = MarkdownService.parseTasks(updatedContent);
       const newTask = tasks[tasks.length - 1];
+      const meta = frontmatter.taskMeta[newTask.index];
+      if (meta) {
+        newTask.addedAt = meta.addedAt;
+        newTask.completedAt = meta.completedAt;
+      }
 
       return newTask;
     } finally {
@@ -136,7 +148,13 @@ export class TaskService {
       const updatedContent = MarkdownService.setTaskChecked(content, taskIndex, checked);
 
       // Update timestamp
-      frontmatter.updated = new Date().toISOString();
+      const now = new Date().toISOString();
+      frontmatter.updated = now;
+
+      // Update task completion timestamp in metadata
+      if (frontmatter.taskMeta && frontmatter.taskMeta[taskIndex] !== undefined) {
+        frontmatter.taskMeta[taskIndex].completedAt = checked ? now : null;
+      }
 
       // Serialize and write
       const markdown = MarkdownService.serialize(frontmatter, updatedContent);
@@ -148,6 +166,13 @@ export class TaskService {
 
       if (!updatedTask) {
         throw new Error(`Task index ${taskIndex} not found`);
+      }
+
+      // Attach timestamp metadata if available
+      const meta = frontmatter.taskMeta?.[taskIndex];
+      if (meta) {
+        updatedTask.addedAt = meta.addedAt;
+        updatedTask.completedAt = meta.completedAt;
       }
 
       return updatedTask;

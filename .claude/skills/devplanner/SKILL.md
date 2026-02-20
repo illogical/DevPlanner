@@ -8,7 +8,8 @@ description: >
   artifact files attached to cards. Triggers for:
   "check what you should work on", "implement x, y, z", "track these tasks",
   "update your progress", "mark this task done", "create a card for",
-  "begin to work on", "what's assigned to me".
+  "begin to work on", "what's assigned to me", "daily digest", "what happened
+  since last run", "project health", "stale work", "blocked cards".
 ---
 
 # DevPlanner
@@ -25,6 +26,8 @@ Choose the path that matches the situation:
 **Finding work to do?** → [Claiming Existing Work](#claiming-existing-work)
 **Starting fresh work that needs tracking?** → [Creating a Card](#creating-a-card)
 **Resuming in-progress work?** → Skip to step 4 of whichever path started it
+**Running a digest / status report?** → [Digest Workflow](#digest-workflow)
+**Checking project health?** → [Project Health](#project-health)
 
 ### Claiming Existing Work
 
@@ -52,6 +55,40 @@ Choose the path that matches the situation:
 7. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"03-complete"}
 ```
 
+### Digest Workflow
+
+Use this pattern for "what happened since last time?" reports:
+
+```
+1. GET /preferences                                 → read digestAnchor (last run timestamp)
+2. GET /activity?since={digestAnchor}&limit=200    → all events across all projects
+   (If digestAnchor is null, use a sensible default like 24h ago)
+3. GET /projects/{slug}/cards?lane=03-complete&since={digestAnchor}
+                                                    → recently completed cards per project
+4. GET /projects/{slug}/stats                       → health snapshot (wipCount, blockedCount, etc.)
+5. [Compose digest report]
+6. PATCH /preferences {"digestAnchor":"<now ISO>"}  → save checkpoint for next run
+```
+
+**Key insight:** `digestAnchor` makes the window precise regardless of schedule drift or
+manual triggers. Always update it at the end of a successful digest run.
+
+### Project Health
+
+```
+GET /projects/{slug}/stats                          → single call returns:
+  - completionsLast7Days / completionsLast30Days    → velocity
+  - wipCount / backlogDepth                         → workload
+  - blockedCount                                    → blockers
+  - avgDaysInProgress                               → cycle time
+
+GET /projects/{slug}/cards?lane=02-in-progress&staleDays=3
+                                                    → stale WIP (not touched in 3+ days)
+
+GET /projects/{slug}/cards?lane=02-in-progress     → read frontmatter.blockedReason
+                                                       on cards with status:"blocked"
+```
+
 ## Toggling Tasks
 
 Tasks use **0-based indexing**. Read the card first to confirm current task indices before toggling.
@@ -59,6 +96,29 @@ Tasks use **0-based indexing**. Read the card first to confirm current task indi
 ```
 GET /projects/{slug}/cards/{card}                   → inspect tasks[] array
 PATCH /projects/{slug}/cards/{card}/tasks/{index}   → {"checked": true}
+```
+
+Task responses include `addedAt` and `completedAt` timestamps when available — useful for
+computing "tasks completed today" without relying on history events.
+
+## Card Fields Reference
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `status` | `"in-progress" \| "blocked" \| "review" \| "testing" \| null` | Card workflow state |
+| `blockedReason` | `string \| null` | Why the card is blocked. Set alongside `status:"blocked"`. |
+| `priority` | `"low" \| "medium" \| "high" \| null` | Urgency level |
+| `assignee` | `"user" \| "agent" \| null` | Who owns the card |
+
+**Setting a blocked reason:**
+```json
+PATCH /projects/{slug}/cards/{card}
+{ "status": "blocked", "blockedReason": "Waiting for design sign-off" }
+```
+
+**Clearing a blocked reason:**
+```json
+{ "blockedReason": null }
 ```
 
 ## Creating Artifact Files
@@ -95,6 +155,8 @@ Attach files at natural checkpoints — not only at completion. Use `POST /proje
 
 - **NEVER assume project slugs.** Always discover via `GET /projects` unless already confirmed in conversation context. Slugs are lowercase-hyphenated folder names, not display names.
 
+- **NEVER forget to update `digestAnchor` after a digest run.** Without it, the next run has no precise anchor and may duplicate or miss events.
+
 ## Error Handling
 
 | Error | Cause | Fix |
@@ -111,5 +173,15 @@ Attach files at natural checkpoints — not only at completion. Use `POST /proje
 | `02-in-progress` | Active work |
 | `03-complete` | Done |
 | `04-archive` | Soft-archived |
+
+## Useful Query Patterns
+
+| Goal | Endpoint |
+|------|----------|
+| Events since last digest | `GET /activity?since={digestAnchor}` |
+| Recently completed cards | `GET /projects/{slug}/cards?lane=03-complete&since={digestAnchor}` |
+| Stale WIP | `GET /projects/{slug}/cards?lane=02-in-progress&staleDays=3` |
+| Project health snapshot | `GET /projects/{slug}/stats` |
+| All blocked cards | `GET /projects/{slug}/cards?lane=02-in-progress` + filter `status==="blocked"` |
 
 See [api-reference.md](references/api-reference.md) for the full endpoint list, request shapes, and all enum values.
