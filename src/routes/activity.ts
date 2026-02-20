@@ -10,7 +10,8 @@ export const activityRoutes = (workspacePath: string) => {
   return new Elysia({ prefix: '/api' }).get(
     '/activity',
     async ({ query }) => {
-      const limit = Math.min(parseInt((query.limit as string) || '50'), 500);
+      const parsedLimit = parseInt((query.limit as string) || '50');
+      const limit = Math.min(!isNaN(parsedLimit) && parsedLimit > 0 ? parsedLimit : 50, 500);
       const since = query.since || undefined;
 
       // Discover all (non-archived) project slugs

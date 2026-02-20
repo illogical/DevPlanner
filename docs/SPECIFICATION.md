@@ -177,6 +177,9 @@ interface CardFrontmatter {
   created: string;    // ISO 8601
   updated: string;    // ISO 8601
   tags?: string[];
+  blockedReason?: string;  // Free-text reason when status is "blocked"
+  dueDate?: string;        // ISO date (YYYY-MM-DD), no time component
+  taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps (index-aligned)
 }
 
 interface Card {
@@ -192,6 +195,8 @@ interface TaskItem {
   index: number;          // 0-based position in the checklist
   text: string;           // Task description text
   checked: boolean;       // true = [x], false = [ ]
+  addedAt?: string;       // ISO 8601 timestamp when task was created via API
+  completedAt?: string | null; // ISO 8601 timestamp when checked; null if unchecked
 }
 ```
 
@@ -351,6 +356,8 @@ List all cards across all lanes for a project.
 
 **Query Parameters:**
 - `lane` (string, optional) — Filter by lane folder name (e.g., `02-in-progress`)
+- `since` (ISO 8601 string, optional) — Return only cards with `updated >= since`. Useful for finding recently changed cards (e.g., `?lane=03-complete&since=2026-02-18T07:50:00Z`)
+- `staleDays` (integer, optional) — Return only cards whose `updated` is older than N days. Useful for detecting stale WIP (e.g., `?lane=02-in-progress&staleDays=3`)
 
 **Response `200`:**
 ```json
@@ -367,7 +374,8 @@ List all cards across all lanes for a project.
         "assignee": "user",
         "created": "2026-02-04T10:00:00Z",
         "updated": "2026-02-04T14:30:00Z",
-        "tags": ["feature", "security"]
+        "tags": ["feature", "security"],
+        "dueDate": "2026-03-01"
       },
       "taskProgress": {
         "total": 4,
@@ -392,7 +400,9 @@ Create a new card.
   "priority": "high",
   "assignee": "user",
   "tags": ["feature", "security"],
-  "content": "Optional initial markdown body content."
+  "content": "Optional initial markdown body content.",
+  "blockedReason": "Waiting for design sign-off",
+  "dueDate": "2026-03-01"
 }
 ```
 
@@ -417,7 +427,8 @@ Only `title` is required. Defaults: `lane` → `"01-upcoming"`, others omitted f
     "assignee": "user",
     "created": "2026-02-04T10:00:00Z",
     "updated": "2026-02-04T10:00:00Z",
-    "tags": ["feature", "security"]
+    "tags": ["feature", "security"],
+    "dueDate": "2026-03-01"
   },
   "content": "Optional initial markdown body content.",
   "tasks": [],
@@ -505,11 +516,13 @@ Update card metadata and/or content.
 ```json
 {
   "title": "Updated Card Title",
-  "status": "in-progress",
+  "status": "blocked",
   "priority": "high",
   "assignee": "agent",
   "tags": ["feature", "urgent"],
-  "content": "Updated markdown content\n\n- [ ] New task"
+  "content": "Updated markdown content\n\n- [ ] New task",
+  "blockedReason": "Waiting for design review",
+  "dueDate": "2026-03-15"
 }
 ```
 
@@ -517,7 +530,9 @@ To remove an optional field, set it to `null`:
 ```json
 {
   "priority": null,
-  "status": null
+  "status": null,
+  "blockedReason": null,
+  "dueDate": null
 }
 ```
 
@@ -551,7 +566,7 @@ Add a new checklist item to a card.
 2. Find the last checklist item (line matching `- [ ] ` or `- [x] `) or the end of a `## Tasks` section
 3. Append `- [ ] {text}` as a new line after the last checklist item
 4. If no checklist exists yet, append a `## Tasks` section with the new item
-5. Update the card's `updated` timestamp
+5. Update the card's `updated` timestamp and append a new entry to `taskMeta` in frontmatter
 6. Write the modified Markdown file
 7. Broadcast `card:updated` WebSocket event to subscribed clients
 
@@ -561,6 +576,8 @@ Add a new checklist item to a card.
   "index": 4,
   "text": "Implement logout functionality",
   "checked": false,
+  "addedAt": "2026-02-20T10:00:00Z",
+  "completedAt": null,
   "taskProgress": { "total": 5, "checked": 1 }
 }
 ```
@@ -626,15 +643,15 @@ Reorder cards within a lane (for drag-and-drop within the same lane).
 
 ---
 
-### 3.6 Activity History Endpoint
+### 3.6 Activity History Endpoints
 
 #### `GET /api/projects/:projectSlug/history`
 
 Retrieve activity history for a project (recent card/task modifications).
 
 **Query Parameters:**
-- `limit` (optional): Number of events to return (default: 50, max: 100)
-  - Note: History service stores max 50 events per project, so requesting more than 50 will still only return up to 50 events
+- `limit` (optional): Number of events to return (default: 50, max: 500)
+- `since` (ISO 8601 string, optional): Return only events at or after this timestamp (e.g., `?since=2026-02-18T07:50:00Z`)
 
 **Response `200`:**
 ```json
@@ -661,16 +678,86 @@ Retrieve activity history for a project (recent card/task modifications).
 **Action Types:**
 - `task:completed` - Task marked as done
 - `task:uncompleted` - Task marked as not done
+- `task:added` - New task added to a card
 - `card:created` - New card added
 - `card:moved` - Card moved between lanes
 - `card:updated` - Card content or metadata changed
 - `card:archived` - Card moved to archive
+- `card:deleted` - Card permanently deleted
+- `project:created` / `project:updated` / `project:archived` - Project lifecycle
+- `file:uploaded` / `file:deleted` / `file:associated` / `file:disassociated` / `file:updated` - File operations
 
-**Note:** History is stored in-memory (lost on server restart). Persistent storage planned for future phases.
+#### `GET /api/activity`
+
+Cross-project activity feed — merges history from all (non-archived) projects in a single call.
+
+**Query Parameters:**
+- `limit` (optional): Number of events to return (default: 50, max: 500)
+- `since` (ISO 8601 string, optional): Return only events at or after this timestamp
+
+**Response `200`:** Same shape as `/history` — `{ events, total }`. Each event already contains `projectSlug`.
+
+**Usage example (digest agent):**
+```
+GET /api/activity?since=2026-02-19T07:52:00Z
+```
 
 ---
 
-### 3.7 WebSocket Endpoint
+### 3.7 Project Stats Endpoint
+
+#### `GET /api/projects/:projectSlug/stats`
+
+Returns aggregated health metrics for a project in a single call.
+
+**Response `200`:**
+```json
+{
+  "slug": "my-project",
+  "completionsLast7Days": 4,
+  "completionsLast30Days": 18,
+  "avgDaysInProgress": 2.3,
+  "wipCount": 3,
+  "backlogDepth": 12,
+  "blockedCount": 1
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `completionsLast7Days` | Cards in `03-complete` whose `updated` is within the last 7 days |
+| `completionsLast30Days` | Same, within the last 30 days |
+| `avgDaysInProgress` | Average `(updated - created)` in days for completed cards |
+| `wipCount` | Number of cards in `02-in-progress` |
+| `backlogDepth` | Number of cards in `01-upcoming` |
+| `blockedCount` | In-progress cards with `status: "blocked"` |
+
+---
+
+### 3.8 Preferences Endpoint
+
+#### `GET /api/preferences` / `PATCH /api/preferences`
+
+Workspace-level preferences persisted to `_preferences.json`.
+
+**PATCH Request Body (all fields optional):**
+```json
+{
+  "lastSelectedProject": "my-project",
+  "digestAnchor": "2026-02-20T07:52:00Z"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `lastSelectedProject` | Last project selected in the UI (string or null) |
+| `digestAnchor` | ISO 8601 timestamp of the last successful digest run. Used by the digest skill as the `since` parameter for all "since last digest" queries. Set to `null` to reset. |
+
+**Response `200`:** Full preferences object.
+
+---
+
+### 3.9 WebSocket Endpoint
 
 #### `WS /api/ws`
 

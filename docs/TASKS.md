@@ -451,3 +451,55 @@ Add atomic "create text file and link to card" operation for AI agent workflows.
 - [ ] Test multi-client scenario — two browser tabs, verify both receive updates simultaneously
 - [ ] Test reconnection scenario — stop/restart server, verify clients auto-reconnect and re-subscribe
 - [ ] Test edge cases — rapid file changes, corrupted files, file rename vs delete, large payloads
+
+## Phase 20: API Improvements for Agent Workflows
+
+High-value additions to the DevPlanner REST API to improve data precision and reduce round-trips for automated digest agents and AI workflows.
+
+### Time-bounded history filter
+- [x] Add `?since={ISO timestamp}` query parameter to `GET /api/projects/:slug/history`
+- [x] Update `HistoryService.getEvents()` to accept and apply an optional `since` filter
+
+### Cross-project activity feed
+- [x] Create `GET /api/activity?since={ISO timestamp}&limit=N` endpoint
+- [x] Add `HistoryService.getActivityFeed()` that merges events across all projects
+- [x] Register `activityRoutes` in `src/server.ts`
+
+### Completed-since and stale WIP filters on cards
+- [x] Add `?since={ISO timestamp}` query param to `GET /api/projects/:slug/cards` — returns only cards with `updated >= since`
+- [x] Add `?staleDays=N` query param — returns only in-progress cards with `updated` older than N days
+
+### Project stats endpoint
+- [x] Create `GET /api/projects/:slug/stats` endpoint
+- [x] Response includes: `completionsLast7Days`, `completionsLast30Days`, `avgDaysInProgress`, `wipCount`, `backlogDepth`, `blockedCount`
+- [x] Register `statsRoutes` in `src/server.ts`
+
+### `blockedReason` field on cards
+- [x] Add optional `blockedReason?: string` to `CardFrontmatter` type
+- [x] Support `blockedReason` in `CreateCardInput` and `UpdateCardInput`
+- [x] Update `CardService.createCard()` and `updateCard()` to persist/clear `blockedReason`
+- [x] Expose `blockedReason` in POST and PATCH `/cards` route schemas
+
+### `dueDate` field on cards
+- [x] Add optional `dueDate?: string` (ISO date, YYYY-MM-DD) to `CardFrontmatter`
+- [x] Support `dueDate` in `CreateCardInput` and `UpdateCardInput`
+- [x] Update `CardService.createCard()` and `updateCard()` to persist/clear `dueDate`
+- [x] Expose `dueDate` in POST and PATCH `/cards` route schemas
+
+### Task-level timestamps
+- [x] Add `addedAt?: string` and `completedAt?: string | null` to `TaskItem`
+- [x] Add `taskMeta?: Array<{addedAt: string, completedAt: string | null}>` to `CardFrontmatter` for storage
+- [x] Update `TaskService.addTask()` to record `addedAt` in `taskMeta`
+- [x] Update `TaskService.setTaskChecked()` to record/clear `completedAt` in `taskMeta`
+- [x] Update `MarkdownService.parse()` to merge `taskMeta` timestamps into parsed `TaskItem[]`
+
+### Digest checkpoint in preferences
+- [x] Add `digestAnchor?: string | null` to `Preferences` type
+- [x] Update `PATCH /api/preferences` route schema to accept `digestAnchor`
+
+### Documentation & Tests
+- [x] Add 17 unit tests for new features (`src/__tests__/api-improvements.test.ts`) — all passing
+- [x] Update `docs/SPECIFICATION.md` — API contracts for new endpoints and fields
+- [x] Update `docs/openapi.yaml` — OpenAPI definitions for new endpoints
+- [x] Update `README.md` — API overview table and feature list
+- [x] Update `.claude/skills/devplanner/SKILL.md` — improved agent workflow guidance

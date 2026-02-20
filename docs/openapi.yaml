@@ -180,7 +180,7 @@ paths:
     get:
       operationId: listCards
       tags: [cards]
-      summary: List cards, optionally filtered by lane
+      summary: List cards, optionally filtered by lane, date, or staleness
       parameters:
         - name: lane
           in: query
@@ -188,6 +188,20 @@ paths:
             type: string
           description: "Lane slug (e.g. '02-in-progress'). Omit for all lanes."
           example: "02-in-progress"
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: "Return only cards with `updated >= since`. Useful for finding recently changed cards."
+          example: "2026-02-18T07:50:00Z"
+        - name: staleDays
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+          description: "Return only cards whose `updated` is older than N days. Useful for detecting stale WIP (e.g., staleDays=3 with lane=02-in-progress)."
+          example: 3
       responses:
         "200":
           description: Card list
@@ -235,6 +249,14 @@ paths:
                   description: Markdown body
                 status:
                   $ref: "#/components/schemas/CardStatus"
+                blockedReason:
+                  type: string
+                  description: Free-text reason explaining why the card is blocked.
+                dueDate:
+                  type: string
+                  format: date
+                  description: "ISO date (YYYY-MM-DD) deadline for this card."
+                  example: "2026-03-01"
       responses:
         "201":
           description: Created card
@@ -353,6 +375,17 @@ paths:
                 content:
                   type: string
                   description: Full Markdown body replacement
+                blockedReason:
+                  oneOf:
+                    - type: string
+                      description: Free-text reason explaining why the card is blocked.
+                    - type: "null"
+                dueDate:
+                  oneOf:
+                    - type: string
+                      format: date
+                      description: "ISO date (YYYY-MM-DD) deadline. Set to null to remove."
+                    - type: "null"
       responses:
         "200":
           description: Updated card
@@ -862,6 +895,12 @@ paths:
             minimum: 1
             maximum: 500
           description: Max events to return. Default 50, max 500.
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Return only events at or after this ISO 8601 timestamp.
       responses:
         "200":
           description: History events
@@ -877,6 +916,63 @@ paths:
                       $ref: "#/components/schemas/HistoryEvent"
                   total:
                     type: integer
+
+  # ─────────────────────────────────────────────
+  # Cross-project activity feed
+  # ─────────────────────────────────────────────
+  /api/activity:
+    get:
+      operationId: getActivity
+      tags: [history]
+      summary: Cross-project activity feed (all projects merged, newest first)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+          description: Max events to return. Default 50, max 500.
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Return only events at or after this ISO 8601 timestamp.
+      responses:
+        "200":
+          description: Merged activity events across all projects
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, total]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HistoryEvent"
+                  total:
+                    type: integer
+
+  # ─────────────────────────────────────────────
+  # Project stats
+  # ─────────────────────────────────────────────
+  /api/projects/{projectSlug}/stats:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+
+    get:
+      operationId: getProjectStats
+      tags: [projects]
+      summary: Get aggregated health metrics for a project
+      responses:
+        "200":
+          description: Project stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStats"
 
   # ─────────────────────────────────────────────
   # Preferences
@@ -910,6 +1006,12 @@ paths:
                     - string
                     - "null"
                   description: Last selected project slug, or null to clear.
+                digestAnchor:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+                  description: ISO 8601 timestamp written by the digest skill after each successful run. Used as `since` for time-bounded queries. Set to null to reset.
       responses:
         "200":
           description: Updated preferences
@@ -1143,6 +1245,29 @@ components:
         cardNumber:
           type: integer
           description: Sequential number within the project
+        blockedReason:
+          type: string
+          description: Free-text reason explaining why the card is blocked. Only meaningful when status is "blocked".
+        dueDate:
+          type: string
+          format: date
+          description: "ISO date (YYYY-MM-DD) deadline for this card."
+          example: "2026-03-01"
+        taskMeta:
+          type: array
+          description: Per-task timestamp metadata, index-aligned with the tasks array.
+          items:
+            type: object
+            required: [addedAt, completedAt]
+            properties:
+              addedAt:
+                type: string
+                format: date-time
+              completedAt:
+                type:
+                  - string
+                  - "null"
+                format: date-time
 
     Card:
       type: object
@@ -1196,6 +1321,16 @@ components:
           type: string
         checked:
           type: boolean
+        addedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the task was added via API. Present only for tasks created after Phase 20.
+        completedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: ISO 8601 timestamp when the task was last checked. Null if unchecked.
 
     TaskProgress:
       type: object
@@ -1344,6 +1479,38 @@ components:
           type:
             - string
             - "null"
+        digestAnchor:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: ISO 8601 timestamp written by the digest skill after each successful run. Used as `since` for time-bounded queries.
+
+    # ── Stats ─────────────────────────────────────
+    ProjectStats:
+      type: object
+      required: [slug, completionsLast7Days, completionsLast30Days, avgDaysInProgress, wipCount, backlogDepth, blockedCount]
+      properties:
+        slug:
+          type: string
+        completionsLast7Days:
+          type: integer
+          description: Cards moved to `03-complete` in the last 7 days (based on `updated` timestamp)
+        completionsLast30Days:
+          type: integer
+          description: Cards moved to `03-complete` in the last 30 days
+        avgDaysInProgress:
+          type: number
+          description: Average days from `created` to `updated` for completed cards (rounded to 1 decimal)
+        wipCount:
+          type: integer
+          description: Number of cards currently in `02-in-progress`
+        backlogDepth:
+          type: integer
+          description: Number of cards in `01-upcoming`
+        blockedCount:
+          type: integer
+          description: In-progress cards with `status = "blocked"`
 
     # ── Errors ───────────────────────────────────
     ApiError:

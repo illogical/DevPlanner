@@ -180,32 +180,39 @@ All endpoints are under `/api` and return JSON.
 | `POST` | `/api/projects` | Create project |
 | `PATCH` | `/api/projects/:slug` | Update project |
 | `DELETE` | `/api/projects/:slug` | Archive project |
-| `GET` | `/api/projects/:slug/cards` | List cards (all lanes) |
+| `GET` | `/api/projects/:slug/cards` | List cards (`?lane=`, `?since=`, `?staleDays=`) |
 | `POST` | `/api/projects/:slug/cards` | Create card |
 | `GET` | `/api/projects/:slug/cards/:card` | Get card details |
 | `DELETE` | `/api/projects/:slug/cards/:card` | Archive card |
+| `PATCH` | `/api/projects/:slug/cards/:card` | Update card metadata |
 | `PATCH` | `/api/projects/:slug/cards/:card/move` | Move card to lane |
 | `POST` | `/api/projects/:slug/cards/:card/tasks` | Add checklist item |
 | `PATCH` | `/api/projects/:slug/cards/:card/tasks/:index` | Toggle task |
 | `PATCH` | `/api/projects/:slug/lanes/:lane/order` | Reorder cards in lane |
-| `GET` | `/api/projects/:slug/history` | Get activity history (last 10 events) |
+| `GET` | `/api/projects/:slug/stats` | Project health stats |
+| `GET` | `/api/projects/:slug/history` | Activity history (`?limit=`, `?since=`) |
+| `GET` | `/api/activity` | Cross-project activity feed (`?since=`, `?limit=`) |
+| `GET` | `/api/preferences` | Get workspace preferences |
+| `PATCH` | `/api/preferences` | Update preferences (incl. `digestAnchor`) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
-See [SPECIFICATION.md](SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.
+See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.
 
 ## Features
 
-### Current (Phase 18 Complete)
+### Current (Phase 20 Complete)
 - ✅ **Kanban Board UI** - Drag-and-drop cards between lanes
-- ✅ **Card Management** - Create, edit, archive cards with Markdown content
-- ✅ **Task Tracking** - Checkbox-based task lists with progress visualization
+- ✅ **Card Management** - Create, edit, archive cards with Markdown content; `blockedReason` and `dueDate` fields
+- ✅ **Task Tracking** - Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps
 - ✅ **Project Management** - Multi-project support with card counts
 - ✅ **Real-time Sync** - WebSocket infrastructure for live updates
 - ✅ **File Watching** - Automatic detection of external file changes
-- ✅ **Activity History** - Track all card/task modifications with timestamps
+- ✅ **Activity History** - Per-project history with `?since=` filter; cross-project `/api/activity` feed
+- ✅ **Project Stats** - `/api/projects/:slug/stats` endpoint (WIP count, backlog depth, completion velocity)
+- ✅ **Digest Checkpoint** - `digestAnchor` preference for precise time-bounded agent queries
 - ✅ **Visual Indicators** - Animated feedback for background changes
 - ✅ **Responsive Design** - Mobile, tablet, and desktop layouts
-- ✅ **Preferences** - Last-selected project persistence
+- ✅ **Preferences** - Last-selected project and digest anchor persistence
 - ✅ **MCP Server** - Model Context Protocol integration for AI agents (17 tools, 3 resources)
 
 ### Planned (Post-MVP)

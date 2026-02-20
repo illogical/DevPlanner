@@ -24,8 +24,9 @@ export const cardRoutes = (workspacePath: string) => {
   return new Elysia()
     .get('/api/projects/:projectSlug/cards', async ({ params, query }) => {
       const since = query.since || undefined;
-      const staleDays =
-        query.staleDays !== undefined ? parseInt(query.staleDays as string) : undefined;
+      const parsedStaleDays =
+        query.staleDays !== undefined ? parseInt(query.staleDays as string) : NaN;
+      const staleDays = !isNaN(parsedStaleDays) && parsedStaleDays >= 0 ? parsedStaleDays : undefined;
       const cards = await cardService.listCards(params.projectSlug, query.lane, since, staleDays);
       return { cards };
     })

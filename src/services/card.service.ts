@@ -231,8 +231,8 @@ export class CardService {
     if (data.priority) frontmatter.priority = data.priority;
     if (data.assignee) frontmatter.assignee = data.assignee;
     if (data.tags) frontmatter.tags = data.tags;
-    if (data.blockedReason) frontmatter.blockedReason = data.blockedReason;
-    if (data.dueDate) frontmatter.dueDate = data.dueDate;
+    if (data.blockedReason !== undefined) frontmatter.blockedReason = data.blockedReason;
+    if (data.dueDate !== undefined) frontmatter.dueDate = data.dueDate;
 
     // Assign card number from project config
     const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
