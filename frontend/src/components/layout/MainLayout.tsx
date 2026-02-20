@@ -1,3 +1,5 @@
+import { useStore } from '../../store';
+import { cn } from '../../utils/cn';
 import { Header } from './Header';
 import { ProjectSidebar } from './ProjectSidebar';
 import { ActivitySidebar } from '../activity/ActivitySidebar';
@@ -8,6 +10,8 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children, connectionState }: MainLayoutProps) {
+  const { isActivitySidebarOpen } = useStore();
+
   return (
     <div className="h-screen flex flex-col bg-gray-950">
       <Header connectionState={connectionState} />
@@ -20,8 +24,13 @@ export function MainLayout({ children, connectionState }: MainLayoutProps) {
           {children}
         </main>
 
-        {/* Right sidebar - always-on activity history (desktop only) */}
-        <aside className="w-80 border-l border-gray-700 bg-gray-900 overflow-hidden hidden lg:block relative z-50">
+        {/* Right sidebar - activity history (desktop only, toggleable) */}
+        <aside className={cn(
+          'hidden lg:flex flex-col',
+          'bg-gray-900 border-l border-gray-700',
+          'transition-all duration-300 ease-out overflow-hidden relative z-50',
+          isActivitySidebarOpen ? 'w-80' : 'w-0 border-l-0'
+        )}>
           <ActivitySidebar />
         </aside>
       </div>

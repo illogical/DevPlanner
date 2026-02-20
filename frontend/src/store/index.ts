@@ -100,6 +100,8 @@ interface DevPlannerStore {
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  isActivitySidebarOpen: boolean;
+  toggleActivitySidebar: () => void;
 
   // Change indicators for animations
   changeIndicators: Map<string, ChangeIndicator>;
@@ -192,6 +194,7 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   expandedCardTasks: new Set(),
   laneCollapsedState: {},
   isSidebarOpen: true,
+  isActivitySidebarOpen: true,
   changeIndicators: new Map(),
   historyEvents: [],
   isActivityPanelOpen: false,
@@ -793,6 +796,10 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
 
   setSidebarOpen: (open) => {
     set({ isSidebarOpen: open });
+  },
+
+  toggleActivitySidebar: () => {
+    set((state) => ({ isActivitySidebarOpen: !state.isActivitySidebarOpen }));
   },
 
   // Change indicator actions
