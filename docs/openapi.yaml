@@ -252,11 +252,6 @@ paths:
                 blockedReason:
                   type: string
                   description: Free-text reason explaining why the card is blocked.
-                dueDate:
-                  type: string
-                  format: date
-                  description: "ISO date (YYYY-MM-DD) deadline for this card."
-                  example: "2026-03-01"
       responses:
         "201":
           description: Created card
@@ -379,12 +374,6 @@ paths:
                   oneOf:
                     - type: string
                       description: Free-text reason explaining why the card is blocked.
-                    - type: "null"
-                dueDate:
-                  oneOf:
-                    - type: string
-                      format: date
-                      description: "ISO date (YYYY-MM-DD) deadline. Set to null to remove."
                     - type: "null"
       responses:
         "200":
@@ -1248,11 +1237,6 @@ components:
         blockedReason:
           type: string
           description: Free-text reason explaining why the card is blocked. Only meaningful when status is "blocked".
-        dueDate:
-          type: string
-          format: date
-          description: "ISO date (YYYY-MM-DD) deadline for this card."
-          example: "2026-03-01"
         taskMeta:
           type: array
           description: Per-task timestamp metadata, index-aligned with the tasks array.

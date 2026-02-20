@@ -232,7 +232,6 @@ export class CardService {
     if (data.assignee) frontmatter.assignee = data.assignee;
     if (data.tags) frontmatter.tags = data.tags;
     if (data.blockedReason !== undefined) frontmatter.blockedReason = data.blockedReason;
-    if (data.dueDate !== undefined) frontmatter.dueDate = data.dueDate;
 
     // Assign card number from project config
     const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
@@ -330,13 +329,6 @@ export class CardService {
         delete frontmatter.blockedReason;
       } else {
         frontmatter.blockedReason = updates.blockedReason;
-      }
-    }
-    if (updates.dueDate !== undefined) {
-      if (updates.dueDate === null) {
-        delete frontmatter.dueDate;
-      } else {
-        frontmatter.dueDate = updates.dueDate;
       }
     }
 

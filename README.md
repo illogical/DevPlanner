@@ -202,7 +202,7 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 
 ### Current (Phase 20 Complete)
 - ✅ **Kanban Board UI** - Drag-and-drop cards between lanes
-- ✅ **Card Management** - Create, edit, archive cards with Markdown content; `blockedReason` and `dueDate` fields
+- ✅ **Card Management** - Create, edit, archive cards with Markdown content; `blockedReason` field
 - ✅ **Task Tracking** - Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps
 - ✅ **Project Management** - Multi-project support with card counts
 - ✅ **Real-time Sync** - WebSocket infrastructure for live updates

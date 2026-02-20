@@ -89,7 +89,6 @@ export const cardRoutes = (workspacePath: string) => {
             ])
           ),
           blockedReason: t.Optional(t.String()),
-          dueDate: t.Optional(t.String()),
         }),
       }
     )
@@ -393,7 +392,6 @@ export const cardRoutes = (workspacePath: string) => {
           tags: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
           content: t.Optional(t.String()),
           blockedReason: t.Optional(t.Union([t.String(), t.Null()])),
-          dueDate: t.Optional(t.Union([t.String(), t.Null()])),
         }),
       }
     );

@@ -107,7 +107,6 @@ computing "tasks completed today" without relying on history events.
 |-------|------|-------|
 | `status` | `"in-progress" \| "blocked" \| "review" \| "testing" \| null` | Card workflow state |
 | `blockedReason` | `string \| null` | Why the card is blocked. Set alongside `status:"blocked"`. |
-| `dueDate` | `"YYYY-MM-DD" \| null` | ISO date deadline. Use to surface "due soon" cards. |
 | `priority` | `"low" \| "medium" \| "high" \| null` | Urgency level |
 | `assignee` | `"user" \| "agent" \| null` | Who owns the card |
 

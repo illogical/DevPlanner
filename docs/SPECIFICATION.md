@@ -178,7 +178,6 @@ interface CardFrontmatter {
   updated: string;    // ISO 8601
   tags?: string[];
   blockedReason?: string;  // Free-text reason when status is "blocked"
-  dueDate?: string;        // ISO date (YYYY-MM-DD), no time component
   taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps (index-aligned)
 }
 
@@ -374,8 +373,7 @@ List all cards across all lanes for a project.
         "assignee": "user",
         "created": "2026-02-04T10:00:00Z",
         "updated": "2026-02-04T14:30:00Z",
-        "tags": ["feature", "security"],
-        "dueDate": "2026-03-01"
+        "tags": ["feature", "security"]
       },
       "taskProgress": {
         "total": 4,
@@ -401,8 +399,7 @@ Create a new card.
   "assignee": "user",
   "tags": ["feature", "security"],
   "content": "Optional initial markdown body content.",
-  "blockedReason": "Waiting for design sign-off",
-  "dueDate": "2026-03-01"
+  "blockedReason": "Waiting for design sign-off"
 }
 ```
 
@@ -427,8 +424,7 @@ Only `title` is required. Defaults: `lane` → `"01-upcoming"`, others omitted f
     "assignee": "user",
     "created": "2026-02-04T10:00:00Z",
     "updated": "2026-02-04T10:00:00Z",
-    "tags": ["feature", "security"],
-    "dueDate": "2026-03-01"
+    "tags": ["feature", "security"]
   },
   "content": "Optional initial markdown body content.",
   "tasks": [],
@@ -521,8 +517,7 @@ Update card metadata and/or content.
   "assignee": "agent",
   "tags": ["feature", "urgent"],
   "content": "Updated markdown content\n\n- [ ] New task",
-  "blockedReason": "Waiting for design review",
-  "dueDate": "2026-03-15"
+  "blockedReason": "Waiting for design review"
 }
 ```
 
@@ -531,8 +526,7 @@ To remove an optional field, set it to `null`:
 {
   "priority": null,
   "status": null,
-  "blockedReason": null,
-  "dueDate": null
+  "blockedReason": null
 }
 ```
 

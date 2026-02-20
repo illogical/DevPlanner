@@ -480,12 +480,6 @@ High-value additions to the DevPlanner REST API to improve data precision and re
 - [x] Update `CardService.createCard()` and `updateCard()` to persist/clear `blockedReason`
 - [x] Expose `blockedReason` in POST and PATCH `/cards` route schemas
 
-### `dueDate` field on cards
-- [x] Add optional `dueDate?: string` (ISO date, YYYY-MM-DD) to `CardFrontmatter`
-- [x] Support `dueDate` in `CreateCardInput` and `UpdateCardInput`
-- [x] Update `CardService.createCard()` and `updateCard()` to persist/clear `dueDate`
-- [x] Expose `dueDate` in POST and PATCH `/cards` route schemas
-
 ### Task-level timestamps
 - [x] Add `addedAt?: string` and `completedAt?: string | null` to `TaskItem`
 - [x] Add `taskMeta?: Array<{addedAt: string, completedAt: string | null}>` to `CardFrontmatter` for storage

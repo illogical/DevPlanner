@@ -29,7 +29,7 @@ describe('API improvements', () => {
     }
   });
 
-  describe('Card blockedReason and dueDate', () => {
+  describe('Card blockedReason', () => {
     test('createCard stores blockedReason in frontmatter', async () => {
       const card = await cardService.createCard(projectSlug, {
         title: 'Blocked Card',
@@ -42,18 +42,6 @@ describe('API improvements', () => {
       // Verify persisted to disk
       const reloaded = await cardService.getCard(projectSlug, card.slug);
       expect(reloaded.frontmatter.blockedReason).toBe('Waiting for external dependency');
-    });
-
-    test('createCard stores dueDate in frontmatter', async () => {
-      const card = await cardService.createCard(projectSlug, {
-        title: 'Due Soon Card',
-        dueDate: '2026-03-01',
-      });
-
-      expect(card.frontmatter.dueDate).toBe('2026-03-01');
-
-      const reloaded = await cardService.getCard(projectSlug, card.slug);
-      expect(reloaded.frontmatter.dueDate).toBe('2026-03-01');
     });
 
     test('updateCard sets blockedReason', async () => {
@@ -76,27 +64,6 @@ describe('API improvements', () => {
       });
 
       expect(updated.frontmatter.blockedReason).toBeUndefined();
-    });
-
-    test('updateCard sets dueDate', async () => {
-      const card = await cardService.createCard(projectSlug, { title: 'Card' });
-      const updated = await cardService.updateCard(projectSlug, card.slug, {
-        dueDate: '2026-04-15',
-      });
-
-      expect(updated.frontmatter.dueDate).toBe('2026-04-15');
-    });
-
-    test('updateCard clears dueDate when set to null', async () => {
-      const card = await cardService.createCard(projectSlug, {
-        title: 'Card',
-        dueDate: '2026-03-01',
-      });
-      const updated = await cardService.updateCard(projectSlug, card.slug, {
-        dueDate: null,
-      });
-
-      expect(updated.frontmatter.dueDate).toBeUndefined();
     });
   });
 

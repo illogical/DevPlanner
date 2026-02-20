@@ -32,7 +32,6 @@ export interface CardFrontmatter {
   tags?: string[];
   cardNumber?: number; // Sequential within project
   blockedReason?: string; // Free-text reason when status is "blocked"
-  dueDate?: string; // ISO date string (YYYY-MM-DD), no time component
   taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps
 }
 
@@ -81,7 +80,6 @@ export interface CreateCardInput {
   content?: string;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
   blockedReason?: string;
-  dueDate?: string; // ISO date string (YYYY-MM-DD)
 }
 
 export interface UpdateCardInput {
@@ -92,7 +90,6 @@ export interface UpdateCardInput {
   tags?: string[] | null;
   content?: string;
   blockedReason?: string | null;
-  dueDate?: string | null; // ISO date string (YYYY-MM-DD)
 }
 
 export interface AddFileToCardInput {
