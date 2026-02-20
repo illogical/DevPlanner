@@ -244,3 +244,183 @@ The agent is scored on 4 metrics (25% weight each):
 
 **Output:**
 The script provides real-time colored terminal output showing each tool call, parameters, results, and pauses between actions. Final report includes metrics breakdown, scoring across 4 dimensions, and a rating (Excellent/Good/Fair/Poor). See `docs/features/mcp-verification-summary.md` for detailed output examples.
+
+---
+
+### `test-mcp-tools.ts`
+
+Comprehensive test harness that evaluates how accurately different LLM models utilize MCP (Model Context Protocol) tools when processing prompts via LMAPI. This is a **systematic evaluation tool** that compares model performance across tool calling tasks, whereas `verify-mcp-agent.ts` validates that the MCP server works correctly.
+
+**Features:**
+- **24 Test Cases**: Covers all 20 DevPlanner MCP tools
+- **Model Comparison**: Test multiple models sequentially
+- **Category Analysis**: CRUD (12 tests), Smart/Workflow (9 tests), File Management (3 tests)
+- **Difficulty Levels**: Easy, Medium, Hard for each test case
+- **Interactive Dashboard**: Self-contained HTML report with charts and filtering
+- **Memory Efficient**: Tests one model at a time
+
+**Prerequisites:**
+1. **LMAPI Server Running**:
+   ```bash
+   bun run dev:backend
+   ```
+
+2. **Ollama Models Available**:
+   ```bash
+   ollama pull llama3-groq-tool-use  # Recommended
+   ollama pull phi4
+   ollama pull qwen2.5
+   ```
+
+**Usage:**
+```bash
+# Run with default models
+bun run test:mcp-tools
+
+# Test specific models
+bun scripts/test-mcp-tools.ts llama3.1 qwen2.5
+
+# Quick test (single model)
+bun run test:mcp-tools:quick
+
+# Test multiple models
+bun run test:mcp-tools:all
+
+# Custom options
+bun scripts/test-mcp-tools.ts --endpoint http://localhost:8000 \
+  --output ./my-reports --verbose llama3.1
+
+# Adjust temperature and delay
+bun scripts/test-mcp-tools.ts --temperature 0.2 --delay 1000 llama3.1
+```
+
+**Command Line Options:**
+- `--endpoint <url>` - LMAPI base URL (default: http://localhost:17103)
+- `--output <dir>` - Output directory (default: ./test-reports)
+- `--temperature <value>` - Temperature for LLM inference (default: 0.1, range: 0-2)
+- `--delay <ms>` - Delay between test cases in milliseconds (default: 500)
+- `--no-html` - Skip HTML dashboard generation
+- `--verbose` - Show detailed request/response information
+- `--help, -h` - Show help message
+
+**Test Categories:**
+
+*CRUD Tools (12 cases):*
+- Project operations: list, get, create
+- Card operations: list (with filters), get, create, update, move
+- Task operations: add, toggle
+
+*Smart/Workflow Tools (9 cases):*
+- Board overview and progress tracking
+- Next tasks recommendations
+- Batch task updates
+- Card search (with filters)
+- Card content updates
+- Card archival
+
+*File Management Tools (3 cases):*
+- List project files
+- List card files
+- Read file content
+
+**Output:**
+
+The script generates two types of output:
+
+1. **JSON Report** (`test-reports/mcp-tool-test-report-<timestamp>.json`)
+   - Complete test results for all models
+   - Accuracy statistics by category and difficulty
+   - Response times and metadata
+
+2. **HTML Dashboard** (`test-reports/mcp-tool-test-dashboard-<timestamp>.html`)
+   - Summary cards (total tests, accuracy, etc.)
+   - Model comparison table (sortable)
+   - 4 interactive charts (accuracy by model, category, difficulty, performance)
+   - Filterable detailed results table
+   - Test cases reference
+   - Dark mode GitHub-inspired theme
+   - Self-contained (no external dependencies except Chart.js CDN)
+
+**Example Console Output:**
+```
+═══════════════════════════════════════════════════════════
+  MCP Tool Calling Test Suite
+═══════════════════════════════════════════════════════════
+LMAPI Endpoint: http://localhost:17103
+Models: llama3.1, qwen2.5
+Test Cases: 24
+Total Tests: 48
+═══════════════════════════════════════════════════════════
+
+Testing model: llama3.1
+────────────────────────────────────────────────────────────
+  ✓ list_projects_01 (1234ms)
+  ✓ list_projects_02 (1456ms)
+  ✗ get_project_01 (987ms) - Got: list_projects
+  ...
+
+═══════════════════════════════════════════════════════════
+  TEST SUMMARY
+═══════════════════════════════════════════════════════════
+
+llama3.1
+  Overall: 20/24 (83%)
+  Avg Duration: 1523ms
+  By Category:
+    CRUD: 10/12 (83%)
+    Smart: 8/9 (89%)
+    FileManagement: 2/3 (67%)
+  By Difficulty:
+    Easy: 6/6 (100%)
+    Medium: 8/10 (80%)
+    Hard: 6/8 (75%)
+```
+
+**Interpreting Results:**
+- **Green ✓**: Model called the correct tool
+- **Red ✗**: Model called wrong tool or no tool
+- **Accuracy**: (Correct calls / Total tests) × 100
+- **Duration**: Full LMAPI response time including inference
+
+**Typical Runtime:**
+- ~1-5 seconds per test case
+- Total: 2-10 minutes depending on models and test count
+
+**Troubleshooting:**
+
+*"Cannot reach LMAPI"*
+- Ensure backend is running: `bun run dev:backend`
+- Check LMAPI is at http://localhost:17103
+
+*"No models available"*
+- Verify Ollama is running: `ollama list`
+- Pull models: `ollama pull llama3-groq-tool-use`
+
+*Low accuracy*
+- Some models are better at tool calling
+- Models with "tool-use" in name are specifically trained
+- Check if model supports function calling
+
+**Exit codes:**
+- `0` - All tests completed (check accuracy in report)
+- `1` - Fatal error (cannot reach LMAPI, no models, etc.)
+
+**Adding Test Cases:**
+
+Edit `TEST_CASES` array in the script:
+```typescript
+{
+  id: 'unique_test_id',
+  prompt: 'Natural language instruction',
+  expectedTool: 'mcp_tool_name',
+  category: 'CRUD' | 'Smart' | 'FileManagement',
+  difficulty: 'Easy' | 'Medium' | 'Hard',
+  expectedParams: { /* optional */ },
+  description: 'Human-readable description',
+}
+```
+
+**Comparison with verify-mcp-agent.ts:**
+- `verify-mcp-agent.ts`: Tests that MCP server *works correctly* (validation)
+- `test-mcp-tools.ts`: Tests which models *use tools best* (comparison)
+
