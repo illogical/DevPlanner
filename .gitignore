@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 workspace/
 .github/skills/*
 .claude/settings.local.json
+.claude/skills/agent-skill-creator/
