@@ -453,6 +453,9 @@ export class CardService {
 
     if (position !== undefined && position >= 0 && position <= targetOrder.length) {
       targetOrder.splice(position, 0, filename);
+    } else if (sourceLane !== targetLane) {
+      // Cross-lane move without explicit position: prepend so the moved card appears first
+      targetOrder.unshift(filename);
     } else {
       targetOrder.push(filename);
     }

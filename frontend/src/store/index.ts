@@ -469,6 +469,9 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
 
       if (position !== undefined) {
         targetCards.splice(position, 0, movedCard);
+      } else if (currentLane !== targetLane) {
+        // Cross-lane move without explicit position: prepend so the moved card appears first
+        targetCards.unshift(movedCard);
       } else {
         targetCards.push(movedCard);
       }
