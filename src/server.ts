@@ -8,6 +8,7 @@ import { websocketRoutes } from './routes/websocket';
 import { historyRoutes } from './routes/history';
 import { activityRoutes } from './routes/activity';
 import { statsRoutes } from './routes/stats';
+import { backupRoutes } from './routes/backup';
 import { ConfigService } from './services/config.service';
 import { WebSocketService } from './services/websocket.service';
 import { FileWatcherService } from './services/file-watcher.service';
@@ -82,6 +83,7 @@ const app = new Elysia()
   .use(historyRoutes)
   .use(activityRoutes(workspacePath))
   .use(statsRoutes(workspacePath))
+  .use(backupRoutes(workspacePath, config.backupDir))
   .listen(port);
 
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);

@@ -1,4 +1,5 @@
 import { existsSync } from 'fs';
+import { join } from 'path';
 import { DEFAULT_PORT } from '../constants';
 
 /**
@@ -9,6 +10,7 @@ export class ConfigService {
 
   public readonly workspacePath: string;
   public readonly port: number;
+  public readonly backupDir: string;
 
   private constructor() {
     // Load and validate DEVPLANNER_WORKSPACE
@@ -41,6 +43,9 @@ export class ConfigService {
     } else {
       this.port = DEFAULT_PORT;
     }
+
+    // Load optional DEVPLANNER_BACKUP_DIR, default to _backups inside workspace
+    this.backupDir = process.env.DEVPLANNER_BACKUP_DIR ?? join(workspacePath, '_backups');
   }
 
   /**
