@@ -15,6 +15,7 @@ export function AddTaskInput({
   const [text, setText] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasEnterRef = useRef(false);
 
   useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -26,12 +27,21 @@ export function AddTaskInput({
     e.preventDefault();
     if (!text.trim() || isAdding) return;
 
+    // Capture before any state changes; button's implicit click (fired by Enter)
+    // would otherwise reset this flag after onKeyDown sets it.
+    const refocusAfter = wasEnterRef.current;
+    wasEnterRef.current = false;
+
     setIsAdding(true);
     try {
       await onAdd(text.trim());
       setText('');
     } finally {
       setIsAdding(false);
+      if (refocusAfter) {
+        // Defer until after React re-renders the input as enabled
+        setTimeout(() => inputRef.current?.focus(), 0);
+      }
     }
   };
 
@@ -42,6 +52,7 @@ export function AddTaskInput({
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') wasEnterRef.current = true; }}
         placeholder={placeholder}
         disabled={isAdding}
         className={cn(
