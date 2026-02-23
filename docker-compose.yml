@@ -1,0 +1,36 @@
+# =============================================================================
+# DevPlanner — Docker Compose
+# =============================================================================
+# Quick-start:
+#   1. cp .env.example .env
+#   2. Edit .env — set DEVPLANNER_WORKSPACE to the absolute path of your
+#      workspace directory on the host machine (it will be bind-mounted into
+#      the container at /workspace).
+#   3. docker compose up --build
+#
+# The backend API is available at http://localhost:17103
+# The frontend UI  is available at http://localhost:5173
+#
+# For Tailscale / local-network access, replace "localhost" with the machine's
+# Tailscale IP or hostname. Both ports are bound to all interfaces (0.0.0.0)
+# so they are reachable on your local network and via Tailscale without any
+# additional configuration.
+# =============================================================================
+
+services:
+  devplanner:
+    build: .
+    ports:
+      # HOST:CONTAINER — change the left side to remap ports on the host
+      - "${PORT:-17103}:17103"   # Backend REST API + WebSocket
+      - "5173:5173"              # Frontend Vite dev server
+    volumes:
+      # Mount the host workspace directory into the container.
+      # DEVPLANNER_WORKSPACE in .env must be an absolute path on the host.
+      - "${DEVPLANNER_WORKSPACE:-./workspace}:/workspace"
+    environment:
+      # Inside the container the workspace is always at /workspace
+      DEVPLANNER_WORKSPACE: /workspace
+      PORT: "17103"
+      DISABLE_FILE_WATCHER: "${DISABLE_FILE_WATCHER:-false}"
+    restart: unless-stopped
