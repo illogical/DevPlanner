@@ -8,12 +8,12 @@
 #      the container at /workspace).
 #   3. docker compose up --build
 #
-# The backend API is available at http://localhost:17103
-# The frontend UI  is available at http://localhost:5173
+# Everything runs on a single port (17103): the Elysia backend serves both the
+# REST API/WebSocket and the pre-built React frontend as static files.
 #
 # For Tailscale / local-network access, replace "localhost" with the machine's
-# Tailscale IP or hostname. Both ports are bound to all interfaces (0.0.0.0)
-# so they are reachable on your local network and via Tailscale without any
+# Tailscale IP or hostname. The port is bound to all interfaces (0.0.0.0) so
+# it is reachable on your local network and via Tailscale without any
 # additional configuration.
 # =============================================================================
 
@@ -21,9 +21,8 @@ services:
   devplanner:
     build: .
     ports:
-      # HOST:CONTAINER — change the left side to remap ports on the host
-      - "${PORT:-17103}:17103"   # Backend REST API + WebSocket
-      - "5173:5173"              # Frontend Vite dev server
+      # HOST:CONTAINER — change the left side to remap the port on the host
+      - "${PORT:-17103}:17103"   # API + WebSocket + Frontend (single port)
     volumes:
       # Mount the host workspace directory into the container.
       # DEVPLANNER_WORKSPACE in .env must be an absolute path on the host.
@@ -32,5 +31,6 @@ services:
       # Inside the container the workspace is always at /workspace
       DEVPLANNER_WORKSPACE: /workspace
       PORT: "17103"
+      NODE_ENV: production
       DISABLE_FILE_WATCHER: "${DISABLE_FILE_WATCHER:-false}"
     restart: unless-stopped

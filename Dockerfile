@@ -1,8 +1,9 @@
 # =============================================================================
 # DevPlanner — Dockerfile
 # =============================================================================
-# Runs the backend API and frontend dev server together in a single container.
-# Intended for local self-hosting and network access (e.g. via Tailscale).
+# Builds the frontend and runs the backend on a single port (17103).
+# The Elysia backend serves the pre-built React app as static files in
+# production mode, so only one port is needed for the full application.
 #
 # Build:  docker build -t devplanner .
 # Run:    docker compose up          (preferred — see docker-compose.yml)
@@ -23,10 +24,11 @@ RUN cd frontend && bun install --frozen-lockfile
 # Copy the rest of the source
 COPY . .
 
-# Backend API port
-EXPOSE 17103
-# Frontend Vite dev server port (--host flag is already set in package.json)
-EXPOSE 5173
+# Build the frontend — output lands in frontend/dist/ and is served by the
+# Elysia backend at runtime (NODE_ENV=production enables static file serving)
+RUN cd frontend && bun run build
 
-# Run both backend and frontend concurrently (mirrors `bun run dev`)
-CMD ["bun", "run", "dev"]
+# Single port: API + WebSocket + pre-built frontend UI
+EXPOSE 17103
+
+CMD ["bun", "run", "start"]

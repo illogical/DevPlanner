@@ -132,6 +132,8 @@ The frontend dev server proxies `/api` requests to the backend at `http://localh
 
 DevPlanner ships with a `Dockerfile` and `docker-compose.yml` for containerised use — ideal for self-hosting on a home server or making DevPlanner accessible across a local network or via Tailscale.
 
+The Docker image builds the React frontend and serves it as static files from the Elysia backend. Both the UI and the API are available on a **single port (17103)** — no separate frontend server needed.
+
 #### Quick start
 
 ```bash
@@ -143,35 +145,36 @@ cp .env.example .env
 # 2. Create the workspace directory if it doesn't exist
 mkdir -p /home/alice/devplanner-workspace
 
-# 3. Build and start
+# 3. Build and start (frontend is built during the Docker build)
 docker compose up --build
 ```
 
-| URL | Description |
-|-----|-------------|
-| `http://localhost:5173` | Frontend Kanban UI |
-| `http://localhost:17103` | Backend REST API + WebSocket |
+Everything is then available at **`http://localhost:17103`** — the Kanban UI, the REST API, and the WebSocket endpoint.
 
 #### Local network and Tailscale access
 
-Both the backend and the Vite dev server bind to all network interfaces (`0.0.0.0`) inside the container, and Docker maps the ports to the host the same way. This means that once the container is running you can access DevPlanner from any machine on the same local network **or** via Tailscale by replacing `localhost` with the host machine's local IP or Tailscale IP/hostname:
+The backend binds to all network interfaces (`0.0.0.0`), so once the container is running you can access DevPlanner from any machine on the same local network **or** via Tailscale by replacing `localhost` with the host machine's local IP or Tailscale IP/hostname:
 
 ```
-http://<tailscale-hostname>:5173   # Frontend
-http://<tailscale-hostname>:17103  # API
+http://<tailscale-hostname>:17103
 ```
 
 No additional proxy or VPN configuration is required when using Tailscale.
 
 #### Port remapping
 
-To expose DevPlanner on different host ports, override the left-hand port in `docker-compose.yml`, or set `PORT` in your `.env`:
+To expose DevPlanner on a different host port, set `PORT` in your `.env`:
+
+```bash
+# .env
+PORT=8080
+```
+
+Or edit `docker-compose.yml` directly:
 
 ```yaml
-# docker-compose.yml (excerpt)
 ports:
-  - "8080:17103"   # API accessible at :8080 on the host
-  - "3000:5173"    # UI  accessible at :3000 on the host
+  - "8080:17103"   # DevPlanner accessible at :8080 on the host
 ```
 
 #### Workspace persistence
