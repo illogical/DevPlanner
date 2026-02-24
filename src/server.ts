@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia';
+import { resolve, join, sep } from 'path';
 import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
 import { taskRoutes } from './routes/tasks';
@@ -83,8 +84,33 @@ const app = new Elysia()
   .use(historyRoutes)
   .use(activityRoutes(workspacePath))
   .use(statsRoutes(workspacePath))
-  .use(backupRoutes(workspacePath, config.backupDir))
-  .listen(port);
+  .use(backupRoutes(workspacePath, config.backupDir));
+
+// In production (Docker), serve the pre-built frontend on the same port as the API.
+// The frontend must be built first (`bun run build`) — the Dockerfile does this automatically.
+// IMPORTANT: this wildcard must be registered after all /api routes so it only
+// catches non-API paths (Elysia matches registered routes in order).
+if (process.env.NODE_ENV === 'production') {
+  const distPath = resolve('./frontend/dist');
+  app.get('*', async ({ request }) => {
+    const url = new URL(request.url);
+    // Strip leading slashes so path.join doesn't treat the segment as absolute
+    const pathname = url.pathname.replace(/^\/+/, '');
+    const safePath = resolve(join(distPath, pathname));
+    // Guard against path-traversal attacks (use path.sep for cross-platform safety)
+    if (!safePath.startsWith(distPath + sep) && safePath !== distPath) {
+      return new Response('Not Found', { status: 404 });
+    }
+    const file = Bun.file(safePath);
+    if (await file.exists()) {
+      return file;
+    }
+    // Fall back to index.html for client-side (SPA) routing
+    return Bun.file(join(distPath, 'index.html'));
+  });
+}
+
+app.listen(port);
 
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);
 console.log(`📁 Workspace: ${workspacePath}`);

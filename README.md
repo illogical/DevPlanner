@@ -86,16 +86,29 @@ mkdir -p workspace
 |----------|----------|---------|-------------|
 | `DEVPLANNER_WORKSPACE` | Yes | — | Absolute path to the workspace directory |
 | `PORT` | No | `17103` | Backend server port |
+| `DEVPLANNER_BACKUP_DIR` | No | `{workspace}/_backups` | Directory for workspace backups |
 | `DISABLE_FILE_WATCHER` | No | `false` | Set to `true` to disable file watching (useful for debugging WebSocket vs file watcher issues) |
+
+#### Using a `.env` file
+
+A `.env.example` file is included in the repository with all variables documented. Copy it to `.env` and edit the values before starting the server:
+
+```bash
+cp .env.example .env
+# Edit .env — at minimum set DEVPLANNER_WORKSPACE to an absolute path
+```
+
+> **Note:** The `.env` file is gitignored. Never commit local paths or secrets. Bun loads `.env` automatically when you run any `bun run …` command.
 
 ### Running
 
 ```bash
-# Start backend (with hot reload)
-DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run dev
+# Start both backend and frontend (with hot reload)
+bun run dev
 
-# Start frontend (in a separate terminal)
-bun run frontend
+# Or start them separately in two terminals:
+DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run dev:backend
+DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run dev:frontend
 
 # Seed sample data (3 demo projects)
 DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run seed
@@ -114,6 +127,59 @@ DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run mcp
 ```
 
 The frontend dev server proxies `/api` requests to the backend at `http://localhost:17103`.
+
+### Running with Docker
+
+DevPlanner ships with a `Dockerfile` and `docker-compose.yml` for containerised use — ideal for self-hosting on a home server or making DevPlanner accessible across a local network or via Tailscale.
+
+The Docker image builds the React frontend and serves it as static files from the Elysia backend. Both the UI and the API are available on a **single port (17103)** — no separate frontend server needed.
+
+#### Quick start
+
+```bash
+# 1. Copy and edit the environment file
+cp .env.example .env
+# Edit .env — set DEVPLANNER_WORKSPACE to an absolute path on the host, e.g.:
+#   DEVPLANNER_WORKSPACE=/home/alice/devplanner-workspace
+
+# 2. Create the workspace directory if it doesn't exist
+mkdir -p /home/alice/devplanner-workspace
+
+# 3. Build and start (frontend is built during the Docker build)
+docker compose up --build
+```
+
+Everything is then available at **`http://localhost:17103`** — the Kanban UI, the REST API, and the WebSocket endpoint.
+
+#### Local network and Tailscale access
+
+The backend binds to all network interfaces (`0.0.0.0`), so once the container is running you can access DevPlanner from any machine on the same local network **or** via Tailscale by replacing `localhost` with the host machine's local IP or Tailscale IP/hostname:
+
+```
+http://<tailscale-hostname>:17103
+```
+
+No additional proxy or VPN configuration is required when using Tailscale.
+
+#### Port remapping
+
+To expose DevPlanner on a different host port, set `PORT` in your `.env`:
+
+```bash
+# .env
+PORT=8080
+```
+
+Or edit `docker-compose.yml` directly:
+
+```yaml
+ports:
+  - "8080:17103"   # DevPlanner accessible at :8080 on the host
+```
+
+#### Workspace persistence
+
+The workspace directory is bind-mounted from the host (the value of `DEVPLANNER_WORKSPACE` in `.env`), so all project data persists across container restarts and rebuilds. You can also edit card files directly on the host and the file watcher inside the container will detect the changes in real time.
 
 ## MCP Server (AI Agent Integration)
 
