@@ -81,11 +81,59 @@ export const taskRoutes = (workspacePath: string) => {
           throw new Error('Invalid task index');
         }
 
+        if (body.text !== undefined) {
+          // Update task text
+          const task = await taskService.updateTaskText(
+            params.projectSlug,
+            params.cardSlug,
+            taskIndex,
+            body.text
+          );
+
+          const card = await cardService.getCard(params.projectSlug, params.cardSlug);
+          const taskProgress = MarkdownService.taskProgress(card.tasks);
+
+          const eventData: CardUpdatedData = {
+            card: {
+              slug: card.slug,
+              filename: card.filename,
+              lane: card.lane,
+              frontmatter: card.frontmatter,
+              taskProgress,
+            },
+          };
+          wsService.broadcast(params.projectSlug, {
+            type: 'event',
+            event: {
+              type: 'card:updated',
+              projectSlug: params.projectSlug,
+              timestamp: new Date().toISOString(),
+              data: eventData,
+            },
+          });
+
+          recordAndBroadcastHistory(
+            params.projectSlug,
+            'task:updated',
+            `Task updated in "${card.frontmatter.title}": ${task.text}`,
+            {
+              cardSlug: params.cardSlug,
+              cardTitle: card.frontmatter.title,
+              lane: card.lane,
+              taskIndex,
+              taskText: task.text,
+            }
+          );
+
+          return { ...task, taskProgress };
+        }
+
+        // Toggle checked state (original behaviour)
         const task = await taskService.setTaskChecked(
           params.projectSlug,
           params.cardSlug,
           taskIndex,
-          body.checked
+          body.checked!
         );
 
         // Get updated card to calculate task progress
@@ -96,7 +144,7 @@ export const taskRoutes = (workspacePath: string) => {
         const eventData: TaskToggledData = {
           cardSlug: params.cardSlug,
           taskIndex,
-          checked: body.checked,
+          checked: body.checked!,
           taskProgress,
         };
         wsService.broadcast(params.projectSlug, {
@@ -130,8 +178,60 @@ export const taskRoutes = (workspacePath: string) => {
       },
       {
         body: t.Object({
-          checked: t.Boolean(),
+          checked: t.Optional(t.Boolean()),
+          text: t.Optional(t.String({ minLength: 1, maxLength: 500 })),
         }),
       }
-    );
-};
+    )
+    .delete(
+      '/api/projects/:projectSlug/cards/:cardSlug/tasks/:taskIndex',
+      async ({ params }) => {
+        const taskIndex = parseInt(params.taskIndex);
+
+        if (isNaN(taskIndex) || taskIndex < 0) {
+          throw new Error('Invalid task index');
+        }
+
+        const tasks = await taskService.deleteTask(
+          params.projectSlug,
+          params.cardSlug,
+          taskIndex
+        );
+
+        const card = await cardService.getCard(params.projectSlug, params.cardSlug);
+        const taskProgress = MarkdownService.taskProgress(card.tasks);
+
+        const eventData: CardUpdatedData = {
+          card: {
+            slug: card.slug,
+            filename: card.filename,
+            lane: card.lane,
+            frontmatter: card.frontmatter,
+            taskProgress,
+          },
+        };
+        wsService.broadcast(params.projectSlug, {
+          type: 'event',
+          event: {
+            type: 'card:updated',
+            projectSlug: params.projectSlug,
+            timestamp: new Date().toISOString(),
+            data: eventData,
+          },
+        });
+
+        recordAndBroadcastHistory(
+          params.projectSlug,
+          'task:deleted',
+          `Task deleted from "${card.frontmatter.title}"`,
+          {
+            cardSlug: params.cardSlug,
+            cardTitle: card.frontmatter.title,
+            lane: card.lane,
+            taskIndex,
+          }
+        );
+
+        return { tasks, taskProgress };
+      }
+    );};

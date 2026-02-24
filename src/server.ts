@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import { resolve, join, sep } from 'path';
 import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
-import { taskRoutes } from './routes/tasks';
+import { taskRoutes } from './routes/tasks'; // task edit/delete support
 import { fileRoutes } from './routes/files';
 import { preferencesRoutes } from './routes/preferences';
 import { websocketRoutes } from './routes/websocket';

@@ -107,6 +107,11 @@ export interface TaskToggleResponse extends TaskItem {
   taskProgress: TaskProgress;
 }
 
+export interface TaskDeleteResponse {
+  tasks: TaskItem[];
+  taskProgress: TaskProgress;
+}
+
 export interface ReorderResponse {
   lane: string;
   order: string[];

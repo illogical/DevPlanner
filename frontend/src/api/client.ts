@@ -7,6 +7,7 @@ import type {
   ProjectsResponse,
   CardsResponse,
   TaskToggleResponse,
+  TaskDeleteResponse,
   ReorderResponse,
   ArchiveResponse,
   TagsResponse,
@@ -168,6 +169,30 @@ export const tasksApi = {
         method: 'PATCH',
         body: JSON.stringify({ checked }),
       }
+    ),
+
+  updateText: (
+    projectSlug: string,
+    cardSlug: string,
+    taskIndex: number,
+    text: string
+  ) =>
+    fetchJSON<TaskToggleResponse>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/tasks/${taskIndex}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ text }),
+      }
+    ),
+
+  delete: (
+    projectSlug: string,
+    cardSlug: string,
+    taskIndex: number
+  ) =>
+    fetchJSON<TaskDeleteResponse>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/tasks/${taskIndex}`,
+      { method: 'DELETE' }
     ),
 };
 

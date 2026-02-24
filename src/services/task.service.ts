@@ -180,4 +180,108 @@ export class TaskService {
       releaseLock();
     }
   }
+
+  /**
+   * Update the text of an existing task
+   */
+  async updateTaskText(
+    projectSlug: string,
+    cardSlug: string,
+    taskIndex: number,
+    text: string
+  ): Promise<TaskItem> {
+    if (!text || text.trim().length === 0) {
+      throw new Error('Task text is required');
+    }
+
+    const lane = await this.findCardLane(projectSlug, cardSlug);
+    if (!lane) {
+      throw new Error(`Card not found: ${cardSlug}`);
+    }
+
+    const cardKey = `${projectSlug}:${cardSlug}`;
+    const releaseLock = await this.acquireLock(cardKey);
+
+    try {
+      const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+      const fileContent = await readFile(cardPath, 'utf-8');
+      const { frontmatter, content } = MarkdownService.parse(fileContent);
+
+      const updatedContent = MarkdownService.updateTaskText(content, taskIndex, text.trim());
+
+      const now = new Date().toISOString();
+      frontmatter.updated = now;
+
+      const markdown = MarkdownService.serialize(frontmatter, updatedContent);
+      await writeFile(cardPath, markdown);
+
+      const tasks = MarkdownService.parseTasks(updatedContent);
+      const updatedTask = tasks[taskIndex];
+
+      if (!updatedTask) {
+        throw new Error(`Task index ${taskIndex} not found`);
+      }
+
+      const meta = frontmatter.taskMeta?.[taskIndex];
+      if (meta) {
+        updatedTask.addedAt = meta.addedAt;
+        updatedTask.completedAt = meta.completedAt;
+      }
+
+      return updatedTask;
+    } finally {
+      releaseLock();
+    }
+  }
+
+  /**
+   * Delete a task by index; remaining tasks shift their indices down
+   */
+  async deleteTask(
+    projectSlug: string,
+    cardSlug: string,
+    taskIndex: number
+  ): Promise<TaskItem[]> {
+    const lane = await this.findCardLane(projectSlug, cardSlug);
+    if (!lane) {
+      throw new Error(`Card not found: ${cardSlug}`);
+    }
+
+    const cardKey = `${projectSlug}:${cardSlug}`;
+    const releaseLock = await this.acquireLock(cardKey);
+
+    try {
+      const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+      const fileContent = await readFile(cardPath, 'utf-8');
+      const { frontmatter, content } = MarkdownService.parse(fileContent);
+
+      const updatedContent = MarkdownService.deleteTask(content, taskIndex);
+
+      const now = new Date().toISOString();
+      frontmatter.updated = now;
+
+      // Remove the deleted task's metadata and re-index remaining entries
+      if (frontmatter.taskMeta && frontmatter.taskMeta.length > taskIndex) {
+        frontmatter.taskMeta.splice(taskIndex, 1);
+      }
+
+      const markdown = MarkdownService.serialize(frontmatter, updatedContent);
+      await writeFile(cardPath, markdown);
+
+      const tasks = MarkdownService.parseTasks(updatedContent);
+
+      // Re-attach timestamp metadata
+      for (const task of tasks) {
+        const meta = frontmatter.taskMeta?.[task.index];
+        if (meta) {
+          task.addedAt = meta.addedAt;
+          task.completedAt = meta.completedAt;
+        }
+      }
+
+      return tasks;
+    } finally {
+      releaseLock();
+    }
+  }
 }

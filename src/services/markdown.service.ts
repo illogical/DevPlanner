@@ -121,6 +121,60 @@ export class MarkdownService {
   }
 
   /**
+   * Update the text of a specific task in Markdown content.
+   * Preserves the task's current checked state.
+   * Returns the updated content.
+   */
+  static updateTaskText(
+    content: string,
+    taskIndex: number,
+    newText: string
+  ): string {
+    const lines = content.split('\n');
+    let currentTaskIndex = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const match = line.match(/^(\s*-\s+\[)([ xX])(\]\s+)(.+)$/);
+
+      if (match) {
+        if (currentTaskIndex === taskIndex) {
+          lines[i] = `${match[1]}${match[2]}${match[3]}${newText}`;
+          return lines.join('\n');
+        }
+        currentTaskIndex++;
+      }
+    }
+
+    throw new Error(`Task index ${taskIndex} not found in content`);
+  }
+
+  /**
+   * Delete a specific task from Markdown content.
+   * Removes the line entirely; remaining tasks shift their logical indices down.
+   * Returns the updated content.
+   */
+  static deleteTask(content: string, taskIndex: number): string {
+    const lines = content.split('\n');
+    let currentTaskIndex = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const match = line.match(/^\s*-\s+\[([ xX])\]\s+.+$/);
+
+      if (match) {
+        if (currentTaskIndex === taskIndex) {
+          lines.splice(i, 1);
+          return lines.join('\n');
+        }
+        currentTaskIndex++;
+      }
+    }
+
+    throw new Error(`Task index ${taskIndex} not found in content`);
+  }
+
+  /**
    * Compute task progress summary
    */
   static taskProgress(tasks: TaskItem[]): { total: number; checked: number } {

@@ -79,6 +79,8 @@ interface DevPlannerStore {
     checked: boolean
   ) => Promise<void>;
   addTask: (cardSlug: string, text: string) => Promise<void>;
+  updateTaskText: (cardSlug: string, taskIndex: number, text: string) => Promise<void>;
+  deleteTask: (cardSlug: string, taskIndex: number) => Promise<void>;
 
   // Card editing
   updateCard: (cardSlug: string, updates: UpdateCardInput) => Promise<void>;
@@ -684,6 +686,128 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     }
 
     // Update card summary
+    set((state) => {
+      const newCardsByLane = { ...state.cardsByLane };
+      for (const [lane, cards] of Object.entries(newCardsByLane)) {
+        const cardIndex = cards.findIndex((c) => c.slug === cardSlug);
+        if (cardIndex !== -1) {
+          newCardsByLane[lane] = cards.map((c, i) =>
+            i === cardIndex ? { ...c, taskProgress: result.taskProgress } : c
+          );
+          break;
+        }
+      }
+      return { cardsByLane: newCardsByLane };
+    });
+  },
+
+  updateTaskText: async (cardSlug, taskIndex, text) => {
+    const { activeProjectSlug, activeCard } = get();
+    if (!activeProjectSlug) return;
+
+    get()._recordLocalAction(`card:updated:${cardSlug}`);
+
+    const result = await tasksApi.updateText(activeProjectSlug, cardSlug, taskIndex, text);
+
+    if (activeCard && activeCard.slug === cardSlug) {
+      set((state) => ({
+        activeCard: state.activeCard
+          ? {
+              ...state.activeCard,
+              tasks: state.activeCard.tasks.map((t) =>
+                t.index === taskIndex ? { ...t, text: result.text } : t
+              ),
+              content: state.activeCard.content.replace(
+                /^(\s*-\s+\[[ xX]\]\s+)(.+)$/m,
+                // Replace line-by-line via helper below
+                (match) => match
+              ),
+            }
+          : null,
+      }));
+
+      // Re-sync content from tasks to keep markdown in sync
+      set((state) => {
+        if (!state.activeCard) return {};
+        const updatedContent = state.activeCard.content
+          .split('\n')
+          .reduce<{ lines: string[]; taskIdx: number }>(
+            (acc, line) => {
+              const m = line.match(/^(\s*-\s+\[)([ xX])(\]\s+)(.+)$/);
+              if (m) {
+                if (acc.taskIdx === taskIndex) {
+                  acc.lines.push(`${m[1]}${m[2]}${m[3]}${text}`);
+                } else {
+                  acc.lines.push(line);
+                }
+                acc.taskIdx++;
+              } else {
+                acc.lines.push(line);
+              }
+              return acc;
+            },
+            { lines: [], taskIdx: 0 }
+          ).lines.join('\n');
+
+        return {
+          activeCard: { ...state.activeCard, content: updatedContent },
+        };
+      });
+    }
+
+    // Update taskProgress in cardsByLane (text change doesn't affect count, but keep consistent)
+    set((state) => {
+      const newCardsByLane = { ...state.cardsByLane };
+      for (const [lane, cards] of Object.entries(newCardsByLane)) {
+        const cardIndex = cards.findIndex((c) => c.slug === cardSlug);
+        if (cardIndex !== -1) {
+          newCardsByLane[lane] = cards.map((c, i) =>
+            i === cardIndex ? { ...c, taskProgress: result.taskProgress } : c
+          );
+          break;
+        }
+      }
+      return { cardsByLane: newCardsByLane };
+    });
+  },
+
+  deleteTask: async (cardSlug, taskIndex) => {
+    const { activeProjectSlug, activeCard } = get();
+    if (!activeProjectSlug) return;
+
+    get()._recordLocalAction(`card:updated:${cardSlug}`);
+
+    const result = await tasksApi.delete(activeProjectSlug, cardSlug, taskIndex);
+
+    if (activeCard && activeCard.slug === cardSlug) {
+      set((state) => {
+        if (!state.activeCard) return {};
+
+        // Remove the task line from content
+        let taskCounter = 0;
+        const updatedContent = state.activeCard.content
+          .split('\n')
+          .filter((line) => {
+            const isTask = /^\s*-\s+\[[ xX]\]\s+.+$/.test(line);
+            if (isTask) {
+              const shouldRemove = taskCounter === taskIndex;
+              taskCounter++;
+              return !shouldRemove;
+            }
+            return true;
+          })
+          .join('\n');
+
+        return {
+          activeCard: {
+            ...state.activeCard,
+            tasks: result.tasks,
+            content: updatedContent,
+          },
+        };
+      });
+    }
+
     set((state) => {
       const newCardsByLane = { ...state.cardsByLane };
       for (const [lane, cards] of Object.entries(newCardsByLane)) {

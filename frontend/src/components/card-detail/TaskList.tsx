@@ -17,13 +17,21 @@ const taskVariants = {
 };
 
 export function TaskList({ tasks, cardSlug }: TaskListProps) {
-  const { toggleTask, addTask } = useStore();
+  const { toggleTask, addTask, updateTaskText, deleteTask } = useStore();
 
   const checkedCount = tasks.filter((t) => t.checked).length;
   const totalCount = tasks.length;
 
   const handleToggle = async (task: TaskItem, checked: boolean) => {
     await toggleTask(cardSlug, task.index, checked);
+  };
+
+  const handleEdit = async (task: TaskItem, text: string) => {
+    await updateTaskText(cardSlug, task.index, text);
+  };
+
+  const handleDelete = async (task: TaskItem) => {
+    await deleteTask(cardSlug, task.index);
   };
 
   const handleAddTask = async (text: string) => {
@@ -61,6 +69,8 @@ export function TaskList({ tasks, cardSlug }: TaskListProps) {
                 task={task}
                 cardSlug={cardSlug}
                 onToggle={(checked) => handleToggle(task, checked)}
+                onEdit={(text) => handleEdit(task, text)}
+                onDelete={() => handleDelete(task)}
               />
             </motion.div>
           ))}
