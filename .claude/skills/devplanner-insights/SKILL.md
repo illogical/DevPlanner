@@ -1,12 +1,13 @@
 ---
 name: devplanner-insights
-description: "Extract structured insights from DevPlanner Kanban boards for daily digests, project health reports, and status updates. Use when creating a daily digest, answering what got done today, what is in progress, what are the priorities, what happened since last run, stale work, or what should I work on next. Runs a bundled script that collects all data in one call — no manual API calls needed. Detects stale boards automatically and outputs a short notice instead of a full digest."
+description: "Extract structured insights from DevPlanner Kanban boards for daily digests, project health reports, and status updates. Use when creating a daily digest, answering what got done today, what is in progress, what are the priorities, what happened since last run, stale work, or what should I work on next. Runs a bundled script that collects all data in one call. Detects stale boards automatically and outputs a short notice instead of a full digest."
 ---
 
 # DevPlanner Insights
 
 Structured data extraction from DevPlanner for reporting and digest use.
 Run the bundled script — it handles all API calls and staleness detection.
+Optionally use the API for follow-up conversations or actions based on the insights.
 
 **Base URL**: `http://192.168.7.45:17103/api`
 
@@ -26,12 +27,12 @@ If `"stale": true` in the output, post only this:
 No DevPlanner activity since last digest — board unchanged.
 ```
 
-Stop here. Do NOT compose a full digest. Do NOT update `digestAnchor`.
+If `"stale": true`, stop here. Do NOT compose a full digest. Do NOT update `digestAnchor`.
 The `message` field explains the last known activity time.
 
 ## Step 3 — Compose Digest Sections
 
-**Lane position = priority.** Cards at index 0 are highest priority — do not reorder them.
+**Lane position = priority.** Cards at index 0 are highest priority. When asked to make a card a top priority, reorder it to be at index 0.
 
 ### JSON Output Structure
 
@@ -68,38 +69,42 @@ projects[]:
 
 **✅ Recently Completed** — source: `projects[].recentlyCompleted`, grouped by project.
 If none: *"No completions since last digest."*
+Include `cardId` alongside the title when non-null (e.g., `[DE-7]`). Omit bracket when `cardId` is null.
 ```
 ✅ Recently Completed
-• [DevPlanner] Improve card filtering — 4 tasks done
-• [Hex] Set up CI pipeline
+• [DevPlanner] [DE-7] Improve card filtering — 4 tasks done
+• [Hex] [HX-3] Set up CI pipeline
 ```
 
 **🔄 In Progress** — source: `projects[].inProgress`. Show remaining unchecked tasks.
 Sort: blocked cards first, then by completion % ascending (least progress = needs most attention).
+Include `cardId` alongside the title when non-null.
 ```
 🔄 In Progress
-• [Hex] Build auth service (2/5 tasks · high)
+• [Hex] [HX-5] Build auth service (2/5 tasks · high)
   Remaining: Write tests, Deploy to staging
   ⚠️ BLOCKED: Waiting for SSL cert from user
 ```
 
 **📋 Up Next** — source: `projects[].upcoming.cards`. Array order IS priority order.
 Never sort by any other field. If `upcoming.hasMore`, append "... and N more in backlog."
+Include `cardId` alongside the title when non-null.
 ```
 📋 Up Next
-1. [Hex] Implement OAuth login (high) 🤖 agent-claimable
-2. [Hex] Write API documentation (medium)
-3. [DevPlanner] Fix file upload bug (high)
+1. [Hex] [HX-8] Implement OAuth login (high) 🤖 agent-claimable
+2. [Hex] [HX-9] Write API documentation (medium)
+3. [DevPlanner] [DE-11] Fix file upload bug (high)
 ```
 
 **🆕 Newly Added** — source: `projects[].recentActivity` filtered to `action === "card:created"`.
 Omit section entirely if no new cards.
 
 **🤖 How I Can Help** — source: `projects[].agentClaimable` + blocked in-progress cards.
+Include `cardId` alongside the title when non-null.
 ```
 🤖 How I Can Help
-• Start: [Hex] Implement OAuth login — agent-claimable, high priority
-• Unblock: [DevPlanner] Fix file upload bug — currently blocked, I can investigate
+• Start: [Hex] [HX-8] Implement OAuth login — agent-claimable, high priority
+• Unblock: [DevPlanner] [DE-11] Fix file upload bug — currently blocked, I can investigate
 ```
 
 **📊 Project Health** — source: `projects[].stats`. Flag anomalies explicitly.

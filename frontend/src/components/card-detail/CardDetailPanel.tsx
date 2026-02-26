@@ -82,7 +82,7 @@ export function CardDetailPanel() {
                 <div className="p-6 space-y-6">
                   <CardMetadata card={activeCard} />
 
-                  <CardContent content={activeCard.content} cardSlug={activeCard.slug} />
+                  <CardContent description={activeCard.frontmatter.description} cardSlug={activeCard.slug} />
 
                   <TaskList
                     tasks={activeCard.tasks}

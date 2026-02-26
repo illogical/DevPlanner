@@ -72,6 +72,7 @@ Status codes: `200` OK · `201` Created · `400` Bad Request · `404` Not Found 
   "slug": "user-auth",
   "filename": "user-auth.md",
   "lane": "01-upcoming",
+  "cardId": "MM-1",
   "frontmatter": {
     "title": "User Authentication",
     "priority": "high",

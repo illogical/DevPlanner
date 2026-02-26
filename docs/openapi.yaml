@@ -1268,7 +1268,7 @@ components:
 
     Card:
       type: object
-      required: [slug, filename, lane, frontmatter, content, tasks]
+      required: [slug, filename, lane, cardId, frontmatter, content, tasks]
       properties:
         slug:
           type: string
@@ -1280,6 +1280,12 @@ components:
         lane:
           type: string
           example: "02-in-progress"
+        cardId:
+          type:
+            - string
+            - "null"
+          description: "Computed short identifier (e.g. 'DE-12'). Null if project has no prefix or card predates numbering."
+          example: "DE-12"
         frontmatter:
           $ref: "#/components/schemas/CardFrontmatter"
         content:
@@ -1292,7 +1298,7 @@ components:
 
     CardSummary:
       type: object
-      required: [slug, filename, lane, frontmatter, taskProgress]
+      required: [slug, filename, lane, cardId, frontmatter, taskProgress]
       properties:
         slug:
           type: string
@@ -1300,6 +1306,12 @@ components:
           type: string
         lane:
           type: string
+        cardId:
+          type:
+            - string
+            - "null"
+          description: "Computed short identifier (e.g. 'DE-12'). Null if project has no prefix or card predates numbering."
+          example: "DE-12"
         frontmatter:
           $ref: "#/components/schemas/CardFrontmatter"
         taskProgress:

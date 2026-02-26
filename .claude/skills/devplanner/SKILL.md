@@ -64,10 +64,23 @@ GET /projects/{slug}/cards/{card}                  → inspect tasks[] array (in
 PATCH /projects/{slug}/cards/{card}/tasks/{index}  → {"checked": true}
 ```
 
+## Card Identifiers
+
+Every card response includes a `cardId` (e.g., `DE-12`) — a short human-readable
+identifier useful as **conversation shorthand** between the agent and the user
+(e.g., "I've completed DE-12" or "let's look at DE-12").
+
+- Format: `{PREFIX}-{N}` where PREFIX is 2–4 uppercase letters unique to the project
+- `cardId` is `null` for cards created before the numbering system (backward compat)
+- **API endpoints still use `cardSlug`** (the filename slug), not `cardId`
+  To act on a card referenced as "DE-12", call `GET /projects/{slug}/cards`
+  and match on `cardId` to find the correct `slug`
+
 ## Card Fields Reference
 
 | Field | Type | Notes |
 |-------|------|-------|
+| `cardId` | `string\|null` | Short ID e.g. `DE-12`. Computed; read-only. Null for old cards. |
 | `description` | `string\|null` | 1–5 sentence summary of the card. Set on create; update or clear via PATCH. |
 | `status` | `"in-progress"\|"blocked"\|"review"\|"testing"\|null` | Card workflow state |
 | `blockedReason` | `string\|null` | Why blocked. Set alongside `status:"blocked"`. |

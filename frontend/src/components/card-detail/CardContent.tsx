@@ -3,33 +3,25 @@ import { marked } from 'marked';
 import { useStore } from '../../store';
 
 interface CardContentProps {
-  content: string;
+  description?: string;
   cardSlug: string;
 }
 
-export const CardContent = memo(function CardContent({ content, cardSlug }: CardContentProps) {
+export const CardContent = memo(function CardContent({ description, cardSlug }: CardContentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { updateCard } = useStore();
 
-  // Extract description (without ## Tasks section) for both display and editing
-  const tasksMatch = content.match(/(## Tasks[\s\S]*$)/);
-  const tasksSection = tasksMatch ? tasksMatch[1] : '';
-  const descriptionOnly = content
-    .replace(/## Tasks[\s\S]*?(?=##|$)/g, '')
-    .replace(/^\s*-\s*\[[\sx]\]\s+.*/gm, '')
-    .trim();
-
   const html = useMemo(() => {
     marked.setOptions({ breaks: true, gfm: true });
-    if (!descriptionOnly) return '';
-    return marked.parse(descriptionOnly);
-  }, [descriptionOnly]);
+    if (!description) return '';
+    return marked.parse(description);
+  }, [description]);
 
   const handleStartEditing = () => {
-    setEditContent(descriptionOnly);
+    setEditContent(description ?? '');
     setIsEditing(true);
   };
 
@@ -45,9 +37,7 @@ export const CardContent = memo(function CardContent({ content, cardSlug }: Card
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Re-combine description with tasks section
-      const newContent = editContent.trim() + (tasksSection ? '\n\n' + tasksSection : '');
-      await updateCard(cardSlug, { content: newContent });
+      await updateCard(cardSlug, { description: editContent });
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to save description:', error);

@@ -40,6 +40,7 @@ export interface Card {
   slug: string; // Filename without .md extension
   filename: string; // Full filename (e.g., "user-auth.md")
   lane: string; // Lane folder name (e.g., "02-in-progress")
+  cardId: string | null; // Computed short identifier e.g. "DE-12". Null if prefix or cardNumber missing.
   frontmatter: CardFrontmatter;
   content: string; // Markdown body (everything below frontmatter)
   tasks: TaskItem[]; // Parsed checklist items
@@ -49,6 +50,7 @@ export interface CardSummary {
   slug: string;
   filename: string;
   lane: string;
+  cardId: string | null; // Computed short identifier e.g. "DE-12". Null if prefix or cardNumber missing.
   frontmatter: CardFrontmatter;
   taskProgress: {
     total: number;

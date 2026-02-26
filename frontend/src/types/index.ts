@@ -24,6 +24,7 @@ export interface ProjectSummary extends ProjectConfig {
 // Card types
 export interface CardFrontmatter {
   title: string;
+  description?: string;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
   priority?: 'low' | 'medium' | 'high';
   assignee?: 'user' | 'agent';
@@ -31,6 +32,7 @@ export interface CardFrontmatter {
   updated: string; // ISO 8601
   tags?: string[];
   cardNumber?: number; // Sequential within project
+  blockedReason?: string;
 }
 
 export interface Card {

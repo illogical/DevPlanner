@@ -104,6 +104,29 @@ export class CardService {
   }
 
   /**
+   * Compute the short card identifier (e.g., "DE-12") from project prefix and card number.
+   * Returns null if either value is missing (backward compat for old cards/projects).
+   */
+  private computeCardId(prefix: string | undefined, cardNumber: number | undefined): string | null {
+    if (!prefix || cardNumber === undefined) return null;
+    return `${prefix}-${cardNumber}`;
+  }
+
+  /**
+   * Read the project prefix from _project.json.
+   * Returns undefined if the config cannot be read or has no prefix.
+   */
+  private async readProjectPrefix(projectSlug: string): Promise<string | undefined> {
+    const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
+    try {
+      const raw = await readFile(projectConfigPath, 'utf-8');
+      return (JSON.parse(raw) as { prefix?: string }).prefix;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Generate a unique slug for a card, appending -2, -3, etc. if needed
    */
   private async generateUniqueSlug(
@@ -133,6 +156,9 @@ export class CardService {
     const lanes = lane ? [lane] : ALL_LANES;
 
     const cards: CardSummary[] = [];
+
+    // Read project prefix once for all cards in this call
+    const prefix = await this.readProjectPrefix(projectSlug);
 
     const sinceTime = since ? new Date(since).getTime() : undefined;
     const staleThreshold =
@@ -170,6 +196,7 @@ export class CardService {
             slug: filename.replace(/\.md$/, ''),
             filename,
             lane: laneName,
+            cardId: this.computeCardId(prefix, frontmatter.cardNumber),
             frontmatter,
             taskProgress,
           });
@@ -196,10 +223,13 @@ export class CardService {
     const content = await readFile(cardPath, 'utf-8');
     const { frontmatter, content: body, tasks } = MarkdownService.parse(content);
 
+    const prefix = await this.readProjectPrefix(projectSlug);
+
     return {
       slug: cardSlug,
       filename: `${cardSlug}.md`,
       lane,
+      cardId: this.computeCardId(prefix, frontmatter.cardNumber),
       frontmatter,
       content: body,
       tasks,
@@ -234,11 +264,14 @@ export class CardService {
     if (data.tags) frontmatter.tags = data.tags;
     if (data.blockedReason !== undefined) frontmatter.blockedReason = data.blockedReason;
 
-    // Assign card number from project config
+    // Assign card number from project config and capture prefix
     const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
+    let cardPrefix: string | undefined;
     try {
       const projectConfigRaw = await readFile(projectConfigPath, 'utf-8');
       const projectConfig = JSON.parse(projectConfigRaw);
+
+      cardPrefix = projectConfig.prefix as string | undefined;
 
       if (projectConfig.nextCardNumber !== undefined) {
         frontmatter.cardNumber = projectConfig.nextCardNumber;
@@ -266,6 +299,7 @@ export class CardService {
       slug,
       filename,
       lane,
+      cardId: this.computeCardId(cardPrefix, frontmatter.cardNumber),
       frontmatter,
       content: '',
       tasks: [],
@@ -347,10 +381,13 @@ export class CardService {
     // Parse tasks from the existing content
     const tasks = MarkdownService.parseTasks(content);
 
+    const prefix = await this.readProjectPrefix(projectSlug);
+
     return {
       slug: cardSlug,
       filename: `${cardSlug}.md`,
       lane,
+      cardId: this.computeCardId(prefix, frontmatter.cardNumber),
       frontmatter,
       content,
       tasks,
@@ -452,10 +489,13 @@ export class CardService {
 
     const tasks = MarkdownService.parseTasks(content);
 
+    const prefix = await this.readProjectPrefix(projectSlug);
+
     return {
       slug: cardSlug,
       filename,
       lane: targetLane,
+      cardId: this.computeCardId(prefix, frontmatter.cardNumber),
       frontmatter,
       content,
       tasks,

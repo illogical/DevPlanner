@@ -186,9 +186,19 @@ interface Card {
   slug: string;           // Filename without .md extension
   filename: string;       // Full filename (e.g., "user-auth.md")
   lane: string;           // Lane folder name (e.g., "02-in-progress")
+  cardId: string | null;  // Computed: "{prefix}-{cardNumber}" e.g. "DE-12". Null if either missing.
   frontmatter: CardFrontmatter;
   content: string;        // Markdown body (everything below frontmatter)
   tasks: TaskItem[];      // Parsed checklist items
+}
+
+interface CardSummary {
+  slug: string;
+  filename: string;
+  lane: string;
+  cardId: string | null;  // Computed: "{prefix}-{cardNumber}" e.g. "DE-12". Null if either missing.
+  frontmatter: CardFrontmatter;
+  taskProgress: { total: number; checked: number };
 }
 
 interface TaskItem {
@@ -367,6 +377,7 @@ List all cards across all lanes for a project.
       "slug": "user-auth",
       "filename": "user-auth.md",
       "lane": "01-upcoming",
+      "cardId": "MM-1",
       "frontmatter": {
         "title": "User Authentication",
         "status": null,
@@ -444,6 +455,7 @@ Get full card details.
   "slug": "user-auth",
   "filename": "user-auth.md",
   "lane": "02-in-progress",
+  "cardId": "MM-1",
   "frontmatter": {
     "title": "User Authentication System",
     "status": "in-progress",
