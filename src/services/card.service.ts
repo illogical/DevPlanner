@@ -227,6 +227,7 @@ export class CardService {
       updated: now,
     };
 
+    if (data.description) frontmatter.description = data.description;
     if (data.status) frontmatter.status = data.status;
     if (data.priority) frontmatter.priority = data.priority;
     if (data.assignee) frontmatter.assignee = data.assignee;
@@ -250,8 +251,7 @@ export class CardService {
       console.error('Failed to assign card number:', error);
     }
 
-    const content = data.content || '';
-    const markdown = MarkdownService.serialize(frontmatter, content);
+    const markdown = MarkdownService.serialize(frontmatter, '');
 
     // Write the card file
     const cardPath = join(this.workspacePath, projectSlug, lane, filename);
@@ -262,15 +262,13 @@ export class CardService {
     order.push(filename);
     await this.writeOrderFile(projectSlug, lane, order);
 
-    const tasks = MarkdownService.parseTasks(content);
-
     return {
       slug,
       filename,
       lane,
       frontmatter,
-      content,
-      tasks,
+      content: '',
+      tasks: [],
     };
   }
 
@@ -295,6 +293,13 @@ export class CardService {
     // Merge updates into frontmatter
     if (updates.title !== undefined) {
       frontmatter.title = updates.title;
+    }
+    if (updates.description !== undefined) {
+      if (updates.description === null) {
+        delete frontmatter.description;
+      } else {
+        frontmatter.description = updates.description;
+      }
     }
     if (updates.status !== undefined) {
       if (updates.status === null) {
@@ -335,36 +340,19 @@ export class CardService {
     // Update timestamp
     frontmatter.updated = new Date().toISOString();
 
-    // Use updated content if provided, otherwise keep existing
-    let updatedContent: string;
-    if (updates.content !== undefined) {
-      const newContent = updates.content;
-      // If the new content omits the ## Tasks section but the existing card has one,
-      // re-append the existing tasks block to prevent silent data loss.
-      const existingTasksMatch = content.match(/((?:^|\n)## Tasks[\s\S]*$)/);
-      const newContentHasTasks = /^## Tasks$/m.test(newContent);
-      if (existingTasksMatch && !newContentHasTasks) {
-        updatedContent = newContent.trimEnd() + '\n\n' + existingTasksMatch[1].trimStart();
-      } else {
-        updatedContent = newContent;
-      }
-    } else {
-      updatedContent = content;
-    }
-
-    // Serialize and write back to disk
-    const markdown = MarkdownService.serialize(frontmatter, updatedContent);
+    // Serialize and write back to disk (content body is read-only; only frontmatter changes)
+    const markdown = MarkdownService.serialize(frontmatter, content);
     await writeFile(cardPath, markdown);
 
-    // Parse tasks from the (potentially updated) content
-    const tasks = MarkdownService.parseTasks(updatedContent);
+    // Parse tasks from the existing content
+    const tasks = MarkdownService.parseTasks(content);
 
     return {
       slug: cardSlug,
       filename: `${cardSlug}.md`,
       lane,
       frontmatter,
-      content: updatedContent,
+      content,
       tasks,
     };
   }

@@ -42,13 +42,15 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 
 ### Creating a Card
 
+**Title**: 1–4 words. **Description**: 1–5 sentences summarising what the card is for.
+
 ```
-1. POST /projects/{slug}/cards                 → {"title":"...","lane":"01-upcoming","assignee":"agent"}
-2. PATCH /projects/{slug}/cards/{card}         → set content with brief description (optional)
-3. POST /projects/{slug}/cards/{card}/tasks    → add each subtask (one request per task)
+1. POST /projects/{slug}/cards                 → {"title":"Short Title","description":"1–5 sentence summary.","lane":"01-upcoming"}
+2. POST /projects/{slug}/cards/{card}/tasks    → add each subtask (one request per task)
+3. POST /projects/{slug}/cards/{card}/files    → {"filename":"INTRO.md","content":"# ...\n\nFull plan/instructions.","description":"File's purpose in 1 sentence"}
 4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
-6. POST /projects/{slug}/cards/{card}/files    → create summary.md
+6. POST /projects/{slug}/cards/{card}/files    → create SUMMARY.md when done with all tasks (required before completing)
 7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}
 ```
 
@@ -66,6 +68,7 @@ PATCH /projects/{slug}/cards/{card}/tasks/{index}  → {"checked": true}
 
 | Field | Type | Notes |
 |-------|------|-------|
+| `description` | `string\|null` | 1–5 sentence summary of the card. Set on create; update or clear via PATCH. |
 | `status` | `"in-progress"\|"blocked"\|"review"\|"testing"\|null` | Card workflow state |
 | `blockedReason` | `string\|null` | Why blocked. Set alongside `status:"blocked"`. |
 | `priority` | `"low"\|"medium"\|"high"\|null` | Urgency level |
@@ -107,13 +110,13 @@ POST /projects/{slug}/cards/{card}/files
 
 - **NEVER use `PATCH /cards/{card}` to change lanes.** Only `PATCH /cards/{card}/move` with `{"lane":"..."}` moves a card. Using the wrong endpoint silently does nothing to the lane.
 
-- **NEVER include `- [ ]` or `- [x]` in task text.** The API adds checkboxes automatically. `{"text":"- [ ] Do it"}` creates a nested double-checkbox. Always `{"text":"Do it"}`.
+- **NEVER include `- [ ]` or `- [x]` in task text.** The API adds checkboxes automatically. Always `{"text":"Do it"}` not `{"text":"- [ ] Do it"}`.
 
-- **NEVER add tasks without reading the card first.** Existing tasks from the human author will be duplicated, polluting the checklist and breaking 0-based index positions.
+- **NEVER add tasks without reading the card first.** Existing tasks from the human author could be redundant, avoid redundancy.
 
 - **NEVER batch task toggling.** Toggle each task the moment it's complete. The board must reflect current reality at all times.
 
-- **NEVER update card `content` for substantial artifacts.** Card content = brief description. Use `POST /files` for implementation notes, specs, and summaries.
+- **NEVER use files as a substitute for `description`.** Set a `description` on the card itself for the 1–5 sentence summary; use `POST /files` (e.g. `INTRO.md`) for full plans and implementation notes.
 
 - **NEVER assume project slugs.** Use `GET /projects` if the project slug is not confirmed in context. Slugs are lowercase-hyphenated directory names.
 

@@ -71,21 +71,22 @@ export interface ApiError {
 
 export interface CreateCardInput {
   title: string;
+  description?: string;
   lane?: string;
   priority?: 'low' | 'medium' | 'high';
   assignee?: 'user' | 'agent';
   tags?: string[];
-  content?: string;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
 }
 
 export interface UpdateCardInput {
   title?: string;
+  description?: string | null;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing' | null;
   priority?: 'low' | 'medium' | 'high' | null;
   assignee?: 'user' | 'agent' | null;
   tags?: string[] | null;
-  content?: string;
+  blockedReason?: string | null;
 }
 
 export interface AddFileToCardInput {

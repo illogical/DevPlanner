@@ -232,6 +232,10 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 200
+                description:
+                  type: string
+                  maxLength: 500
+                  description: Short 1–5 sentence summary of the card.
                 lane:
                   type: string
                   description: "Lane slug. Defaults to '01-upcoming'."
@@ -244,9 +248,6 @@ paths:
                   type: array
                   items:
                     type: string
-                content:
-                  type: string
-                  description: Markdown body
                 status:
                   $ref: "#/components/schemas/CardStatus"
                 blockedReason:
@@ -337,7 +338,7 @@ paths:
     patch:
       operationId: updateCard
       tags: [cards]
-      summary: Update card metadata and/or content. Pass null to clear optional fields.
+      summary: Update card metadata. Pass null to clear optional fields. Card body content is read-only; use task endpoints to manage checklist items.
       requestBody:
         required: true
         content:
@@ -349,6 +350,12 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 200
+                description:
+                  oneOf:
+                    - type: string
+                      maxLength: 500
+                      description: Short 1–5 sentence summary of the card.
+                    - type: "null"
                 status:
                   oneOf:
                     - $ref: "#/components/schemas/CardStatus"
@@ -367,9 +374,6 @@ paths:
                       items:
                         type: string
                     - type: "null"
-                content:
-                  type: string
-                  description: Full Markdown body replacement
                 blockedReason:
                   oneOf:
                     - type: string
@@ -518,6 +522,10 @@ paths:
       operationId: addTask
       tags: [tasks]
       summary: Add a checklist item to a card
+      description: |
+        Appends a new unchecked task to the card's ## Tasks section.
+        Leading Markdown checkbox/list syntax is automatically stripped from `text`
+        (e.g. "- [ ] Do the thing" is stored as "Do the thing").
       requestBody:
         required: true
         content:
@@ -530,6 +538,7 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 500
+                  description: "Task description. Do not include leading '- [ ]' or '- ' — it will be stripped automatically."
       responses:
         "201":
           description: Created task with progress
@@ -1215,6 +1224,10 @@ components:
       properties:
         title:
           type: string
+        description:
+          type: string
+          maxLength: 500
+          description: Short 1–5 sentence summary of the card.
         status:
           $ref: "#/components/schemas/CardStatus"
         priority:

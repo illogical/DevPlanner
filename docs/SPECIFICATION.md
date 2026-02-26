@@ -171,6 +171,7 @@ Implement OAuth2 authentication flow with support for Google and GitHub provider
 ```typescript
 interface CardFrontmatter {
   title: string;
+  description?: string;  // Short 1–5 sentence summary of the card
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
   priority?: 'low' | 'medium' | 'high';
   assignee?: 'user' | 'agent';
@@ -394,21 +395,21 @@ Create a new card.
 ```json
 {
   "title": "User Authentication",
+  "description": "Implement OAuth2 login with Google and GitHub providers, including session management and token refresh.",
   "lane": "01-upcoming",
   "priority": "high",
   "assignee": "user",
   "tags": ["feature", "security"],
-  "content": "Optional initial markdown body content.",
   "blockedReason": "Waiting for design sign-off"
 }
 ```
 
-Only `title` is required. Defaults: `lane` → `"01-upcoming"`, others omitted from frontmatter if not provided.
+Only `title` is required. Defaults: `lane` → `"01-upcoming"`, others omitted from frontmatter if not provided. The card body (Markdown content) starts empty; use the task endpoints to add checklist items.
 
 **Behavior:**
 1. Slugify `title` to create filename
 2. If slug already exists in any lane, append a numeric suffix (`-2`, `-3`, etc.)
-3. Create `.md` file with frontmatter in the target lane folder
+3. Create `.md` file with frontmatter in the target lane folder (body starts empty)
 4. Append filename to that lane's `_order.json`
 5. Broadcast `card:created` WebSocket event to subscribed clients
 
@@ -420,13 +421,14 @@ Only `title` is required. Defaults: `lane` → `"01-upcoming"`, others omitted f
   "lane": "01-upcoming",
   "frontmatter": {
     "title": "User Authentication",
+    "description": "Implement login with flexible providers, including session management and token refresh.",
     "priority": "high",
     "assignee": "user",
     "created": "2026-02-04T10:00:00Z",
     "updated": "2026-02-04T10:00:00Z",
     "tags": ["feature", "security"]
   },
-  "content": "Optional initial markdown body content.",
+  "content": "",
   "tasks": [],
   "taskProgress": { "total": 0, "checked": 0 }
 }
@@ -506,17 +508,17 @@ Move a card to a different lane.
 
 #### `PATCH /api/projects/:projectSlug/cards/:cardSlug`
 
-Update card metadata and/or content.
+Update card metadata. The Markdown body (including tasks) is **read-only** via this endpoint — use the task endpoints to add or modify checklist items.
 
 **Request Body (all fields optional):**
 ```json
 {
   "title": "Updated Card Title",
+  "description": "Updated 1–5 sentence summary of the card.",
   "status": "blocked",
   "priority": "high",
   "assignee": "agent",
   "tags": ["feature", "urgent"],
-  "content": "Updated markdown content\n\n- [ ] New task",
   "blockedReason": "Waiting for design review"
 }
 ```
@@ -524,6 +526,7 @@ Update card metadata and/or content.
 To remove an optional field, set it to `null`:
 ```json
 {
+  "description": null,
   "priority": null,
   "status": null,
   "blockedReason": null
@@ -533,10 +536,9 @@ To remove an optional field, set it to `null`:
 **Behavior:**
 1. Read the existing card from disk
 2. Merge provided fields into frontmatter (undefined fields are preserved, null removes the field)
-3. Update content if provided (otherwise preserve existing)
-4. Update the card's `updated` timestamp
-5. Write the modified card back to disk
-6. Broadcast `card:updated` WebSocket event to subscribed clients
+3. Update the card's `updated` timestamp
+4. Write the modified card back to disk (body content unchanged)
+5. Broadcast `card:updated` WebSocket event to subscribed clients
 
 **Response `200`:** Full updated card object with all fields.
 
@@ -555,14 +557,17 @@ Add a new checklist item to a card.
 }
 ```
 
+Do **not** include leading `- [ ]` or `- ` in `text` — these are stripped automatically if present.
+
 **Behavior:**
-1. Parse the card's Markdown content
-2. Find the last checklist item (line matching `- [ ] ` or `- [x] `) or the end of a `## Tasks` section
-3. Append `- [ ] {text}` as a new line after the last checklist item
-4. If no checklist exists yet, append a `## Tasks` section with the new item
-5. Update the card's `updated` timestamp and append a new entry to `taskMeta` in frontmatter
-6. Write the modified Markdown file
-7. Broadcast `card:updated` WebSocket event to subscribed clients
+1. Strip any leading Markdown checkbox/list prefix from `text` (e.g. `"- [ ] Do X"` → `"Do X"`)
+2. Parse the card's Markdown content
+3. Find the last checklist item (line matching `- [ ] ` or `- [x] `) or the end of a `## Tasks` section
+4. Append `- [ ] {text}` as a new line after the last checklist item
+5. If no checklist exists yet, append a `## Tasks` section with the new item
+6. Update the card's `updated` timestamp and append a new entry to `taskMeta` in frontmatter
+7. Write the modified Markdown file
+8. Broadcast `card:updated` WebSocket event to subscribed clients
 
 **Response `201`:**
 ```json

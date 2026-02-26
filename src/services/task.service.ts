@@ -64,6 +64,19 @@ export class TaskService {
   }
 
   /**
+   * Strip leading Markdown checkbox/list syntax that LLMs sometimes add by mistake.
+   * e.g. "- [ ] Do the thing" → "Do the thing"
+   *      "- [x] Done"         → "Done"
+   *      "- Just a list item" → "Just a list item"
+   */
+  private sanitizeTaskText(text: string): string {
+    return text
+      .replace(/^[\s]*-\s*\[[ xX]\]\s*/, '') // strip "- [ ]" or "- [x]"
+      .replace(/^[\s]*-\s+/, '')              // strip bare "- " list prefix
+      .trim();
+  }
+
+  /**
    * Add a new task to a card
    */
   async addTask(
@@ -71,7 +84,8 @@ export class TaskService {
     cardSlug: string,
     text: string
   ): Promise<TaskItem> {
-    if (!text || text.trim().length === 0) {
+    const sanitized = this.sanitizeTaskText(text);
+    if (!sanitized || sanitized.length === 0) {
       throw new Error('Task text is required');
     }
 
@@ -89,8 +103,8 @@ export class TaskService {
       const fileContent = await readFile(cardPath, 'utf-8');
       const { frontmatter, content } = MarkdownService.parse(fileContent);
 
-      // Append the new task
-      const updatedContent = MarkdownService.appendTask(content, text);
+      // Append the new task (using sanitized text)
+      const updatedContent = MarkdownService.appendTask(content, sanitized);
 
       // Update timestamp
       const now = new Date().toISOString();

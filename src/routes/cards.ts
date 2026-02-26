@@ -75,11 +75,11 @@ export const cardRoutes = (workspacePath: string) => {
       {
         body: t.Object({
           title: t.String({ minLength: 1, maxLength: 200 }),
+          description: t.Optional(t.String({ maxLength: 500 })),
           lane: t.Optional(t.String()),
           priority: t.Optional(t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high')])),
           assignee: t.Optional(t.Union([t.Literal('user'), t.Literal('agent')])),
           tags: t.Optional(t.Array(t.String())),
-          content: t.Optional(t.String()),
           status: t.Optional(
             t.Union([
               t.Literal('in-progress'),
@@ -376,6 +376,7 @@ export const cardRoutes = (workspacePath: string) => {
       {
         body: t.Object({
           title: t.Optional(t.String({ minLength: 1, maxLength: 200 })),
+          description: t.Optional(t.Union([t.String({ maxLength: 500 }), t.Null()])),
           status: t.Optional(
             t.Union([
               t.Literal('in-progress'),
@@ -390,7 +391,6 @@ export const cardRoutes = (workspacePath: string) => {
           ),
           assignee: t.Optional(t.Union([t.Literal('user'), t.Literal('agent'), t.Null()])),
           tags: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
-          content: t.Optional(t.String()),
           blockedReason: t.Optional(t.Union([t.String(), t.Null()])),
         }),
       }

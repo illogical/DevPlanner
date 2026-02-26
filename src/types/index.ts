@@ -24,6 +24,7 @@ export interface ProjectSummary extends ProjectConfig {
 // Card types
 export interface CardFrontmatter {
   title: string;
+  description?: string; // Short 1-5 sentence summary of the card
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
   priority?: 'low' | 'medium' | 'high';
   assignee?: 'user' | 'agent';
@@ -73,22 +74,22 @@ export interface ApiError {
 
 export interface CreateCardInput {
   title: string;
+  description?: string;
   lane?: string;
   priority?: 'low' | 'medium' | 'high';
   assignee?: 'user' | 'agent';
   tags?: string[];
-  content?: string;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
   blockedReason?: string;
 }
 
 export interface UpdateCardInput {
   title?: string;
+  description?: string | null;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing' | null;
   priority?: 'low' | 'medium' | 'high' | null;
   assignee?: 'user' | 'agent' | null;
   tags?: string[] | null;
-  content?: string;
   blockedReason?: string | null;
 }
 
