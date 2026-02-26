@@ -18,6 +18,13 @@ export function ActivityLog() {
     }
   }, [activeProjectSlug, loadHistory]);
 
+  // Reset highlight tracking whenever the active project changes so that
+  // the initial bulk load from the REST API is never treated as "new" events.
+  useEffect(() => {
+    prevEventIdsRef.current = new Set();
+    setNewEventIds(new Set());
+  }, [activeProjectSlug]);
+
   // Track new events and highlight them temporarily
   useEffect(() => {
     const currentEventIds = new Set(historyEvents.map(e => e.id));
