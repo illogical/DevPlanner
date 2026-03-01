@@ -12,6 +12,9 @@ import type {
   ProjectDeletedData,
   HistoryEvent,
   ProjectFileEntry,
+  LinkAddedData,
+  LinkUpdatedData,
+  LinkDeletedData,
 } from '../types';
 
 export function useWebSocket() {
@@ -36,6 +39,9 @@ export function useWebSocket() {
   const wsHandleFileUpdated = useStore((state) => state.wsHandleFileUpdated);
   const wsHandleFileAssociated = useStore((state) => state.wsHandleFileAssociated);
   const wsHandleFileDisassociated = useStore((state) => state.wsHandleFileDisassociated);
+  const wsHandleLinkAdded = useStore((state) => state.wsHandleLinkAdded);
+  const wsHandleLinkUpdated = useStore((state) => state.wsHandleLinkUpdated);
+  const wsHandleLinkDeleted = useStore((state) => state.wsHandleLinkDeleted);
   const addHistoryEvent = useStore((state) => state.addHistoryEvent);
 
   // Connect on mount, disconnect on unmount
@@ -103,6 +109,15 @@ export function useWebSocket() {
       client.on('file:disassociated', (data) => {
         wsHandleFileDisassociated?.(data as { filename: string; cardSlug: string });
       }),
+      client.on('link:added', (data) => {
+        wsHandleLinkAdded?.(data as LinkAddedData);
+      }),
+      client.on('link:updated', (data) => {
+        wsHandleLinkUpdated?.(data as LinkUpdatedData);
+      }),
+      client.on('link:deleted', (data) => {
+        wsHandleLinkDeleted?.(data as LinkDeletedData);
+      }),
     ];
 
     return () => unsubscribers.forEach(unsub => unsub());
@@ -122,6 +137,9 @@ export function useWebSocket() {
     wsHandleFileUpdated,
     wsHandleFileAssociated,
     wsHandleFileDisassociated,
+    wsHandleLinkAdded,
+    wsHandleLinkUpdated,
+    wsHandleLinkDeleted,
   ]);
 
   // Handle reconnection - refresh data

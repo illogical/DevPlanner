@@ -21,6 +21,28 @@ export interface ProjectSummary extends ProjectConfig {
   cardCounts: Record<string, number>;
 }
 
+// Link types
+export interface CardLink {
+  id: string;
+  label: string;
+  url: string;
+  kind: 'doc' | 'spec' | 'ticket' | 'repo' | 'reference' | 'other';
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+}
+
+export interface CreateLinkInput {
+  label: string;
+  url: string;
+  kind?: CardLink['kind'];
+}
+
+export interface UpdateLinkInput {
+  label?: string;
+  url?: string;
+  kind?: CardLink['kind'];
+}
+
 // Card types
 export interface CardFrontmatter {
   title: string;
@@ -34,6 +56,7 @@ export interface CardFrontmatter {
   cardNumber?: number; // Sequential within project
   blockedReason?: string; // Free-text reason when status is "blocked"
   taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps
+  links?: CardLink[]; // URL links attached to this card
 }
 
 export interface Card {
@@ -137,7 +160,10 @@ export type WebSocketEventType =
   | 'file:deleted'
   | 'file:updated'
   | 'file:associated'
-  | 'file:disassociated';
+  | 'file:disassociated'
+  | 'link:added'
+  | 'link:updated'
+  | 'link:deleted';
 
 export interface WebSocketEvent {
   type: WebSocketEventType;
@@ -237,6 +263,22 @@ export interface FileDisassociatedData {
   cardSlug: string;
 }
 
+// Link event payload types
+export interface LinkAddedData {
+  cardSlug: string;
+  link: CardLink;
+}
+
+export interface LinkUpdatedData {
+  cardSlug: string;
+  link: CardLink;
+}
+
+export interface LinkDeletedData {
+  cardSlug: string;
+  linkId: string;
+}
+
 // History types
 export type HistoryActionType =
   // Existing
@@ -259,7 +301,11 @@ export type HistoryActionType =
   | 'file:deleted'
   | 'file:associated'
   | 'file:disassociated'
-  | 'file:updated';
+  | 'file:updated'
+  // NEW - Link operations
+  | 'link:added'
+  | 'link:updated'
+  | 'link:deleted';
 
 export interface HistoryEventMetadata {
   // Card-related (now optional - not all events are card-related)
@@ -278,6 +324,10 @@ export interface HistoryEventMetadata {
 
   // NEW - File operations
   filename?: string;
+
+  // NEW - Link operations
+  linkId?: string;
+  linkLabel?: string;
 
   // NEW - Project operations
   projectName?: string;

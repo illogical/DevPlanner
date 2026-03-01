@@ -21,6 +21,29 @@ export interface ProjectSummary extends ProjectConfig {
   cardCounts: Record<string, number>;
 }
 
+// Link types
+// See backend counterpart: src/types/index.ts `CardLink`
+export interface CardLink {
+  id: string;
+  label: string;
+  url: string;
+  kind: 'doc' | 'spec' | 'ticket' | 'repo' | 'reference' | 'other';
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+}
+
+export interface CreateLinkInput {
+  label: string;
+  url: string;
+  kind?: CardLink['kind'];
+}
+
+export interface UpdateLinkInput {
+  label?: string;
+  url?: string;
+  kind?: CardLink['kind'];
+}
+
 // Card types
 export interface CardFrontmatter {
   title: string;
@@ -33,6 +56,7 @@ export interface CardFrontmatter {
   tags?: string[];
   cardNumber?: number; // Sequential within project
   blockedReason?: string;
+  links?: CardLink[]; // URL links attached to this card
 }
 
 export interface Card {
@@ -172,7 +196,11 @@ export type HistoryActionType =
   | 'file:deleted'
   | 'file:associated'
   | 'file:disassociated'
-  | 'file:updated';
+  | 'file:updated'
+  // NEW - Link operations
+  | 'link:added'
+  | 'link:updated'
+  | 'link:deleted';
 
 export interface HistoryEventMetadata {
   // Card-related (now optional - not all events are card-related)
@@ -225,7 +253,10 @@ export type WebSocketEventType =
   | 'file:deleted'
   | 'file:updated'
   | 'file:associated'
-  | 'file:disassociated';
+  | 'file:disassociated'
+  | 'link:added'
+  | 'link:updated'
+  | 'link:deleted';
 
 export interface WebSocketEvent {
   type: WebSocketEventType;
@@ -307,6 +338,22 @@ export interface FileAssociatedData {
 export interface FileDisassociatedData {
   filename: string;
   cardSlug: string;
+}
+
+// Link event data payloads
+export interface LinkAddedData {
+  cardSlug: string;
+  link: CardLink;
+}
+
+export interface LinkUpdatedData {
+  cardSlug: string;
+  link: CardLink;
+}
+
+export interface LinkDeletedData {
+  cardSlug: string;
+  linkId: string;
 }
 
 // Search types

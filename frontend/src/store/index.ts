@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { projectsApi, cardsApi, tasksApi, preferencesApi, filesApi } from '../api/client';
+import { projectsApi, cardsApi, tasksApi, preferencesApi, filesApi, linksApi } from '../api/client';
 import type {
   ProjectSummary,
   CardSummary,
@@ -17,6 +17,12 @@ import type {
   ProjectDeletedData,
   SearchResult,
   ProjectFileEntry,
+  CardLink,
+  CreateLinkInput,
+  UpdateLinkInput,
+  LinkAddedData,
+  LinkUpdatedData,
+  LinkDeletedData,
 } from '../types';
 
 // Search debounce timer
@@ -84,6 +90,11 @@ interface DevPlannerStore {
 
   // Card editing
   updateCard: (cardSlug: string, updates: UpdateCardInput) => Promise<void>;
+
+  // Link operations
+  addLink: (cardSlug: string, input: CreateLinkInput) => Promise<void>;
+  updateLink: (cardSlug: string, linkId: string, input: UpdateLinkInput) => Promise<void>;
+  deleteLink: (cardSlug: string, linkId: string) => Promise<void>;
 
   // Project tags (for autocomplete)
   projectTags: string[];
@@ -158,6 +169,9 @@ interface DevPlannerStore {
   wsHandleFileUpdated?: (data: { file: ProjectFileEntry }) => void;
   wsHandleFileAssociated?: (data: { filename: string; cardSlug: string }) => void;
   wsHandleFileDisassociated?: (data: { filename: string; cardSlug: string }) => void;
+  wsHandleLinkAdded?: (data: LinkAddedData) => void;
+  wsHandleLinkUpdated?: (data: LinkUpdatedData) => void;
+  wsHandleLinkDeleted?: (data: LinkDeletedData) => void;
 
   // Debounced loadCards for fallback scenarios
   _lastLoadCardsTime: number;
@@ -1224,6 +1238,76 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     })
   },
 
+  // Link actions
+  addLink: async (cardSlug: string, input: CreateLinkInput) => {
+    const { activeProjectSlug, activeCard } = get();
+    if (!activeProjectSlug) return;
+
+    const { link } = await linksApi.add(activeProjectSlug, cardSlug, input);
+    get()._recordLocalAction(`link:added:${link.id}`);
+
+    // Update activeCard if it is the affected card
+    if (activeCard?.slug === cardSlug) {
+      set((state) => {
+        if (!state.activeCard) return {};
+        const links = [...(state.activeCard.frontmatter.links ?? []), link];
+        return {
+          activeCard: {
+            ...state.activeCard,
+            frontmatter: { ...state.activeCard.frontmatter, links },
+          },
+        };
+      });
+    }
+  },
+
+  updateLink: async (cardSlug: string, linkId: string, input: UpdateLinkInput) => {
+    const { activeProjectSlug, activeCard } = get();
+    if (!activeProjectSlug) return;
+
+    const { link } = await linksApi.update(activeProjectSlug, cardSlug, linkId, input);
+    get()._recordLocalAction(`link:updated:${linkId}`);
+
+    if (activeCard?.slug === cardSlug) {
+      set((state) => {
+        if (!state.activeCard) return {};
+        const links = (state.activeCard.frontmatter.links ?? []).map((l: CardLink) =>
+          l.id === linkId ? link : l
+        );
+        return {
+          activeCard: {
+            ...state.activeCard,
+            frontmatter: { ...state.activeCard.frontmatter, links },
+          },
+        };
+      });
+    }
+  },
+
+  deleteLink: async (cardSlug: string, linkId: string) => {
+    const { activeProjectSlug, activeCard } = get();
+    if (!activeProjectSlug) return;
+
+    await linksApi.delete(activeProjectSlug, cardSlug, linkId);
+    get()._recordLocalAction(`link:deleted:${linkId}`);
+
+    if (activeCard?.slug === cardSlug) {
+      set((state) => {
+        if (!state.activeCard) return {};
+        const links = (state.activeCard.frontmatter.links ?? []).filter(
+          (l: CardLink) => l.id !== linkId
+        );
+        return {
+          activeCard: {
+            ...state.activeCard,
+            frontmatter: { ...state.activeCard.frontmatter, links },
+          },
+        };
+      });
+    }
+  },
+
+
   // WebSocket state setters
   setWsConnected: (connected: boolean) => {
     set({ wsConnected: connected });
@@ -1714,7 +1798,81 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
     }));
   },
 
-  // Search actions
+  wsHandleLinkAdded: (data: LinkAddedData) => {
+    const { cardSlug, link } = data;
+    const state = get();
+
+    if (state._isRecentLocalAction(`link:added:${link.id}`)) {
+      return;
+    }
+
+    if (state.activeCard?.slug === cardSlug) {
+      set((s) => {
+        if (!s.activeCard) return {};
+        const existing = s.activeCard.frontmatter.links ?? [];
+        const alreadyExists = existing.some((l: CardLink) => l.id === link.id);
+        const links = alreadyExists
+          ? existing.map((l: CardLink) => (l.id === link.id ? link : l))
+          : [...existing, link];
+        return {
+          activeCard: {
+            ...s.activeCard,
+            frontmatter: { ...s.activeCard.frontmatter, links },
+          },
+        };
+      });
+    }
+  },
+
+  wsHandleLinkUpdated: (data: LinkUpdatedData) => {
+    const { cardSlug, link } = data;
+    const state = get();
+
+    if (state._isRecentLocalAction(`link:updated:${link.id}`)) {
+      return;
+    }
+
+    if (state.activeCard?.slug === cardSlug) {
+      set((s) => {
+        if (!s.activeCard) return {};
+        const links = (s.activeCard.frontmatter.links ?? []).map((l: CardLink) =>
+          l.id === link.id ? link : l
+        );
+        return {
+          activeCard: {
+            ...s.activeCard,
+            frontmatter: { ...s.activeCard.frontmatter, links },
+          },
+        };
+      });
+    }
+  },
+
+  wsHandleLinkDeleted: (data: LinkDeletedData) => {
+    const { cardSlug, linkId } = data;
+    const state = get();
+
+    if (state._isRecentLocalAction(`link:deleted:${linkId}`)) {
+      return;
+    }
+
+    if (state.activeCard?.slug === cardSlug) {
+      set((s) => {
+        if (!s.activeCard) return {};
+        const links = (s.activeCard.frontmatter.links ?? []).filter(
+          (l: CardLink) => l.id !== linkId
+        );
+        return {
+          activeCard: {
+            ...s.activeCard,
+            frontmatter: { ...s.activeCard.frontmatter, links },
+          },
+        };
+      });
+    }
+  },
+
+
   setSearchQuery: (query: string) => {
     set({ searchQuery: query });
 

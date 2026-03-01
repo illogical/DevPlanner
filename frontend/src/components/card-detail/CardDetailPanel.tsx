@@ -6,6 +6,7 @@ import { CardMetadata } from './CardMetadata';
 import { CardContent } from './CardContent';
 import { TaskList } from './TaskList';
 import { CardFiles } from './CardFiles';
+import { CardLinks } from './CardLinks';
 import { Spinner } from '../ui/Spinner';
 
 export function CardDetailPanel() {
@@ -88,6 +89,11 @@ export function CardDetailPanel() {
                     tasks={activeCard.tasks}
                     cardSlug={activeCard.slug}
                   />
+
+                  {/* Links section */}
+                  <div className="border-t border-gray-700 pt-4">
+                    <CardLinks links={activeCard.frontmatter.links ?? []} cardSlug={activeCard.slug} />
+                  </div>
 
                   {/* Attachments section - moved to bottom */}
                   <div className="border-t border-gray-700 pt-4">
