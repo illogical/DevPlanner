@@ -24,8 +24,10 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { updateCard, archiveCard, deleteCard, closeCardDetail } = useStore();
+  const { updateCard, archiveCard, deleteCard, closeCardDetail, reorderCards } = useStore();
   const activeProjectSlug = useStore(state => state.activeProjectSlug);
+  const laneCards = useStore(state => state.cardsByLane[card.lane]);
+  const isFirstInLane = laneCards?.[0]?.slug === card.slug;
   const projectPrefix = useStore(
     state => state.projects.find(p => p.slug === activeProjectSlug)?.prefix
   );
@@ -91,6 +93,12 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
 
   const isInArchive = card.lane === '04-archive';
 
+  const handleMoveToTop = () => {
+    if (!laneCards || isFirstInLane) return;
+    const newOrder = [card.filename, ...laneCards.filter(c => c.slug !== card.slug).map(c => c.filename)];
+    reorderCards(card.lane, newOrder);
+  };
+
   const handleDeleteClick = () => {
     if (isInArchive) {
       // Show confirmation for permanent delete
@@ -152,6 +160,19 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Move to top button — hidden when already first or in archive */}
+            {!isFirstInLane && !isInArchive && (
+              <IconButton
+                label="Move to top of lane"
+                onClick={handleMoveToTop}
+                className="text-gray-500 hover:text-blue-400"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 11l7-7 7 7M5 19l7-7 7 7" />
+                </svg>
+              </IconButton>
+            )}
+
             {/* Delete button */}
             <IconButton
               label={isInArchive ? "Delete card permanently" : "Archive card"}

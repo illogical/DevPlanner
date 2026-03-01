@@ -30,12 +30,15 @@ interface CardPreviewProps {
 export function CardPreview({
   card,
   projectSlug,
+  laneSlug,
   isDragging: isDraggingOverlay,
 }: CardPreviewProps) {
-  const { expandedCardTasks, toggleCardTaskExpansion, openCardDetail, projects } =
+  const { expandedCardTasks, toggleCardTaskExpansion, openCardDetail, projects, reorderCards } =
     useStore();
   const searchQuery = useStore(state => state.searchQuery);
   const isHighlighted = useStore(state => state.isCardHighlighted(card.slug));
+  const laneCards = useStore(state => laneSlug ? state.cardsByLane[laneSlug] : undefined);
+  const isFirstInLane = laneCards?.[0]?.slug === card.slug;
   const isExpanded = expandedCardTasks.has(card.slug);
   const hasTasks = card.taskProgress.total > 0;
 
@@ -95,6 +98,13 @@ export function CardPreview({
     toggleCardTaskExpansion(card.slug);
   };
 
+  const handleMoveToTop = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!laneSlug || !laneCards || isFirstInLane) return;
+    const newOrder = [card.filename, ...laneCards.filter(c => c.slug !== card.slug).map(c => c.filename)];
+    reorderCards(laneSlug, newOrder);
+  };
+
   return (
     <AnimatedCardWrapper cardSlug={card.slug}>
       <div
@@ -114,7 +124,7 @@ export function CardPreview({
           isHighlighted && !isDragging && 'ring-2 ring-yellow-500/50 border-yellow-500/30',
         )}
       >
-        {/* Header: Title + Task Count */}
+        {/* Header: Title + Actions */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <h3 className="text-sm font-medium text-gray-100 line-clamp-2 leading-snug min-w-0">
             {cardId && (
@@ -125,18 +135,34 @@ export function CardPreview({
               : card.frontmatter.title}
           </h3>
 
-          {hasTasks && (
-            <span
-              className={cn(
-                'flex-shrink-0 inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold border shadow-sm transition-colors',
-                card.taskProgress.checked > 0
-                  ? 'bg-gray-900 border-gray-600 text-gray-100' // In progress: popping slightly
-                  : 'bg-gray-950 border-gray-800 text-gray-500' // Not started: recessed/dim
-              )}
-            >
-              {card.taskProgress.checked}/{card.taskProgress.total}
-            </span>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Move to top button — visible on hover when not first in lane */}
+            {laneSlug && !isFirstInLane && (
+              <button
+                onClick={handleMoveToTop}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-all"
+                title="Move to top of lane"
+                aria-label="Move to top of lane"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 11l7-7 7 7M5 19l7-7 7 7" />
+                </svg>
+              </button>
+            )}
+
+            {hasTasks && (
+              <span
+                className={cn(
+                  'inline-flex items-center justify-center rounded px-2 py-0.5 text-xs font-bold border shadow-sm transition-colors',
+                  card.taskProgress.checked > 0
+                    ? 'bg-gray-900 border-gray-600 text-gray-100' // In progress: popping slightly
+                    : 'bg-gray-950 border-gray-800 text-gray-500' // Not started: recessed/dim
+                )}
+              >
+                {card.taskProgress.checked}/{card.taskProgress.total}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Progress Bar + Expand Toggle */}
