@@ -32,6 +32,7 @@ function scoreMatch(text: string, query: string): number {
   const q = query.toLowerCase();
   if (lower === q) return 100;
   if (lower.startsWith(q)) return 80;
+  // Escape special regex chars; the \\$& replacement is intentional (inserts matched char)
   const wordBoundary = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
   if (wordBoundary.test(text)) return 60;
   if (lower.includes(q)) return 40;
@@ -62,7 +63,7 @@ export async function searchProjectForPalette(
 
   for (const card of cards) {
     const cardTitle = card.frontmatter.title;
-    const cardId = (card as { cardId?: string }).cardId;
+    const cardId = card.cardId ?? undefined;
     const laneSlug = card.lane;
 
     // Card title match
@@ -137,7 +138,7 @@ export async function searchProjectForPalette(
     const needFullCard =
       card.frontmatter.description ||
       card.taskProgress.total > 0 ||
-      (card.frontmatter as { links?: unknown[] }).links?.length;
+      card.frontmatter.links?.length;
 
     if (needFullCard) {
       try {
@@ -187,7 +188,7 @@ export async function searchProjectForPalette(
       }
 
       // Link matches
-      const links = (fullCard.frontmatter as { links?: Array<{ id: string; label: string; url: string; kind: string }> }).links ?? [];
+      const links = fullCard.frontmatter.links ?? [];
       for (const link of links) {
         // Link URL match
         const urlScore = scoreMatch(link.url, query);

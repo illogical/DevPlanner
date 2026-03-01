@@ -3,6 +3,12 @@ import { useStore } from '../store';
 import type { DetailScrollTarget } from '../types';
 
 /**
+ * Duration (ms) the highlight-pulse animation runs.
+ * Must match the `animation` duration in the `.highlight-pulse` CSS rule.
+ */
+const HIGHLIGHT_DURATION_MS = 2000;
+
+/**
  * Hook that scrolls to and pulse-highlights a card-detail section when
  * `detailScrollTarget` in the store matches the given section.
  * Call once per section component with the appropriate section name.
@@ -21,7 +27,7 @@ export function useDetailScroll(section: DetailScrollTarget['section']) {
       const timer = setTimeout(() => {
         el.classList.remove('highlight-pulse');
         setDetailScrollTarget(null);
-      }, 2000);
+      }, HIGHLIGHT_DURATION_MS);
       return () => clearTimeout(timer);
     }
   }, [target, section, setDetailScrollTarget]);

@@ -293,7 +293,9 @@ All endpoints are under `/api` and return JSON.
 | `POST` | `/api/projects/:slug/cards/:card/links` | Add a URL link to a card |
 | `PATCH` | `/api/projects/:slug/cards/:card/links/:linkId` | Update a link |
 | `DELETE` | `/api/projects/:slug/cards/:card/links/:linkId` | Delete a link |
-| `GET` | `/api/projects/:slug/cards/search?q=` | Search cards by title, tasks, description |
+| `GET` | `/api/projects/:slug/cards/search?q=` | Search cards by title, tasks, description (legacy) |
+| `GET` | `/api/projects/:slug/search?q=` | Palette search — cards, tasks, descriptions, tags, assignees, files, links |
+| `GET` | `/api/search?q=&projects=` | Global cross-project palette search |
 | `PATCH` | `/api/projects/:slug/lanes/:lane/order` | Reorder cards in lane |
 | `GET` | `/api/projects/:slug/files` | List project files |
 | `POST` | `/api/projects/:slug/files` | Upload file |
@@ -323,7 +325,7 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 - ✅ **Card Links** - Attach structured URL references to cards (docs, specs, tickets, repos) with kind classification
 - ✅ **Task Tracking** - Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps; inline task editing and deletion
 - ✅ **Project Management** - Multi-project support with card counts
-- ✅ **Search & Filter** - Cross-card search with highlighting across titles, descriptions, and tasks
+- ✅ **Search & Filter** - Command-palette overlay (`Ctrl+K`/`Cmd+K`) with real-time search across card titles, tasks, descriptions, tags, assignees, file names, and links; keyboard navigation; type-filter tabs; scope toggle (this project / all projects); matched text highlighted in results
 - ✅ **File Management** - Upload reference files, associate with cards, read text files via MCP
 - ✅ **Real-time Sync** - WebSocket infrastructure for live updates across clients
 - ✅ **File Watching** - Automatic detection of external file changes

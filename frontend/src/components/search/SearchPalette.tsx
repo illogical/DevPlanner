@@ -227,6 +227,7 @@ export function SearchPalette() {
   // Auto-focus input when palette opens
   useEffect(() => {
     if (isPaletteOpen) {
+      // Defer focus by one tick so the AnimatePresence animation doesn't block it
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [isPaletteOpen]);

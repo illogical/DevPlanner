@@ -9,6 +9,7 @@ export function fuzzyScore(text: string, query: string): number {
   if (t === q) return 100;
   if (t.startsWith(q)) return 80;
   // Word boundary match
+  // Escape special regex chars; \\$& inserts the matched character verbatim
   const wordBoundary = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
   if (wordBoundary.test(text)) return 60;
   if (t.includes(q)) return 40;
