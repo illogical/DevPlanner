@@ -15,6 +15,9 @@ import type {
   SearchResponse,
   ProjectFileEntry,
   FilesResponse,
+  CardLink,
+  CreateLinkInput,
+  UpdateLinkInput,
 } from '../types';
 
 const API_BASE = '/api';
@@ -297,6 +300,38 @@ export const filesApi = {
 
   getDownloadUrl: (projectSlug: string, filename: string) =>
     `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}/download`,
+};
+
+// Link endpoints
+export const linksApi = {
+  add: (projectSlug: string, cardSlug: string, input: CreateLinkInput) =>
+    fetchJSON<{ link: CardLink }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/links`,
+      {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }
+    ),
+
+  update: (
+    projectSlug: string,
+    cardSlug: string,
+    linkId: string,
+    input: UpdateLinkInput
+  ) =>
+    fetchJSON<{ link: CardLink }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/links/${linkId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }
+    ),
+
+  delete: (projectSlug: string, cardSlug: string, linkId: string) =>
+    fetchJSON<{ success: boolean }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/links/${linkId}`,
+      { method: 'DELETE' }
+    ),
 };
 
 // Preferences endpoints
