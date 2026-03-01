@@ -4,6 +4,7 @@ import type { Card, CardSummary, CardFrontmatter, CreateCardInput, UpdateCardInp
 import { MarkdownService } from './markdown.service';
 import { slugify } from '../utils/slug';
 import { ALL_LANES, LANE_NAMES } from '../constants';
+import { resourceLock } from '../utils/resource-lock';
 
 /**
  * Service for managing cards within projects.
@@ -255,6 +256,7 @@ export class CardService {
       title: data.title,
       created: now,
       updated: now,
+      version: 1,
     };
 
     if (data.description) frontmatter.description = data.description;
@@ -264,36 +266,46 @@ export class CardService {
     if (data.tags) frontmatter.tags = data.tags;
     if (data.blockedReason !== undefined) frontmatter.blockedReason = data.blockedReason;
 
-    // Assign card number from project config and capture prefix
-    const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
+    // Acquire locks for project config and lane order atomically.
+    const release = await resourceLock.acquireMultiple([
+      `${projectSlug}:config`,
+      `${projectSlug}:order:${lane}`,
+    ]);
+
     let cardPrefix: string | undefined;
     try {
-      const projectConfigRaw = await readFile(projectConfigPath, 'utf-8');
-      const projectConfig = JSON.parse(projectConfigRaw);
+      // Assign card number from project config and capture prefix
+      const projectConfigPath = join(this.workspacePath, projectSlug, '_project.json');
+      try {
+        const projectConfigRaw = await readFile(projectConfigPath, 'utf-8');
+        const projectConfig = JSON.parse(projectConfigRaw);
 
-      cardPrefix = projectConfig.prefix as string | undefined;
+        cardPrefix = projectConfig.prefix as string | undefined;
 
-      if (projectConfig.nextCardNumber !== undefined) {
-        frontmatter.cardNumber = projectConfig.nextCardNumber;
-        projectConfig.nextCardNumber += 1;
-        projectConfig.updated = new Date().toISOString();
-        await writeFile(projectConfigPath, JSON.stringify(projectConfig, null, 2));
+        if (projectConfig.nextCardNumber !== undefined) {
+          frontmatter.cardNumber = projectConfig.nextCardNumber;
+          projectConfig.nextCardNumber += 1;
+          projectConfig.updated = new Date().toISOString();
+          await writeFile(projectConfigPath, JSON.stringify(projectConfig, null, 2));
+        }
+      } catch (error) {
+        // If project config can't be read, skip card number assignment
+        console.error('Failed to assign card number:', error);
       }
-    } catch (error) {
-      // If project config can't be read, skip card number assignment
-      console.error('Failed to assign card number:', error);
+
+      const markdown = MarkdownService.serialize(frontmatter, '');
+
+      // Write the card file
+      const cardPath = join(this.workspacePath, projectSlug, lane, filename);
+      await writeFile(cardPath, markdown);
+
+      // Add to order file
+      const order = await this.readOrderFile(projectSlug, lane);
+      order.push(filename);
+      await this.writeOrderFile(projectSlug, lane, order);
+    } finally {
+      release();
     }
-
-    const markdown = MarkdownService.serialize(frontmatter, '');
-
-    // Write the card file
-    const cardPath = join(this.workspacePath, projectSlug, lane, filename);
-    await writeFile(cardPath, markdown);
-
-    // Add to order file
-    const order = await this.readOrderFile(projectSlug, lane);
-    order.push(filename);
-    await this.writeOrderFile(projectSlug, lane, order);
 
     return {
       slug,
@@ -314,84 +326,90 @@ export class CardService {
     cardSlug: string,
     updates: UpdateCardInput
   ): Promise<Card> {
-    // Find and read the existing card
+    // Find which lane the card lives in before acquiring the lock.
     const lane = await this.findCardLane(projectSlug, cardSlug);
     if (!lane) {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
-    const cardContent = await readFile(cardPath, 'utf-8');
-    const { frontmatter, content } = MarkdownService.parse(cardContent);
+    const release = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
+    try {
+      const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+      const cardContent = await readFile(cardPath, 'utf-8');
+      const { frontmatter, content } = MarkdownService.parse(cardContent);
 
-    // Merge updates into frontmatter
-    if (updates.title !== undefined) {
-      frontmatter.title = updates.title;
-    }
-    if (updates.description !== undefined) {
-      if (updates.description === null) {
-        delete frontmatter.description;
-      } else {
-        frontmatter.description = updates.description;
+      // Merge updates into frontmatter
+      if (updates.title !== undefined) {
+        frontmatter.title = updates.title;
       }
-    }
-    if (updates.status !== undefined) {
-      if (updates.status === null) {
-        delete frontmatter.status;
-      } else {
-        frontmatter.status = updates.status;
+      if (updates.description !== undefined) {
+        if (updates.description === null) {
+          delete frontmatter.description;
+        } else {
+          frontmatter.description = updates.description;
+        }
       }
-    }
-    if (updates.priority !== undefined) {
-      if (updates.priority === null) {
-        delete frontmatter.priority;
-      } else {
-        frontmatter.priority = updates.priority;
+      if (updates.status !== undefined) {
+        if (updates.status === null) {
+          delete frontmatter.status;
+        } else {
+          frontmatter.status = updates.status;
+        }
       }
-    }
-    if (updates.assignee !== undefined) {
-      if (updates.assignee === null) {
-        delete frontmatter.assignee;
-      } else {
-        frontmatter.assignee = updates.assignee;
+      if (updates.priority !== undefined) {
+        if (updates.priority === null) {
+          delete frontmatter.priority;
+        } else {
+          frontmatter.priority = updates.priority;
+        }
       }
-    }
-    if (updates.tags !== undefined) {
-      if (updates.tags === null) {
-        delete frontmatter.tags;
-      } else {
-        frontmatter.tags = updates.tags;
+      if (updates.assignee !== undefined) {
+        if (updates.assignee === null) {
+          delete frontmatter.assignee;
+        } else {
+          frontmatter.assignee = updates.assignee;
+        }
       }
-    }
-    if (updates.blockedReason !== undefined) {
-      if (updates.blockedReason === null) {
-        delete frontmatter.blockedReason;
-      } else {
-        frontmatter.blockedReason = updates.blockedReason;
+      if (updates.tags !== undefined) {
+        if (updates.tags === null) {
+          delete frontmatter.tags;
+        } else {
+          frontmatter.tags = updates.tags;
+        }
       }
-    }
+      if (updates.blockedReason !== undefined) {
+        if (updates.blockedReason === null) {
+          delete frontmatter.blockedReason;
+        } else {
+          frontmatter.blockedReason = updates.blockedReason;
+        }
+      }
 
-    // Update timestamp
-    frontmatter.updated = new Date().toISOString();
+      // Update timestamp and increment version
+      frontmatter.updated = new Date().toISOString();
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
-    // Serialize and write back to disk (content body is read-only; only frontmatter changes)
-    const markdown = MarkdownService.serialize(frontmatter, content);
-    await writeFile(cardPath, markdown);
+      // Serialize and write back to disk (content body is read-only; only frontmatter changes)
+      const markdown = MarkdownService.serialize(frontmatter, content);
+      await writeFile(cardPath, markdown);
 
-    // Parse tasks from the existing content
-    const tasks = MarkdownService.parseTasks(content);
+      // Parse tasks from the existing content
+      const tasks = MarkdownService.parseTasks(content);
 
-    const prefix = await this.readProjectPrefix(projectSlug);
+      const prefix = await this.readProjectPrefix(projectSlug);
 
-    return {
-      slug: cardSlug,
-      filename: `${cardSlug}.md`,
-      lane,
-      cardId: this.computeCardId(prefix, frontmatter.cardNumber),
-      frontmatter,
-      content,
-      tasks,
-    };
+      return {
+        slug: cardSlug,
+        filename: `${cardSlug}.md`,
+        lane,
+        cardId: this.computeCardId(prefix, frontmatter.cardNumber),
+        frontmatter,
+        content,
+        tasks,
+      };
+    } finally {
+      release();
+    }
   }
 
   /**
@@ -411,15 +429,20 @@ export class CardService {
     }
 
     const filename = `${cardSlug}.md`;
-    const cardPath = join(this.workspacePath, projectSlug, lane, filename);
+    const release = await resourceLock.acquireMultiple([
+      `${projectSlug}:card:${cardSlug}`,
+      `${projectSlug}:order:${lane}`,
+    ]);
+    try {
+      const cardPath = join(this.workspacePath, projectSlug, lane, filename);
+      await unlink(cardPath);
 
-    // Delete the file
-    await unlink(cardPath);
-
-    // Remove from order file
-    const order = await this.readOrderFile(projectSlug, lane);
-    const updatedOrder = order.filter((f) => f !== filename);
-    await this.writeOrderFile(projectSlug, lane, updatedOrder);
+      const order = await this.readOrderFile(projectSlug, lane);
+      const updatedOrder = order.filter((f) => f !== filename);
+      await this.writeOrderFile(projectSlug, lane, updatedOrder);
+    } finally {
+      release();
+    }
   }
 
   /**
@@ -436,70 +459,83 @@ export class CardService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    const filename = `${cardSlug}.md`;
-    const sourcePath = join(this.workspacePath, projectSlug, sourceLane, filename);
-    const targetPath = join(this.workspacePath, projectSlug, targetLane, filename);
-
-    // Read the card to update its timestamp
-    const cardContent = await readFile(sourcePath, 'utf-8');
-    const { frontmatter, content } = MarkdownService.parse(cardContent);
-
-    // Update the timestamp
-    frontmatter.updated = new Date().toISOString();
-    const updatedContent = MarkdownService.serialize(frontmatter, content);
-
-    // Ensure target lane directory exists
-    const targetLanePath = join(this.workspacePath, projectSlug, targetLane);
-    await mkdir(targetLanePath, { recursive: true });
-
-    // Write to target location
-    await writeFile(targetPath, updatedContent);
-
-    // Remove from source order and delete source file if moving between lanes
-    if (sourceLane !== targetLane) {
-      const sourceOrder = await this.readOrderFile(projectSlug, sourceLane);
-      const newSourceOrder = sourceOrder.filter((f) => f !== filename);
-      await this.writeOrderFile(projectSlug, sourceLane, newSourceOrder);
-
-      // Delete source file
-      await unlink(sourcePath);
+    // Acquire all required locks in sorted order to prevent deadlocks.
+    const lockKeys = [
+      `${projectSlug}:card:${cardSlug}`,
+      `${projectSlug}:order:${sourceLane}`,
+    ];
+    if (targetLane !== sourceLane) {
+      lockKeys.push(`${projectSlug}:order:${targetLane}`);
     }
+    const release = await resourceLock.acquireMultiple(lockKeys);
 
-    // Add to target order at the specified position
-    const targetOrder = await this.readOrderFile(projectSlug, targetLane);
+    try {
+      const filename = `${cardSlug}.md`;
+      const sourcePath = join(this.workspacePath, projectSlug, sourceLane, filename);
+      const targetPath = join(this.workspacePath, projectSlug, targetLane, filename);
 
-    if (sourceLane === targetLane) {
-      // Moving within the same lane - remove and re-insert
-      const currentIndex = targetOrder.indexOf(filename);
-      if (currentIndex !== -1) {
-        targetOrder.splice(currentIndex, 1);
+      // Read the card to update its timestamp and version
+      const cardContent = await readFile(sourcePath, 'utf-8');
+      const { frontmatter, content } = MarkdownService.parse(cardContent);
+
+      frontmatter.updated = new Date().toISOString();
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
+      const updatedContent = MarkdownService.serialize(frontmatter, content);
+
+      // Ensure target lane directory exists
+      const targetLanePath = join(this.workspacePath, projectSlug, targetLane);
+      await mkdir(targetLanePath, { recursive: true });
+
+      // Write to target location
+      await writeFile(targetPath, updatedContent);
+
+      // Remove from source order and delete source file if moving between lanes
+      if (sourceLane !== targetLane) {
+        const sourceOrder = await this.readOrderFile(projectSlug, sourceLane);
+        const newSourceOrder = sourceOrder.filter((f) => f !== filename);
+        await this.writeOrderFile(projectSlug, sourceLane, newSourceOrder);
+
+        // Delete source file
+        await unlink(sourcePath);
       }
+
+      // Add to target order at the specified position
+      const targetOrder = await this.readOrderFile(projectSlug, targetLane);
+
+      if (sourceLane === targetLane) {
+        // Moving within the same lane - remove and re-insert
+        const currentIndex = targetOrder.indexOf(filename);
+        if (currentIndex !== -1) {
+          targetOrder.splice(currentIndex, 1);
+        }
+      }
+
+      if (position !== undefined && position >= 0 && position <= targetOrder.length) {
+        targetOrder.splice(position, 0, filename);
+      } else if (sourceLane !== targetLane) {
+        // Cross-lane move without explicit position: prepend so the moved card appears first
+        targetOrder.unshift(filename);
+      } else {
+        targetOrder.push(filename);
+      }
+
+      await this.writeOrderFile(projectSlug, targetLane, targetOrder);
+
+      const tasks = MarkdownService.parseTasks(content);
+      const prefix = await this.readProjectPrefix(projectSlug);
+
+      return {
+        slug: cardSlug,
+        filename,
+        lane: targetLane,
+        cardId: this.computeCardId(prefix, frontmatter.cardNumber),
+        frontmatter,
+        content,
+        tasks,
+      };
+    } finally {
+      release();
     }
-
-    if (position !== undefined && position >= 0 && position <= targetOrder.length) {
-      targetOrder.splice(position, 0, filename);
-    } else if (sourceLane !== targetLane) {
-      // Cross-lane move without explicit position: prepend so the moved card appears first
-      targetOrder.unshift(filename);
-    } else {
-      targetOrder.push(filename);
-    }
-
-    await this.writeOrderFile(projectSlug, targetLane, targetOrder);
-
-    const tasks = MarkdownService.parseTasks(content);
-
-    const prefix = await this.readProjectPrefix(projectSlug);
-
-    return {
-      slug: cardSlug,
-      filename,
-      lane: targetLane,
-      cardId: this.computeCardId(prefix, frontmatter.cardNumber),
-      frontmatter,
-      content,
-      tasks,
-    };
   }
 
   /**
@@ -512,35 +548,40 @@ export class CardService {
   ): Promise<void> {
     console.log(`[CardService] Reordering cards in ${projectSlug}/${laneSlug}`);
     console.log(`[CardService] New order:`, order);
-    
-    // Get all actual files in the lane
-    const lanePath = join(this.workspacePath, projectSlug, laneSlug);
-    let files: string[];
+
+    const release = await resourceLock.acquire(`${projectSlug}:order:${laneSlug}`);
     try {
-      files = await readdir(lanePath);
-    } catch {
-      throw new Error(`Lane not found: ${laneSlug}`);
-    }
-
-    const mdFiles = files.filter((f) => f.endsWith('.md'));
-    console.log(`[CardService] Files currently in lane:`, mdFiles);
-
-    // Validate that all files in order exist in the lane
-    for (const filename of order) {
-      if (!mdFiles.includes(filename)) {
-        throw new Error(`Card not found in lane: ${filename}`);
+      // Get all actual files in the lane
+      const lanePath = join(this.workspacePath, projectSlug, laneSlug);
+      let files: string[];
+      try {
+        files = await readdir(lanePath);
+      } catch {
+        throw new Error(`Lane not found: ${laneSlug}`);
       }
+
+      const mdFiles = files.filter((f) => f.endsWith('.md'));
+      console.log(`[CardService] Files currently in lane:`, mdFiles);
+
+      // Validate that all files in order exist in the lane
+      for (const filename of order) {
+        if (!mdFiles.includes(filename)) {
+          throw new Error(`Card not found in lane: ${filename}`);
+        }
+      }
+
+      // Files not in the new order are appended alphabetically
+      const unorderedFiles = mdFiles
+        .filter((f) => !order.includes(f))
+        .sort((a, b) => a.localeCompare(b));
+
+      const finalOrder = [...order, ...unorderedFiles];
+      console.log(`[CardService] Writing final order to _order.json:`, finalOrder);
+
+      await this.writeOrderFile(projectSlug, laneSlug, finalOrder);
+      console.log(`[CardService] Order file written successfully`);
+    } finally {
+      release();
     }
-
-    // Files not in the new order are appended alphabetically
-    const unorderedFiles = mdFiles
-      .filter((f) => !order.includes(f))
-      .sort((a, b) => a.localeCompare(b));
-
-    const finalOrder = [...order, ...unorderedFiles];
-    console.log(`[CardService] Writing final order to _order.json:`, finalOrder);
-
-    await this.writeOrderFile(projectSlug, laneSlug, finalOrder);
-    console.log(`[CardService] Order file written successfully`);
   }
 }

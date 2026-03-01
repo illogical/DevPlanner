@@ -244,7 +244,29 @@ export const cardRoutes = (workspacePath: string) => {
     })
     .patch(
       '/api/projects/:projectSlug/cards/:cardSlug/move',
-      async ({ params, body }) => {
+      async ({ params, body, request }) => {
+        // Optional optimistic locking via If-Match header
+        const ifMatch = request.headers.get('if-match');
+        if (ifMatch) {
+          const expectedVersion = parseInt(ifMatch, 10);
+          if (!isNaN(expectedVersion)) {
+            const currentCard = await cardService.getCard(params.projectSlug, params.cardSlug);
+            const currentVersion = currentCard.frontmatter.version ?? 1;
+            if (currentVersion !== expectedVersion) {
+              return new Response(
+                JSON.stringify({
+                  error: 'VERSION_CONFLICT',
+                  message: `Card has been modified since you last read it (your version: ${expectedVersion}, current: ${currentVersion}).`,
+                  currentVersion,
+                  yourVersion: expectedVersion,
+                  currentState: currentCard,
+                }),
+                { status: 409, headers: { 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+        }
+
         // Get source lane before moving
         const cardBefore = await cardService.getCard(params.projectSlug, params.cardSlug);
         const sourceLane = cardBefore.lane;
@@ -335,7 +357,29 @@ export const cardRoutes = (workspacePath: string) => {
     )
     .patch(
       '/api/projects/:projectSlug/cards/:cardSlug',
-      async ({ params, body }) => {
+      async ({ params, body, request }) => {
+        // Optional optimistic locking via If-Match header
+        const ifMatch = request.headers.get('if-match');
+        if (ifMatch) {
+          const expectedVersion = parseInt(ifMatch, 10);
+          if (!isNaN(expectedVersion)) {
+            const currentCard = await cardService.getCard(params.projectSlug, params.cardSlug);
+            const currentVersion = currentCard.frontmatter.version ?? 1;
+            if (currentVersion !== expectedVersion) {
+              return new Response(
+                JSON.stringify({
+                  error: 'VERSION_CONFLICT',
+                  message: `Card has been modified since you last read it (your version: ${expectedVersion}, current: ${currentVersion}).`,
+                  currentVersion,
+                  yourVersion: expectedVersion,
+                  currentState: currentCard,
+                }),
+                { status: 409, headers: { 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+        }
+
         const card = await cardService.updateCard(params.projectSlug, params.cardSlug, body);
 
         // Broadcast card:updated event

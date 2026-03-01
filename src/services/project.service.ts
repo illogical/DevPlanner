@@ -4,6 +4,7 @@ import type { ProjectConfig, ProjectSummary, LaneConfig } from '../types';
 import { slugify } from '../utils/slug';
 import { generatePrefix } from '../utils/prefix';
 import { DEFAULT_LANE_CONFIG } from '../constants';
+import { resourceLock } from '../utils/resource-lock';
 
 /**
  * Service for managing projects in the workspace.
@@ -174,20 +175,25 @@ export class ProjectService {
     slug: string,
     updates: Partial<ProjectConfig>
   ): Promise<ProjectConfig> {
-    const config = await this.getProject(slug);
+    const release = await resourceLock.acquire(`${slug}:config`);
+    try {
+      const config = await this.getProject(slug);
 
-    // Apply updates
-    const updatedConfig: ProjectConfig = {
-      ...config,
-      ...updates,
-      updated: new Date().toISOString(),
-    };
+      // Apply updates
+      const updatedConfig: ProjectConfig = {
+        ...config,
+        ...updates,
+        updated: new Date().toISOString(),
+      };
 
-    // Write updated config
-    const configPath = join(this.workspacePath, slug, '_project.json');
-    await writeFile(configPath, JSON.stringify(updatedConfig, null, 2));
+      // Write updated config
+      const configPath = join(this.workspacePath, slug, '_project.json');
+      await writeFile(configPath, JSON.stringify(updatedConfig, null, 2));
 
-    return updatedConfig;
+      return updatedConfig;
+    } finally {
+      release();
+    }
   }
 
   /**

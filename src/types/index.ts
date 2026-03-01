@@ -54,6 +54,7 @@ export interface CardFrontmatter {
   updated: string; // ISO 8601
   tags?: string[];
   cardNumber?: number; // Sequential within project
+  version?: number; // Incremented on every write; used for optimistic locking via If-Match header
   blockedReason?: string; // Free-text reason when status is "blocked"
   taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps
   links?: CardLink[]; // URL links attached to this card

@@ -12,6 +12,7 @@
     "verify:mcp": "bun scripts/verify-mcp-agent.ts",
     "verify:mcp:verbose": "bun scripts/verify-mcp-agent.ts --verbose",
     "verify:mcp:json": "bun scripts/verify-mcp-agent.ts --json",
+    "verify:concurrency": "bun scripts/verify-concurrency.ts",
     "demo:e2e": "bun scripts/e2e-demo.ts",
     "mcp": "bun src/mcp-server.ts",
     "migrate:card-ids": "bun scripts/migrate-card-ids.ts",

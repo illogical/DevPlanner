@@ -3,39 +3,16 @@ import { join } from 'path';
 import type { TaskItem } from '../types';
 import { MarkdownService } from './markdown.service';
 import { ALL_LANES } from '../constants';
+import { resourceLock } from '../utils/resource-lock';
 
 /**
  * Service for managing tasks within cards.
  */
 export class TaskService {
   private workspacePath: string;
-  private locks: Map<string, Promise<void>> = new Map();
 
   constructor(workspacePath: string) {
     this.workspacePath = workspacePath;
-  }
-
-  /**
-   * Acquire a lock for a specific card to prevent concurrent modifications
-   */
-  private async acquireLock(cardKey: string): Promise<() => void> {
-    // Wait for any existing lock to be released
-    while (this.locks.has(cardKey)) {
-      await this.locks.get(cardKey);
-    }
-
-    // Create a new lock
-    let releaseLock: () => void;
-    const lockPromise = new Promise<void>((resolve) => {
-      releaseLock = resolve;
-    });
-    this.locks.set(cardKey, lockPromise);
-
-    // Return the release function
-    return () => {
-      this.locks.delete(cardKey);
-      releaseLock!();
-    };
   }
 
   /**
@@ -95,8 +72,7 @@ export class TaskService {
     }
 
     // Acquire lock to prevent concurrent modifications
-    const cardKey = `${projectSlug}:${cardSlug}`;
-    const releaseLock = await this.acquireLock(cardKey);
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
       const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
@@ -106,9 +82,10 @@ export class TaskService {
       // Append the new task (using sanitized text)
       const updatedContent = MarkdownService.appendTask(content, sanitized);
 
-      // Update timestamp
+      // Update timestamp and version
       const now = new Date().toISOString();
       frontmatter.updated = now;
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
       // Record task timestamp metadata
       if (!frontmatter.taskMeta) {
@@ -150,8 +127,7 @@ export class TaskService {
     }
 
     // Acquire lock to prevent concurrent modifications
-    const cardKey = `${projectSlug}:${cardSlug}`;
-    const releaseLock = await this.acquireLock(cardKey);
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
       const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
@@ -161,9 +137,10 @@ export class TaskService {
       // Update the task
       const updatedContent = MarkdownService.setTaskChecked(content, taskIndex, checked);
 
-      // Update timestamp
+      // Update timestamp and version
       const now = new Date().toISOString();
       frontmatter.updated = now;
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
       // Update task completion timestamp in metadata
       if (frontmatter.taskMeta && frontmatter.taskMeta[taskIndex] !== undefined) {
@@ -213,8 +190,7 @@ export class TaskService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    const cardKey = `${projectSlug}:${cardSlug}`;
-    const releaseLock = await this.acquireLock(cardKey);
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
       const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
@@ -225,6 +201,7 @@ export class TaskService {
 
       const now = new Date().toISOString();
       frontmatter.updated = now;
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
       const markdown = MarkdownService.serialize(frontmatter, updatedContent);
       await writeFile(cardPath, markdown);
@@ -261,8 +238,7 @@ export class TaskService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    const cardKey = `${projectSlug}:${cardSlug}`;
-    const releaseLock = await this.acquireLock(cardKey);
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
       const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
@@ -273,6 +249,7 @@ export class TaskService {
 
       const now = new Date().toISOString();
       frontmatter.updated = now;
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
       // Remove the deleted task's metadata and re-index remaining entries
       if (frontmatter.taskMeta && frontmatter.taskMeta.length > taskIndex) {

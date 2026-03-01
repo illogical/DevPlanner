@@ -3,38 +3,19 @@ import { join } from 'path';
 import type { CardLink, CreateLinkInput, UpdateLinkInput } from '../types';
 import { MarkdownService } from './markdown.service';
 import { ALL_LANES } from '../constants';
+import { resourceLock } from '../utils/resource-lock';
 
 /**
  * Service for managing URL links within cards.
- * Mirrors the patterns from task.service.ts: per-card locking, frontmatter mutation via MarkdownService.
+ * Mirrors the patterns from task.service.ts: per-card locking via the shared
+ * resourceLock singleton, frontmatter mutation via MarkdownService.
  * See frontend counterpart: frontend/src/types/index.ts `CardLink`
  */
 export class LinkService {
   private workspacePath: string;
-  private locks: Map<string, Promise<void>> = new Map();
 
   constructor(workspacePath: string) {
     this.workspacePath = workspacePath;
-  }
-
-  /**
-   * Acquire a lock for a specific card to prevent concurrent modifications.
-   */
-  private async acquireLock(cardKey: string): Promise<() => void> {
-    while (this.locks.has(cardKey)) {
-      await this.locks.get(cardKey);
-    }
-
-    let releaseLock: () => void;
-    const lockPromise = new Promise<void>((resolve) => {
-      releaseLock = resolve;
-    });
-    this.locks.set(cardKey, lockPromise);
-
-    return () => {
-      this.locks.delete(cardKey);
-      releaseLock!();
-    };
   }
 
   /**
@@ -111,8 +92,8 @@ export class LinkService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    const cardKey = `${projectSlug}:${cardSlug}`;
-    const releaseLock = await this.acquireLock(cardKey);
+    
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
       const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
@@ -144,6 +125,7 @@ export class LinkService {
       }
       (frontmatter.links as CardLink[]).push(newLink);
       frontmatter.updated = now;
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
       const markdown = MarkdownService.serialize(frontmatter, content);
       await writeFile(cardPath, markdown);
@@ -168,8 +150,8 @@ export class LinkService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    const cardKey = `${projectSlug}:${cardSlug}`;
-    const releaseLock = await this.acquireLock(cardKey);
+    
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
       const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
@@ -216,6 +198,7 @@ export class LinkService {
       links[idx] = existing;
       frontmatter.links = links;
       frontmatter.updated = now;
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
       const markdown = MarkdownService.serialize(frontmatter, content);
       await writeFile(cardPath, markdown);
@@ -239,8 +222,8 @@ export class LinkService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    const cardKey = `${projectSlug}:${cardSlug}`;
-    const releaseLock = await this.acquireLock(cardKey);
+    
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
       const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
@@ -256,6 +239,7 @@ export class LinkService {
       links.splice(idx, 1);
       frontmatter.links = links;
       frontmatter.updated = new Date().toISOString();
+      frontmatter.version = (frontmatter.version ?? 1) + 1;
 
       const markdown = MarkdownService.serialize(frontmatter, content);
       await writeFile(cardPath, markdown);
