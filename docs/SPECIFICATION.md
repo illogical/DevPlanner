@@ -14,6 +14,7 @@ Refer to `BRAINSTORM.md` for the full context of design decisions and resolved q
 |----------|----------|---------|-------------|
 | `DEVPLANNER_WORKSPACE` | Yes | — | Absolute path to the workspace directory containing project folders |
 | `PORT` | No | `17103` | Port for the Elysia backend server |
+| `DEVPLANNER_BACKUP_DIR` | No | `{workspace}/_backups` | Directory for workspace backup archives |
 | `DISABLE_FILE_WATCHER` | No | `false` | When `true`, disables filesystem monitoring. All real-time updates come from API WebSocket broadcasts instead |
 
 The backend validates that `DEVPLANNER_WORKSPACE` exists and is a readable directory on startup. If missing, the server exits with a clear error message.
@@ -36,8 +37,14 @@ DevPlanner supports two modes for real-time updates:
 
 ```
 $DEVPLANNER_WORKSPACE/
+├── _preferences.json                   # Workspace-level preferences
 ├── media-manager/                      # Project: folder name is the slug
-│   ├── _project.json                   # Project metadata
+│   ├── _project.json                   # Project metadata + card ID config
+│   ├── _files.json                     # File metadata and card associations
+│   ├── _files/                         # Uploaded reference files
+│   │   ├── design-spec.pdf
+│   │   └── api-docs.md
+│   ├── _history.json                   # Persisted activity history events
 │   ├── 01-upcoming/
 │   │   ├── _order.json                 # Card display order within this lane
 │   │   ├── user-auth.md
@@ -67,6 +74,12 @@ $DEVPLANNER_WORKSPACE/
 
   // Optional project description
   "description": "Media asset management application",
+
+  // Card ID prefix (uppercase, 1-5 chars). Used to generate cardId: "MM-1", "MM-2", etc.
+  "prefix": "MM",
+
+  // Next card number to assign (auto-incremented on card creation)
+  "nextCardNumber": 5,
 
   // ISO 8601 timestamps, auto-managed
   "created": "2026-02-04T10:00:00Z",
@@ -107,8 +120,10 @@ $DEVPLANNER_WORKSPACE/
 interface ProjectConfig {
   name: string;
   description?: string;
-  created: string;    // ISO 8601
-  updated: string;    // ISO 8601
+  prefix?: string;         // Card ID prefix (e.g., "MM"). Auto-generated from name if not set.
+  nextCardNumber?: number;  // Next card number to assign (default: 1)
+  created: string;          // ISO 8601
+  updated: string;          // ISO 8601
   archived: boolean;
   lanes: Record<string, LaneConfig>;
 }
@@ -581,6 +596,31 @@ To remove an optional field, set it to `null`:
 
 **Note:** This endpoint does NOT move the card between lanes. Use `PATCH /cards/:cardSlug/move` for that.
 
+#### `GET /api/projects/:projectSlug/cards/search`
+
+Search cards by title, description, and task text.
+
+**Query Parameters:**
+- `q` (required): Search query string
+
+**Response `200`:**
+```json
+{
+  "cards": [
+    {
+      "slug": "user-auth",
+      "filename": "user-auth.md",
+      "lane": "02-in-progress",
+      "cardId": "MM-1",
+      "frontmatter": { ... },
+      "taskProgress": { "total": 4, "checked": 1 }
+    }
+  ]
+}
+```
+
+Cards are returned if the query matches (case-insensitive) the card title, description, or any task text.
+
 ### 3.4 Task Endpoints
 
 #### `POST /api/projects/:projectSlug/cards/:cardSlug/tasks`
@@ -620,22 +660,27 @@ Do **not** include leading `- [ ]` or `- ` in `text` — these are stripped auto
 
 #### `PATCH /api/projects/:projectSlug/cards/:cardSlug/tasks/:taskIndex`
 
-Toggle a task's checked state.
+Toggle a task's checked state or update its text.
 
-**Request Body:**
+**Request Body (at least one field required):**
 ```json
 {
-  "checked": true
+  "checked": true,
+  "text": "Updated task description"
 }
 ```
+
+- `checked` (optional): Set the task's checked state
+- `text` (optional): Update the task's text content
 
 **Behavior:**
 1. Parse the card's Markdown content
 2. Find the checklist item at the given 0-based index
-3. Replace `- [ ]` with `- [x]` (or vice versa)
-4. Update the card's `updated` timestamp
-5. Write the modified Markdown file
-6. Broadcast `task:toggled` WebSocket event to subscribed clients
+3. If `checked` is provided: replace `- [ ]` with `- [x]` (or vice versa)
+4. If `text` is provided: replace the task's text content
+5. Update the card's `updated` timestamp
+6. Write the modified Markdown file
+7. Broadcast `task:toggled` WebSocket event to subscribed clients
 
 **Response `200`:**
 ```json
@@ -644,6 +689,31 @@ Toggle a task's checked state.
   "text": "Set up OAuth2 client configuration",
   "checked": true,
   "taskProgress": { "total": 4, "checked": 2 }
+}
+```
+
+**Errors:**
+- `404` if task index is out of bounds
+
+#### `DELETE /api/projects/:projectSlug/cards/:cardSlug/tasks/:taskIndex`
+
+Delete a task from a card's checklist.
+
+**Behavior:**
+1. Parse the card's Markdown content
+2. Find and remove the checklist item at the given 0-based index
+3. Remove the corresponding entry from `taskMeta` array in frontmatter
+4. Update the card's `updated` timestamp
+5. Write the modified Markdown file
+6. Broadcast `card:updated` WebSocket event to subscribed clients
+
+**Response `200`:**
+```json
+{
+  "tasks": [
+    { "index": 0, "text": "Remaining task", "checked": false }
+  ],
+  "taskProgress": { "total": 1, "checked": 0 }
 }
 ```
 
@@ -882,7 +952,133 @@ Workspace-level preferences persisted to `_preferences.json`.
 
 ---
 
-### 3.10 WebSocket Endpoint
+### 3.10 File Management Endpoints
+
+#### `GET /api/projects/:projectSlug/files`
+
+List all files for a project.
+
+**Response `200`:**
+```json
+{
+  "files": [
+    {
+      "filename": "design-spec.pdf",
+      "originalName": "design-spec.pdf",
+      "mimeType": "application/pdf",
+      "size": 245000,
+      "description": "UI design specification from Figma export",
+      "uploadedAt": "2026-02-20T10:00:00Z",
+      "associatedCards": ["user-auth", "ui-layout"]
+    }
+  ]
+}
+```
+
+#### `POST /api/projects/:projectSlug/files`
+
+Upload a file to the project.
+
+**Request**: `multipart/form-data` with `file` field and optional `description` field.
+
+**Behavior:**
+1. Save file to `_files/` directory
+2. Deduplicate filename if needed (e.g., `file.txt` → `file-2.txt`)
+3. Detect MIME type from extension
+4. Add metadata entry to `_files.json`
+5. Broadcast `file:uploaded` history event
+
+**Response `201`:** File metadata object.
+
+#### `GET /api/projects/:projectSlug/files/:filename`
+
+Get file metadata.
+
+**Response `200`:** File metadata object (same shape as list item).
+
+#### `PATCH /api/projects/:projectSlug/files/:filename`
+
+Update a file's description.
+
+**Request Body:**
+```json
+{
+  "description": "Updated description for this file"
+}
+```
+
+**Response `200`:** Updated file metadata object.
+
+#### `DELETE /api/projects/:projectSlug/files/:filename`
+
+Delete a file and its metadata.
+
+**Behavior:**
+1. Remove file from `_files/` directory
+2. Remove metadata from `_files.json`
+3. Remove all card associations
+
+**Response `200`:** `{ "success": true }`
+
+#### `GET /api/projects/:projectSlug/files/:filename/download`
+
+Download/serve a file. Returns the file content with appropriate `Content-Type` header.
+
+#### `POST /api/projects/:projectSlug/files/:filename/associate`
+
+Associate a file with a card.
+
+**Request Body:**
+```json
+{
+  "cardSlug": "user-auth"
+}
+```
+
+**Response `200`:** Updated file metadata with `associatedCards`.
+
+**Errors:**
+- `409` if already associated
+
+#### `DELETE /api/projects/:projectSlug/files/:filename/associate/:cardSlug`
+
+Remove association between a file and a card.
+
+**Response `200`:** Updated file metadata.
+
+#### `GET /api/projects/:projectSlug/cards/:cardSlug/files`
+
+List all files associated with a specific card.
+
+**Response `200`:**
+```json
+{
+  "files": [ /* file metadata objects */ ]
+}
+```
+
+---
+
+### 3.11 Backup Endpoint
+
+#### `POST /api/backup`
+
+Create a zip backup of the entire workspace.
+
+**Response `200`:**
+```json
+{
+  "filename": "devplanner-backup-2026-02-28T10-00-00.zip",
+  "path": "/path/to/backups/devplanner-backup-2026-02-28T10-00-00.zip",
+  "size": 1048576
+}
+```
+
+The backup is saved to the directory specified by `DEVPLANNER_BACKUP_DIR` (defaults to `{workspace}/_backups`).
+
+---
+
+### 3.12 WebSocket Endpoint
 
 #### `WS /api/ws`
 
@@ -976,6 +1172,11 @@ Heartbeat response:
 - `link:added` - URL link added to a card
 - `link:updated` - URL link updated on a card
 - `link:deleted` - URL link removed from a card
+- `file:added` - File uploaded to project
+- `file:deleted` - File removed from project
+- `file:updated` - File metadata updated
+- `file:associated` - File associated with a card
+- `file:disassociated` - File disassociated from a card
 - `history:event` - Activity history event recorded
 
 **Behavior:**
@@ -992,32 +1193,53 @@ The service layer is a set of TypeScript classes that encapsulate all file I/O a
 
 ```
 src/
-├── server.ts                       # Elysia app setup, route registration
+├── server.ts                       # Elysia app setup, error handler, route registration
+├── mcp-server.ts                   # MCP server entry point (stdio transport)
 ├── routes/
 │   ├── projects.ts                 # Project route handlers
-│   ├── cards.ts                    # Card route handlers
-│   ├── tasks.ts                    # Task route handlers
-│   ├── history.ts                  # Activity history handlers
+│   ├── cards.ts                    # Card route handlers (CRUD + search)
+│   ├── tasks.ts                    # Task route handlers (add, toggle, edit, delete)
+│   ├── links.ts                    # Card URL link handlers
+│   ├── files.ts                    # File management handlers
+│   ├── history.ts                  # Per-project activity history handlers
+│   ├── activity.ts                 # Cross-project activity feed
+│   ├── stats.ts                    # Project health metrics
+│   ├── preferences.ts              # Workspace preferences
+│   ├── backup.ts                   # Workspace backup
 │   └── websocket.ts                # WebSocket connection handlers
 ├── services/
 │   ├── project.service.ts          # Project CRUD operations
-│   ├── card.service.ts             # Card CRUD + move operations
-│   ├── task.service.ts             # Checklist manipulation
+│   ├── card.service.ts             # Card CRUD, move, reorder, search
+│   ├── task.service.ts             # Checklist add/toggle/edit/delete (per-card mutex)
+│   ├── link.service.ts             # Card URL link management
+│   ├── file.service.ts             # File upload, metadata, card associations
 │   ├── markdown.service.ts         # Frontmatter parsing, checklist parsing
-│   ├── history.service.ts          # Activity history tracking
-│   ├── websocket.service.ts        # WebSocket connection management
+│   ├── history.service.ts          # In-memory activity event tracking
+│   ├── history-persistence.service.ts # History JSON file persistence
+│   ├── websocket.service.ts        # WebSocket connection management, broadcasting
 │   ├── file-watcher.service.ts     # File system monitoring
-│   └── config.service.ts           # Environment configuration
+│   ├── backup.service.ts           # Workspace backup to zip
+│   ├── preferences.service.ts      # Workspace preferences (digestAnchor, etc.)
+│   └── config.service.ts           # Singleton environment configuration
+├── mcp/                            # MCP server for AI agents
+│   ├── tool-handlers.ts            # 17 tool implementations
+│   ├── resource-providers.ts       # 3 resource providers
+│   ├── schemas.ts                  # JSON schemas for tool inputs
+│   ├── errors.ts                   # LLM-friendly error messages
+│   └── types.ts                    # MCP-specific type definitions
 ├── types/
 │   └── index.ts                    # Shared TypeScript interfaces
 ├── utils/
-│   └── slug.ts                     # Slugify function
+│   ├── slug.ts                     # Slugify function
+│   ├── prefix.ts                   # Card ID prefix generation
+│   └── history-helper.ts           # History event formatting
 ├── seed.ts                         # Seed data script
 └── __tests__/
     ├── project.service.test.ts
     ├── card.service.test.ts
     ├── task.service.test.ts
-    └── markdown.service.test.ts
+    ├── markdown.service.test.ts
+    └── file.service.test.ts
 ```
 
 ### 4.1 Service Classes
@@ -1068,12 +1290,14 @@ class ProjectService {
 class CardService {
   constructor(workspacePath: string);
 
-  listCards(projectSlug: string, lane?: string): Promise<CardSummary[]>;
+  listCards(projectSlug: string, lane?: string, options?: { since?: string; staleDays?: number }): Promise<CardSummary[]>;
   getCard(projectSlug: string, cardSlug: string): Promise<Card>;
   createCard(projectSlug: string, data: CreateCardInput): Promise<Card>;
+  updateCard(projectSlug: string, cardSlug: string, updates: Partial<CardFrontmatter>): Promise<Card>;
   archiveCard(projectSlug: string, cardSlug: string): Promise<void>;
   moveCard(projectSlug: string, cardSlug: string, targetLane: string, position?: number): Promise<Card>;
   reorderCards(projectSlug: string, laneSlug: string, order: string[]): Promise<void>;
+  searchCards(projectSlug: string, query: string): Promise<CardSummary[]>;
 }
 ```
 
@@ -1085,6 +1309,69 @@ class TaskService {
 
   addTask(projectSlug: string, cardSlug: string, text: string): Promise<TaskItem>;
   setTaskChecked(projectSlug: string, cardSlug: string, taskIndex: number, checked: boolean): Promise<TaskItem>;
+  updateTaskText(projectSlug: string, cardSlug: string, taskIndex: number, text: string): Promise<TaskItem>;
+  deleteTask(projectSlug: string, cardSlug: string, taskIndex: number): Promise<{ tasks: TaskItem[]; taskProgress: { total: number; checked: number } }>;
+}
+```
+
+#### `LinkService`
+
+```typescript
+class LinkService {
+  constructor(workspacePath: string);
+
+  addLink(projectSlug: string, cardSlug: string, data: { label: string; url: string; kind?: LinkKind }): Promise<CardLink>;
+  updateLink(projectSlug: string, cardSlug: string, linkId: string, updates: Partial<{ label: string; url: string; kind: LinkKind }>): Promise<CardLink>;
+  deleteLink(projectSlug: string, cardSlug: string, linkId: string): Promise<void>;
+}
+```
+
+#### `FileService`
+
+```typescript
+class FileService {
+  constructor(workspacePath: string);
+
+  listFiles(projectSlug: string): Promise<FileMetadata[]>;
+  getFile(projectSlug: string, filename: string): Promise<FileMetadata>;
+  uploadFile(projectSlug: string, file: File, description?: string): Promise<FileMetadata>;
+  updateFile(projectSlug: string, filename: string, updates: { description: string }): Promise<FileMetadata>;
+  deleteFile(projectSlug: string, filename: string): Promise<void>;
+  associateWithCard(projectSlug: string, filename: string, cardSlug: string): Promise<FileMetadata>;
+  disassociateFromCard(projectSlug: string, filename: string, cardSlug: string): Promise<FileMetadata>;
+  getFilesForCard(projectSlug: string, cardSlug: string): Promise<FileMetadata[]>;
+}
+```
+
+#### `HistoryService`
+
+```typescript
+class HistoryService {
+  // In-memory event store, max 50 events per project
+  record(event: Omit<HistoryEvent, 'id' | 'timestamp'>): HistoryEvent;
+  getHistory(projectSlug: string, options?: { limit?: number; since?: string }): HistoryEvent[];
+  getAllHistory(options?: { limit?: number; since?: string }): HistoryEvent[];
+}
+```
+
+#### `BackupService`
+
+```typescript
+class BackupService {
+  constructor(workspacePath: string, backupDir: string);
+
+  createBackup(): Promise<{ filename: string; path: string; size: number }>;
+}
+```
+
+#### `PreferencesService`
+
+```typescript
+class PreferencesService {
+  constructor(workspacePath: string);
+
+  getPreferences(): Promise<WorkspacePreferences>;
+  updatePreferences(updates: Partial<WorkspacePreferences>): Promise<WorkspacePreferences>;
 }
 ```
 
@@ -1122,10 +1409,11 @@ Since `cardSlug` is unique across the entire project (not scoped to a lane), the
 | React | 19.x | UI framework |
 | Vite | 6.x | Build tool + dev server |
 | Tailwind CSS | 4.x | Styling (dark mode first) |
-| `marked` | latest | Markdown → HTML rendering |
+| Zustand | 5.x | State management |
+| Framer Motion | 12.x | Animations (panel transitions, card effects) |
 | `@dnd-kit/core` | latest | Drag-and-drop |
 | `@dnd-kit/sortable` | latest | Sortable lists within lanes |
-| Zustand | latest | State management |
+| `marked` | latest | Markdown → HTML rendering |
 
 ### 5.2 Layout Structure
 
@@ -1186,29 +1474,41 @@ Since `cardSlug` is unique across the entire project (not scoped to a lane), the
 
 ```
 App
-├── Header
-│   ├── Logo / Title
-│   └── SidebarToggleButton
-├── ProjectSidebar (collapsible left panel)
-│   ├── ProjectList
-│   │   └── ProjectItem (per project)
-│   └── CreateProjectButton → CreateProjectModal
-├── KanbanBoard
-│   ├── Lane (per visible lane)
-│   │   ├── LaneHeader (display name + color bar + [+] button)
-│   │   ├── CardList (sortable via @dnd-kit)
-│   │   │   └── CardPreview (per card)
-│   │   │       ├── CardTitle
-│   │   │       ├── TaskProgressBadge ("3/5")
-│   │   │       └── AssigneeBadge
-│   │   └── QuickAddCard (inline input, appears on [+] click)
-│   └── CollapsedLaneTab (per collapsed lane, vertical text label)
-└── CardDetailPanel (slides in from right, overlay)
-    ├── CardDetailHeader (title, metadata badges)
-    ├── CardMetadata (assignee, priority, tags, dates)
-    ├── CardContent (rendered Markdown via `marked`)
-    └── TaskList (interactive checkboxes)
-        └── TaskCheckbox (per task)
+└── MainLayout (CSS grid: sidebar + content)
+    ├── Header
+    │   ├── Logo / Title
+    │   ├── SearchInput (cross-card search with highlighting)
+    │   ├── ActivityToggleButton
+    │   └── SidebarToggleButton
+    ├── ProjectSidebar (collapsible left panel)
+    │   ├── ProjectList (with card counts per project)
+    │   │   └── ProjectItem (per project)
+    │   └── CreateProjectButton → CreateProjectModal
+    ├── KanbanBoard
+    │   ├── Lane (per visible lane)
+    │   │   ├── LaneHeader (display name + color bar + card count + collapse toggle)
+    │   │   ├── CardList (sortable via @dnd-kit)
+    │   │   │   └── AnimatedCardWrapper (change indicators with auto-expiry)
+    │   │   │       └── CardPreview (per card)
+    │   │   │           ├── CardTitle (with cardId badge)
+    │   │   │           ├── CardPreviewTasks (expandable pending tasks)
+    │   │   │           ├── TaskProgressBar + count ("3/5")
+    │   │   │           └── AssigneeBadge + Tags
+    │   │   └── QuickAddCard (inline input, appears on [+] click)
+    │   └── CollapsedLaneTab (per collapsed lane, vertical text label)
+    ├── CardDetailPanel (slides in from right via Framer Motion)
+    │   ├── CardDetailHeader (inline title editing, cardId, lane move dropdown)
+    │   ├── CardMetadata (inline editing: priority, assignee, tags, dates, blockedReason)
+    │   ├── CardContent (description editing, rendered Markdown body via `marked`)
+    │   ├── TaskList (interactive checkboxes with inline editing and deletion)
+    │   │   ├── TaskCheckbox (per task)
+    │   │   └── AddTaskInput
+    │   ├── CardLinks (URL references with kind classification, add/edit/delete)
+    │   └── CardFiles (associated reference files with association input)
+    ├── ActivityPanel (slide-out panel with time-grouped history events)
+    │   └── ActivityLog (grouped: Today, Yesterday, This Week, etc.)
+    └── FilesPanel (project file management: upload, list, describe, associate)
+        └── FileListItem (per file)
 ```
 
 ### 5.4 Zustand Store
@@ -1227,6 +1527,7 @@ interface DevPlannerStore {
   cards: CardSummary[];
   loadCards: (projectSlug: string) => Promise<void>;
   createCard: (projectSlug: string, title: string, lane: string) => Promise<void>;
+  updateCard: (projectSlug: string, cardSlug: string, updates: Partial<CardFrontmatter>) => Promise<void>;
   archiveCard: (projectSlug: string, cardSlug: string) => Promise<void>;
   moveCard: (projectSlug: string, cardSlug: string, targetLane: string, position?: number) => Promise<void>;
   reorderCards: (projectSlug: string, laneSlug: string, order: string[]) => Promise<void>;
@@ -1238,14 +1539,38 @@ interface DevPlannerStore {
   closeCardDetail: () => void;
   toggleTask: (projectSlug: string, cardSlug: string, taskIndex: number, checked: boolean) => Promise<void>;
   addTask: (projectSlug: string, cardSlug: string, text: string) => Promise<void>;
+  editTask: (projectSlug: string, cardSlug: string, taskIndex: number, text: string) => Promise<void>;
+  deleteTask: (projectSlug: string, cardSlug: string, taskIndex: number) => Promise<void>;
+
+  // Links
+  addLink: (projectSlug: string, cardSlug: string, data: { label: string; url: string; kind?: LinkKind }) => Promise<void>;
+  updateLink: (projectSlug: string, cardSlug: string, linkId: string, updates: Partial<CardLink>) => Promise<void>;
+  deleteLink: (projectSlug: string, cardSlug: string, linkId: string) => Promise<void>;
+
+  // Files
+  files: FileMetadata[];
+  loadFiles: (projectSlug: string) => Promise<void>;
+
+  // Search
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+
+  // Activity History
+  historyEvents: HistoryEvent[];
+  loadHistory: (projectSlug: string) => Promise<void>;
 
   // Lane visibility
   laneCollapsedState: Record<string, boolean>;
   toggleLaneCollapsed: (laneSlug: string) => void;
 
-  // Sidebar
+  // Sidebar & Panels
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
+  isActivityPanelOpen: boolean;
+  toggleActivityPanel: () => void;
+
+  // WebSocket
+  wsConnected: boolean;
 }
 ```
 
@@ -1330,17 +1655,20 @@ Each card preview includes an expandable section showing pending (unchecked) tas
 | Tablet (768–1279px) | Hidden by default, overlay | Horizontal scroll | Full-width overlay |
 | Mobile (<768px) | Hidden, hamburger menu | Stacked vertically or swipeable | Full-screen overlay |
 
-### 5.8 Attachments (Future)
+### 5.8 File Management
 
-**Card Detail Panel - Attachments Section:**
-- Collapsible section between metadata and content
-- Lists linked files with icons by type
-- "Add attachment" with autocomplete search of project files
-- Click to open file in editor or preview
+**Card Detail Panel - CardFiles Section:**
+- Located below CardLinks in the detail panel
+- Lists associated files with MIME type icons
+- FileAssociationInput for linking existing project files to the card
+- Click to download file
 
-**CardPreview - Attachment Indicator:**
-- Small paperclip icon with count when attachments exist
-- Shown in card footer alongside tags
+**FilesPanel - Project File Management:**
+- Slide-out panel for uploading and managing project files
+- Upload via file input, optional description
+- File list with metadata (size, type, upload date, associated cards)
+- Inline description editing
+- Associate/disassociate files with cards
 
 ---
 

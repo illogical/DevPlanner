@@ -11,21 +11,49 @@ DevPlanner bridges the gap between human developers and AI coding agents by prov
 ```
 DevPlanner/
 ├── src/                        # Backend (Bun + Elysia, port 17103)
-│   ├── server.ts               # Elysia app setup, route registration
-│   ├── routes/                 # Thin route handlers (projects, cards, tasks)
+│   ├── server.ts               # Elysia app setup, error handler, route registration
+│   ├── mcp-server.ts           # MCP server entry point (stdio transport)
+│   ├── routes/                 # Thin route handlers
+│   │   ├── projects.ts         # Project CRUD
+│   │   ├── cards.ts            # Card CRUD, search
+│   │   ├── tasks.ts            # Task add, toggle, edit, delete
+│   │   ├── links.ts            # Card URL link CRUD
+│   │   ├── files.ts            # File upload, metadata, associations
+│   │   ├── history.ts          # Per-project activity history
+│   │   ├── activity.ts         # Cross-project activity feed
+│   │   ├── stats.ts            # Project health metrics
+│   │   ├── preferences.ts      # Workspace preferences
+│   │   ├── backup.ts           # Workspace backup
+│   │   └── websocket.ts        # WebSocket upgrade handler
 │   ├── services/               # Core business logic and file I/O
-│   │   ├── markdown.service.ts # Frontmatter parsing, checklist manipulation
+│   │   ├── card.service.ts     # Card CRUD, move, reorder, search
+│   │   ├── task.service.ts     # Checklist add/toggle/edit/delete (per-card mutex)
+│   │   ├── link.service.ts     # Card URL link management
 │   │   ├── project.service.ts  # Project CRUD
-│   │   ├── card.service.ts     # Card CRUD, move, reorder
-│   │   └── task.service.ts     # Checklist add/toggle
+│   │   ├── file.service.ts     # File upload, metadata, card associations
+│   │   ├── markdown.service.ts # Frontmatter parsing, checklist manipulation
+│   │   ├── history.service.ts  # In-memory activity event tracking
+│   │   ├── history-persistence.service.ts # History JSON file persistence
+│   │   ├── websocket.service.ts    # WebSocket connection management, broadcasting
+│   │   ├── file-watcher.service.ts # External file change detection
+│   │   ├── backup.service.ts   # Workspace backup to zip
+│   │   ├── preferences.service.ts  # Workspace preferences (digestAnchor, etc.)
+│   │   └── config.service.ts   # Singleton env var loader
+│   ├── mcp/                    # MCP server for AI agents
+│   │   ├── tool-handlers.ts    # 17 tool implementations
+│   │   ├── resource-providers.ts # 3 resource providers
+│   │   ├── schemas.ts          # JSON schemas for tool inputs
+│   │   ├── errors.ts           # LLM-friendly error messages
+│   │   └── types.ts            # MCP-specific type definitions
 │   ├── types/                  # Shared TypeScript interfaces
-│   ├── utils/                  # Slug generation
+│   ├── utils/                  # Slug generation, prefix utilities
 │   └── seed.ts                 # Seed data script
 ├── frontend/                   # Frontend (React 19 + Vite + Tailwind CSS 4)
 │   └── src/
-│       ├── api/client.ts       # API client functions
+│       ├── api/client.ts       # Typed fetch wrappers for all endpoints
+│       ├── services/           # WebSocket client
 │       ├── store/index.ts      # Zustand state management
-│       └── components/         # React components (Kanban board, lanes, cards)
+│       └── components/         # React components (Kanban, card detail, activity, files)
 └── workspace/                  # Project data directory (gitignored)
 ```
 
@@ -36,7 +64,12 @@ Project data lives in `$DEVPLANNER_WORKSPACE` (configurable via env var):
 ```
 workspace/
 └── my-project/
-    ├── _project.json           # Project metadata and lane config
+    ├── _project.json           # Project metadata, lane config, card ID prefix
+    ├── _files.json             # File metadata and card associations
+    ├── _files/                 # Uploaded reference files (gitignored)
+    │   ├── design-spec.pdf
+    │   └── api-docs.md
+    ├── _history.json           # Persisted activity history events
     ├── 01-upcoming/
     │   ├── _order.json         # Card display order for drag-and-drop
     │   └── feature-card.md     # Card: YAML frontmatter + Markdown body
@@ -45,7 +78,7 @@ workspace/
     └── 04-archive/
 ```
 
-Cards are `.md` files with frontmatter for metadata (title, priority, assignee, tags) and standard Markdown checkboxes (`- [ ]` / `- [x]`) for task tracking.
+Cards are `.md` files with YAML frontmatter for metadata (title, description, priority, assignee, tags, cardNumber, blockedReason) and standard Markdown checkboxes (`- [ ]` / `- [x]`) for task tracking. Each card has a unique `cardId` (e.g., `DEV-42`) composed from the project prefix and card number.
 
 ## Tech Stack
 
@@ -54,11 +87,13 @@ Cards are `.md` files with frontmatter for metadata (title, priority, assignee, 
 | Runtime | Bun |
 | Backend | Elysia |
 | Markdown parsing | gray-matter |
+| AI agent protocol | @modelcontextprotocol/sdk (MCP) |
 | Frontend framework | React 19 |
 | Build tool | Vite 6 |
 | Styling | Tailwind CSS 4 (dark mode) |
 | State management | Zustand |
 | Drag-and-drop | @dnd-kit |
+| Animations | Framer Motion |
 | Markdown rendering | marked |
 
 ## Getting Started
@@ -253,46 +288,64 @@ All endpoints are under `/api` and return JSON.
 | `PATCH` | `/api/projects/:slug/cards/:card` | Update card metadata |
 | `PATCH` | `/api/projects/:slug/cards/:card/move` | Move card to lane |
 | `POST` | `/api/projects/:slug/cards/:card/tasks` | Add checklist item |
-| `PATCH` | `/api/projects/:slug/cards/:card/tasks/:index` | Toggle task |
+| `PATCH` | `/api/projects/:slug/cards/:card/tasks/:index` | Toggle or edit task |
+| `DELETE` | `/api/projects/:slug/cards/:card/tasks/:index` | Delete task |
 | `POST` | `/api/projects/:slug/cards/:card/links` | Add a URL link to a card |
 | `PATCH` | `/api/projects/:slug/cards/:card/links/:linkId` | Update a link |
 | `DELETE` | `/api/projects/:slug/cards/:card/links/:linkId` | Delete a link |
+| `GET` | `/api/projects/:slug/cards/search?q=` | Search cards by title, tasks, description |
 | `PATCH` | `/api/projects/:slug/lanes/:lane/order` | Reorder cards in lane |
+| `GET` | `/api/projects/:slug/files` | List project files |
+| `POST` | `/api/projects/:slug/files` | Upload file |
+| `GET` | `/api/projects/:slug/files/:filename` | Get file metadata |
+| `PATCH` | `/api/projects/:slug/files/:filename` | Update file description |
+| `DELETE` | `/api/projects/:slug/files/:filename` | Delete file |
+| `GET` | `/api/projects/:slug/files/:filename/download` | Download file |
+| `POST` | `/api/projects/:slug/files/:filename/associate` | Associate file with card |
+| `DELETE` | `/api/projects/:slug/files/:filename/associate/:card` | Disassociate file from card |
+| `GET` | `/api/projects/:slug/cards/:card/files` | List files for a card |
 | `GET` | `/api/projects/:slug/stats` | Project health stats |
 | `GET` | `/api/projects/:slug/history` | Activity history (`?limit=`, `?since=`) |
 | `GET` | `/api/activity` | Cross-project activity feed (`?since=`, `?limit=`) |
 | `GET` | `/api/preferences` | Get workspace preferences |
 | `PATCH` | `/api/preferences` | Update preferences (incl. `digestAnchor`) |
+| `POST` | `/api/backup` | Create workspace backup (zip) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
 See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.
 
 ## Features
 
-### Current (Phase 20 Complete)
-- ✅ **Kanban Board UI** - Drag-and-drop cards between lanes
-- ✅ **Card Management** - Create, edit, archive cards with Markdown content; `blockedReason` field
-- ✅ **Task Tracking** - Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps
+### Current
+- ✅ **Kanban Board UI** - Drag-and-drop cards between lanes with collapsible lanes
+- ✅ **Card Management** - Create, edit, archive cards with Markdown content; description, `blockedReason` field, inline title/metadata editing
+- ✅ **Card IDs** - Unique identifiers (e.g., `DEV-42`) with project-configurable prefix
+- ✅ **Card Links** - Attach structured URL references to cards (docs, specs, tickets, repos) with kind classification
+- ✅ **Task Tracking** - Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps; inline task editing and deletion
 - ✅ **Project Management** - Multi-project support with card counts
-- ✅ **Real-time Sync** - WebSocket infrastructure for live updates
+- ✅ **Search & Filter** - Cross-card search with highlighting across titles, descriptions, and tasks
+- ✅ **File Management** - Upload reference files, associate with cards, read text files via MCP
+- ✅ **Real-time Sync** - WebSocket infrastructure for live updates across clients
 - ✅ **File Watching** - Automatic detection of external file changes
 - ✅ **Activity History** - Per-project history with `?since=` filter; cross-project `/api/activity` feed
-- ✅ **Project Stats** - `/api/projects/:slug/stats` endpoint (WIP count, backlog depth, completion velocity)
+- ✅ **Project Stats** - Health metrics endpoint (WIP count, backlog depth, completion velocity)
 - ✅ **Digest Checkpoint** - `digestAnchor` preference for precise time-bounded agent queries
 - ✅ **Visual Indicators** - Animated feedback for background changes
 - ✅ **Responsive Design** - Mobile, tablet, and desktop layouts
 - ✅ **Preferences** - Last-selected project and digest anchor persistence
+- ✅ **Backup** - Workspace backup to zip via API
 - ✅ **MCP Server** - Model Context Protocol integration for AI agents (17 tools, 3 resources)
-- ✅ **Card Links** - Attach structured URL references to cards (docs, specs, tickets, repos) with `doc|spec|ticket|repo|reference|other` kind classification
+- ✅ **Docker** - Containerized deployment with single-port serving (UI + API)
 
 ### Planned (Post-MVP)
-- 📋 **User Attribution** - Track who made each change
-- 📋 **Task Status** - Mark tasks as in-progress, not just done/undone
-- 📋 **History Persistence** - JSON file storage with write queue
-- 📋 **Multi-Agent Support** - Coordinate multiple AI agents on different tasks
+- 📋 **Concurrency Guard** - Per-resource locking and operation queue for multi-agent safety ([spec](docs/features/concurrency-operation-queue.md))
+- 📋 **User Attribution** - Track who made each change (agent identity via `X-DevPlanner-Actor` header)
+- 📋 **WebSocket Smart Merge** - Prevent edit interruptions when agents update cards being edited
+- 📋 **History Persistence** - Durable JSON file storage with write queue and rotation
+- 📋 **Multi-Agent Support** - Coordinate multiple AI agents with claim/release, session registry
+- 📋 **Sub-task Support** - Nested checklists with indentation
+- 📋 **Dashboard View** - Project health metrics at a glance
 - 📋 **Markdown Editor** - Rich text editing for card content
-- 📋 **Search & Filter** - Find cards and tasks across projects
-- 📋 **Project README** - Per-project background document accessible to AI agents via API and MCP
 
 ## Project Documents
 
