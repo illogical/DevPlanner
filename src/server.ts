@@ -15,6 +15,7 @@ import { ConfigService } from './services/config.service';
 import { WebSocketService } from './services/websocket.service';
 import { FileWatcherService } from './services/file-watcher.service';
 import { HistoryService } from './services/history.service';
+import { ResourceBusyError } from './utils/resource-lock';
 
 // Load and validate configuration
 const config = ConfigService.getInstance();
@@ -46,6 +47,17 @@ const app = new Elysia()
       return {
         error: 'validation_error',
         message: error.message,
+      };
+    }
+
+    // Handle ResourceBusyError (lock timeout)
+    if (error instanceof ResourceBusyError) {
+      set.status = 503;
+      set.headers['Retry-After'] = '1';
+      return {
+        error: 'RESOURCE_BUSY',
+        message: error.message,
+        retryAfterMs: error.retryAfterMs,
       };
     }
 
