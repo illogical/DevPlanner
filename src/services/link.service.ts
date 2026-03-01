@@ -92,7 +92,6 @@ export class LinkService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    
     const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
@@ -150,7 +149,6 @@ export class LinkService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    
     const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
@@ -222,7 +220,6 @@ export class LinkService {
       throw new Error(`Card not found: ${cardSlug}`);
     }
 
-    
     const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
 
     try {
