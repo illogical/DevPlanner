@@ -258,13 +258,13 @@ These were planned as enhancements after the MVP and are now done:
 
 ## Priority 1: Search Improvements (Command Palette)
 
-**Spec:** `docs/features/search-palette.md` *(to be created)*
+**Spec:** `docs/features/search-palette.md`
 
 Replace the current inline header search with a keyboard-driven command-palette overlay (inspired by VS Code Command Palette, JetBrains Search Everywhere, and Raycast). A global shortcut opens the palette; results appear as you type with context labels; arrow keys navigate; Enter activates; Esc dismisses.
 
 ### Search Palette UI
 - [ ] Create `SearchPalette.tsx` overlay — full-screen dimmed backdrop, centered rounded panel, real-time result list with Framer Motion entrance/exit animations
-- [ ] Register global keyboard shortcut (`Ctrl+K` / `Cmd+K` or TBD) to open the palette; `Esc` to close
+- [ ] Register global keyboard shortcut (`Ctrl+K` / `Cmd+K`) to open the palette; `Esc` to close
 - [ ] Remove the current inline header search input; replace with a small "Search" button/chip showing the shortcut hint
 - [ ] Arrow-key navigation with looping focus; `Enter` to activate; mouse hover also works
 - [ ] Show a context label chip on every result (see Result Types below)
