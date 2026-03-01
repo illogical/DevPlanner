@@ -12,7 +12,258 @@ import type {
   CardMovedData,
   CardDeletedData,
   LaneReorderedData,
+  PaletteSearchResult,
 } from '../types';
+
+/** Build a 120-char snippet around the first match of query in text */
+function buildSnippet(text: string, query: string): string {
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text.slice(0, 120);
+  const start = Math.max(0, idx - 40);
+  const end = Math.min(text.length, start + 120);
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < text.length ? '…' : '';
+  return prefix + text.slice(start, end) + suffix;
+}
+
+/** Simple score: full word match > substring match */
+function scoreMatch(text: string, query: string): number {
+  const lower = text.toLowerCase();
+  const q = query.toLowerCase();
+  if (lower === q) return 100;
+  if (lower.startsWith(q)) return 80;
+  // Escape special regex chars; the \\$& replacement is intentional (inserts matched char)
+  const wordBoundary = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+  if (wordBoundary.test(text)) return 60;
+  if (lower.includes(q)) return 40;
+  return 0;
+}
+
+/** Search a single project and return palette results */
+export async function searchProjectForPalette(
+  projectSlug: string,
+  query: string,
+  cardService: CardService,
+  fileService: FileService
+): Promise<PaletteSearchResult[]> {
+  const q = query.trim().toLowerCase();
+  const results: PaletteSearchResult[] = [];
+
+  const cards = await cardService.listCards(projectSlug);
+  const files = await fileService.listFiles(projectSlug).catch(() => []);
+
+  // Build a map: cardSlug -> files for that card
+  const filesByCard = new Map<string, typeof files>();
+  for (const file of files) {
+    for (const slug of file.cardSlugs) {
+      if (!filesByCard.has(slug)) filesByCard.set(slug, []);
+      filesByCard.get(slug)!.push(file);
+    }
+  }
+
+  for (const card of cards) {
+    const cardTitle = card.frontmatter.title;
+    const cardId = card.cardId ?? undefined;
+    const laneSlug = card.lane;
+
+    // Card title match
+    const titleScore = scoreMatch(cardTitle, query);
+    if (titleScore > 0) {
+      results.push({
+        type: 'card',
+        cardSlug: card.slug,
+        cardTitle,
+        cardId,
+        laneSlug,
+        projectSlug,
+        primaryText: cardTitle,
+        score: titleScore + 10, // boost
+      });
+    }
+
+    // Card ID match (e.g. "MP-42")
+    if (cardId && cardId.toLowerCase().includes(q)) {
+      // Only add if not already added for title
+      const already = results.find(r => r.type === 'card' && r.cardSlug === card.slug);
+      if (!already) {
+        results.push({
+          type: 'card',
+          cardSlug: card.slug,
+          cardTitle,
+          cardId,
+          laneSlug,
+          projectSlug,
+          primaryText: cardTitle,
+          score: 70,
+        });
+      }
+    }
+
+    // Tag match
+    for (const tag of card.frontmatter.tags ?? []) {
+      const s = scoreMatch(tag, query);
+      if (s > 0) {
+        results.push({
+          type: 'tag',
+          cardSlug: card.slug,
+          cardTitle,
+          cardId,
+          laneSlug,
+          projectSlug,
+          primaryText: tag,
+          score: s,
+        });
+      }
+    }
+
+    // Assignee match
+    if (card.frontmatter.assignee) {
+      const s = scoreMatch(card.frontmatter.assignee, query);
+      if (s > 0) {
+        results.push({
+          type: 'assignee',
+          cardSlug: card.slug,
+          cardTitle,
+          cardId,
+          laneSlug,
+          projectSlug,
+          primaryText: card.frontmatter.assignee,
+          score: s,
+        });
+      }
+    }
+
+    // For description, tasks, and links we need the full card
+    let fullCard: Awaited<ReturnType<typeof cardService.getCard>> | null = null;
+    const needFullCard =
+      card.frontmatter.description ||
+      card.taskProgress.total > 0 ||
+      card.frontmatter.links?.length;
+
+    if (needFullCard) {
+      try {
+        fullCard = await cardService.getCard(projectSlug, card.slug);
+      } catch {
+        fullCard = null;
+      }
+    }
+
+    if (fullCard) {
+      // Description match (search both frontmatter description and Markdown body)
+      const descText = fullCard.frontmatter.description || fullCard.content;
+      if (descText) {
+        const s = scoreMatch(descText, query);
+        if (s > 0) {
+          results.push({
+            type: 'description',
+            cardSlug: card.slug,
+            cardTitle,
+            cardId,
+            laneSlug,
+            projectSlug,
+            primaryText: cardTitle,
+            snippet: buildSnippet(descText, query),
+            score: s,
+          });
+        }
+      }
+
+      // Task matches
+      for (const task of fullCard.tasks) {
+        const s = scoreMatch(task.text, query);
+        if (s > 0) {
+          results.push({
+            type: 'task',
+            cardSlug: card.slug,
+            cardTitle,
+            cardId,
+            laneSlug,
+            projectSlug,
+            taskIndex: task.index,
+            primaryText: task.text,
+            snippet: buildSnippet(task.text, query),
+            score: s,
+          });
+        }
+      }
+
+      // Link matches
+      const links = fullCard.frontmatter.links ?? [];
+      for (const link of links) {
+        // Link URL match
+        const urlScore = scoreMatch(link.url, query);
+        if (urlScore > 0) {
+          results.push({
+            type: 'link',
+            cardSlug: card.slug,
+            cardTitle,
+            cardId,
+            laneSlug,
+            projectSlug,
+            linkId: link.id,
+            primaryText: link.url,
+            score: urlScore,
+          });
+        }
+        // Link label match
+        const labelScore = scoreMatch(link.label, query);
+        if (labelScore > 0) {
+          results.push({
+            type: 'link-label',
+            cardSlug: card.slug,
+            cardTitle,
+            cardId,
+            laneSlug,
+            projectSlug,
+            linkId: link.id,
+            primaryText: link.label,
+            score: labelScore,
+          });
+        }
+      }
+    }
+
+    // File matches for this card
+    const cardFiles = filesByCard.get(card.slug) ?? [];
+    for (const file of cardFiles) {
+      // File name match
+      const nameScore = scoreMatch(file.originalName || file.filename, query);
+      if (nameScore > 0) {
+        results.push({
+          type: 'file',
+          cardSlug: card.slug,
+          cardTitle,
+          cardId,
+          laneSlug,
+          projectSlug,
+          fileFilename: file.filename,
+          primaryText: file.originalName || file.filename,
+          score: nameScore,
+        });
+      }
+      // File description match
+      if (file.description) {
+        const descScore = scoreMatch(file.description, query);
+        if (descScore > 0) {
+          results.push({
+            type: 'file-description',
+            cardSlug: card.slug,
+            cardTitle,
+            cardId,
+            laneSlug,
+            projectSlug,
+            fileFilename: file.filename,
+            primaryText: file.originalName || file.filename,
+            snippet: buildSnippet(file.description, query),
+            score: descScore,
+          });
+        }
+      }
+    }
+  }
+
+  return results;
+}
 
 export const cardRoutes = (workspacePath: string) => {
   const cardService = new CardService(workspacePath);
@@ -152,6 +403,19 @@ export const cardRoutes = (workspacePath: string) => {
         }
       }
 
+      return { results, query: searchQuery };
+    })
+    .get('/api/projects/:projectSlug/search', async ({ params, query }) => {
+      const searchQuery = query.q?.trim();
+      if (!searchQuery || searchQuery.length < 2) {
+        return { results: [], query: searchQuery ?? '' };
+      }
+      const results = await searchProjectForPalette(
+        params.projectSlug,
+        searchQuery,
+        cardService,
+        fileService
+      );
       return { results, query: searchQuery };
     })
     .get('/api/projects/:projectSlug/cards/:cardSlug', async ({ params }) => {

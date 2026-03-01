@@ -92,3 +92,14 @@ textarea {
 .card-hover:hover {
   @apply brightness-110 shadow-md shadow-black/10;
 }
+
+/* Search palette section highlight animation */
+.highlight-pulse {
+  animation: highlight-pulse-anim 2s ease-out;
+}
+
+@keyframes highlight-pulse-anim {
+  0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+  50%  { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+  100% { box-shadow: none; }
+}

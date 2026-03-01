@@ -263,14 +263,14 @@ These were planned as enhancements after the MVP and are now done:
 Replace the current inline header search with a keyboard-driven command-palette overlay (inspired by VS Code Command Palette, JetBrains Search Everywhere, and Raycast). A global shortcut opens the palette; results appear as you type with context labels; arrow keys navigate; Enter activates; Esc dismisses.
 
 ### Search Palette UI
-- [ ] Create `SearchPalette.tsx` overlay — full-screen dimmed backdrop, centered rounded panel, real-time result list with Framer Motion entrance/exit animations
-- [ ] Register global keyboard shortcut (`Ctrl+K` / `Cmd+K`) to open the palette; `Esc` to close
-- [ ] Remove the current inline header search input; replace with a small "Search" button/chip showing the shortcut hint
-- [ ] Arrow-key navigation with looping focus; `Enter` to activate; mouse hover also works
-- [ ] Show a context label chip on every result (see Result Types below)
-- [ ] Group results by type with collapsible section headers (max ~5 per group, "Show more" expander)
-- [ ] Show a text snippet with the matched portion highlighted for description / task / file-description / link-description results
-- [ ] Debounce input at 150 ms; minimum 2 characters before querying
+- [x] Create `SearchPalette.tsx` overlay — full-screen dimmed backdrop, centered rounded panel, real-time result list with Framer Motion entrance/exit animations
+- [x] Register global keyboard shortcut (`Ctrl+K` / `Cmd+K`) to open the palette; `Esc` to close
+- [x] Remove the current inline header search input; replace with a small "Search" button/chip showing the shortcut hint
+- [x] Arrow-key navigation with looping focus; `Enter` to activate; mouse hover also works
+- [x] Show a context label chip on every result (see Result Types below)
+- [x] Group results by type with collapsible section headers (max ~5 per group, "Show more" expander)
+- [x] Show a text snippet with the matched portion highlighted for description / task / file-description / link-description results
+- [x] Debounce input at 150 ms; minimum 2 characters before querying
 
 ### Result Types & Context Labels
 
@@ -289,34 +289,34 @@ Replace the current inline header search with a keyboard-driven command-palette 
 | `Lane` | Lane display name (for direct lane navigation) |
 | `Project` | Project name / description |
 
-- [ ] Finalize label taxonomy (review with user, add/remove labels as needed)
-- [ ] Design label chip styles — small colored pill, one distinctive color per label type
+- [x] Finalize label taxonomy (review with user, add/remove labels as needed)
+- [x] Design label chip styles — small colored pill, one distinctive color per label type
 
 ### Fuzzy Search Engine
-- [ ] Implement `fuzzy.ts` utility in `frontend/src/utils/` — score-based matching: exact substring > word-prefix > initials (e.g. `"cp"` matches `"Card Preview"`)
-- [ ] Apply fuzzy scoring to local in-memory results for instant feel; backend call supplements with description / file / link fields
-- [ ] Min score threshold to suppress low-confidence matches
+- [x] Implement `fuzzy.ts` utility in `frontend/src/utils/` — score-based matching: exact substring > word-prefix > initials (e.g. `"cp"` matches `"Card Preview"`)
+- [x] Apply fuzzy scoring to local in-memory results for instant feel; backend call supplements with description / file / link fields
+- [x] Min score threshold to suppress low-confidence matches
 
 ### Backend Search API
-- [ ] Extend `GET /api/projects/:slug/cards/search` to include card description body, file names, file descriptions, link URLs, link labels, link descriptions, and assignees in the match scope
-- [ ] Return structured results: `{ type, cardSlug, laneSlug, field, snippet, score }` per match
-- [ ] Add `GET /api/projects/:slug/search?q=&types=` — type-filtered version for agent use
-- [ ] Add `GET /api/search?q=&projects=` — global cross-project search (agent-facing)
-- [ ] Keep `GET /api/projects/:slug/cards/search?q=` backward-compatible for existing clients
+- [x] Extend `GET /api/projects/:slug/cards/search` to include card description body, file names, file descriptions, link URLs, link labels, link descriptions, and assignees in the match scope
+- [x] Return structured results: `{ type, cardSlug, laneSlug, field, snippet, score }` per match
+- [x] Add `GET /api/projects/:slug/search?q=&types=` — type-filtered version for agent use
+- [x] Add `GET /api/search?q=&projects=` — global cross-project search (agent-facing)
+- [x] Keep `GET /api/projects/:slug/cards/search?q=` backward-compatible for existing clients
 
 ### Navigation Behavior
-- [ ] **Card / Identifier** — switch to card's project + lane, open card detail panel
-- [ ] **Task** — open card detail panel, scroll to Tasks section, briefly pulse-highlight the matched task row
-- [ ] **Description** — open card detail panel, switch to edit/view mode, scroll to matched text and highlight
-- [ ] **Tag / Assignee / Priority** — open card detail panel, scroll to metadata section, highlight the matching field row
-- [ ] **File / File Description** — open card detail panel, scroll to Files section, highlight the matching file row
-- [ ] **Link URL / Label / Description** — open card detail panel, scroll to Links section, highlight the matching link row
+- [x] **Card / Identifier** — switch to card's project + lane, open card detail panel
+- [x] **Task** — open card detail panel, scroll to Tasks section, briefly pulse-highlight the matched task row
+- [x] **Description** — open card detail panel, switch to edit/view mode, scroll to matched text and highlight
+- [x] **Tag / Assignee / Priority** — open card detail panel, scroll to metadata section, highlight the matching field row
+- [x] **File / File Description** — open card detail panel, scroll to Files section, highlight the matching file row
+- [x] **Link URL / Label / Description** — open card detail panel, scroll to Links section, highlight the matching link row
 - [ ] **Lane** — scroll Kanban board to that lane, briefly pulse the lane header
 - [ ] **Project** — switch active project in sidebar
 
 ### Post-Navigation Highlight Cleanup
-- [ ] Auto-clear row highlights after 2–3 seconds (use existing `AnimatedCardWrapper` infrastructure where possible)
-- [ ] Implement a `highlightTarget` store field (`{ section, index }`) consumed by card detail panel sections to trigger highlight animations
+- [x] Auto-clear row highlights after 2–3 seconds (use existing `AnimatedCardWrapper` infrastructure where possible)
+- [x] Implement a `highlightTarget` store field (`{ section, index }`) consumed by card detail panel sections to trigger highlight animations
 
 ### Future: RAG Integration
 - [ ] Add `GET /api/projects/:slug/search?mode=semantic` stub (returns `501 Not Implemented` until embedding pipeline is ready)

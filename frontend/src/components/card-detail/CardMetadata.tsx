@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Badge, AssigneeBadge, PriorityBadge } from '../ui/Badge';
 import { TagInput } from '../ui/TagInput';
 import { useStore } from '../../store';
+import { useDetailScroll } from '../../hooks/useDetailScroll';
 import type { Card } from '../../types';
 
 interface CardMetadataProps {
@@ -195,6 +196,7 @@ function AssigneeSelector({
 export function CardMetadata({ card }: CardMetadataProps) {
   const { frontmatter } = card;
   const { updateCard, projectTags, loadProjectTags, activeProjectSlug } = useStore();
+  useDetailScroll('metadata');
 
   // Load project tags for autocomplete
   useEffect(() => {
@@ -214,7 +216,7 @@ export function CardMetadata({ card }: CardMetadataProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div id="card-section-metadata" className="space-y-4">
       {/* Priority and Status row */}
       <div className="flex flex-wrap gap-3">
         <div>

@@ -18,6 +18,8 @@ import type {
   CardLink,
   CreateLinkInput,
   UpdateLinkInput,
+  PaletteSearchResponse,
+  GlobalPaletteSearchResponse,
 } from '../types';
 
 const API_BASE = '/api';
@@ -343,6 +345,23 @@ export const preferencesApi = {
       method: 'PATCH',
       body: JSON.stringify(updates),
     }),
+};
+
+// Search (palette) endpoints
+export const searchApi = {
+  palette: (projectSlug: string, query: string) =>
+    fetchJSON<PaletteSearchResponse>(
+      `${API_BASE}/projects/${projectSlug}/search?q=${encodeURIComponent(query)}`
+    ),
+
+  global: (query: string, projects?: string[]) => {
+    const projectsParam = projects?.length
+      ? `&projects=${encodeURIComponent(projects.join(','))}`
+      : '';
+    return fetchJSON<GlobalPaletteSearchResponse>(
+      `${API_BASE}/search?q=${encodeURIComponent(query)}${projectsParam}`
+    );
+  },
 };
 
 export { ApiClientError };

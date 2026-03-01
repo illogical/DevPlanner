@@ -11,6 +11,7 @@ import { historyRoutes } from './routes/history';
 import { activityRoutes } from './routes/activity';
 import { statsRoutes } from './routes/stats';
 import { backupRoutes } from './routes/backup';
+import { searchRoutes } from './routes/search';
 import { ConfigService } from './services/config.service';
 import { WebSocketService } from './services/websocket.service';
 import { FileWatcherService } from './services/file-watcher.service';
@@ -98,7 +99,8 @@ const app = new Elysia()
   .use(historyRoutes)
   .use(activityRoutes(workspacePath))
   .use(statsRoutes(workspacePath))
-  .use(backupRoutes(workspacePath, config.backupDir));
+  .use(backupRoutes(workspacePath, config.backupDir))
+  .use(searchRoutes(workspacePath));
 
 // In production (Docker), serve the pre-built frontend on the same port as the API.
 // The frontend must be built first (`bun run build`) — the Dockerfile does this automatically.

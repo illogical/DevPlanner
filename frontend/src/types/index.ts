@@ -368,3 +368,51 @@ export interface SearchResponse {
   results: SearchResult[];
   query: string;
 }
+
+// Palette search types
+export type PaletteResultType =
+  | 'card'
+  | 'task'
+  | 'description'
+  | 'tag'
+  | 'assignee'
+  | 'file'
+  | 'file-description'
+  | 'link'
+  | 'link-label'
+  | 'link-description';
+
+export type PaletteFilterTab = 'all' | 'cards' | 'tasks' | 'files' | 'links';
+
+export interface PaletteSearchResult {
+  type: PaletteResultType;
+  cardSlug: string;
+  cardTitle: string;
+  cardId?: string;
+  laneSlug: string;
+  projectSlug: string;
+  taskIndex?: number;
+  fileFilename?: string;
+  linkId?: string;
+  primaryText: string;
+  snippet?: string;
+  score: number;
+}
+
+export interface PaletteSearchResponse {
+  results: PaletteSearchResult[];
+  query: string;
+}
+
+export interface GlobalPaletteSearchResponse {
+  results: PaletteSearchResult[];
+  query: string;
+  projectsSearched: string[];
+}
+
+export interface DetailScrollTarget {
+  section: 'description' | 'tasks' | 'metadata' | 'files' | 'links';
+  taskIndex?: number;
+  filename?: string;
+  linkId?: string;
+}
