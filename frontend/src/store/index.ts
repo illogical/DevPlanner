@@ -623,6 +623,10 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         activeCard: state.activeCard
           ? {
               ...state.activeCard,
+              frontmatter: {
+                ...state.activeCard.frontmatter,
+                updated: new Date().toISOString(),
+              },
               tasks: state.activeCard.tasks.map((t, i) =>
                 i === taskIndex ? { ...t, checked } : t
               ),
@@ -638,7 +642,13 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         const cardIndex = cards.findIndex((c) => c.slug === cardSlug);
         if (cardIndex !== -1) {
           newCardsByLane[lane] = cards.map((c, i) =>
-            i === cardIndex ? { ...c, taskProgress: result.taskProgress } : c
+            i === cardIndex
+              ? {
+                  ...c,
+                  frontmatter: { ...c.frontmatter, updated: new Date().toISOString() },
+                  taskProgress: result.taskProgress,
+                }
+              : c
           );
           break;
         }
@@ -692,6 +702,10 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
         return {
           activeCard: {
             ...state.activeCard,
+            frontmatter: {
+              ...state.activeCard.frontmatter,
+              updated: new Date().toISOString(),
+            },
             tasks: updatedTasks,
             content: updatedContent,
           },

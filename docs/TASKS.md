@@ -237,276 +237,318 @@ Build from the bottom up — `MarkdownService` has no dependencies, then `Projec
 
 ---
 
-# Upcoming Enhancements/Features
+# Completed Near-Term Features
 
-## Near-term priorities
+These were planned as enhancements after the MVP and are now done:
 
-### Card Identifiers
-
-**Spec:** `docs/features/card-identifiers.md`
-
-- [x] Implement `generatePrefix()` utility with uniqueness checking
-- [x] Update `ProjectService.createProject()` to auto-generate prefix and set `nextCardNumber: 1`
-- [x] Update `CardService.createCard()` to assign sequential card numbers from project config
-- [x] Create migration script to assign IDs to existing cards based on creation date order
-- [x] Update seed script to assign card numbers to seed data (automatic via service layer)
-- [x] Display card identifiers in `CardPreview` and `CardDetailHeader` components
-
-### Description Editor & Tag Management
-
-**Spec:** `docs/features/description-editor-tags.md`
-
-- [x] Add `GET /api/projects/:projectSlug/tags` backend endpoint to collect unique project tags
-- [x] Implement `cardsApi.update()` in frontend API client
-- [x] Add `updateCard()` store action with local action deduplication and change indicators
-- [x] Rewrite `CardContent.tsx` with view/edit toggle (pencil icon, Save/Cancel, Cmd+Enter)
-- [x] Create `TagInput.tsx` combobox component with autocomplete and "Create new" option
-- [x] Update `CardMetadata.tsx` to use `TagInput` for tag management
-
-### Title, Priority, Assignee Management
-
-**Spec:** `docs/features/card-editing.md`
-
-- [x] Add ability to update card titles
-- [x] Add ability to select a card's priority from a dropdown
-- [x] Ability to assign tasks to myself or an agent
-- [x] Ability to delete a card (along with a confirmation modal)
-- [x] Move the Attachments section to be fixed to the bottom of the editor area side panel
-
-
-### Search and Highlight
-
-**Spec:** `docs/features/search-highlight.md`
-
-- [x] Implement `GET /api/projects/:projectSlug/cards/search?q=` backend endpoint (before `:cardSlug` route)
-- [x] Add `cardsApi.search()` to frontend API client
-- [x] Add search state and debounced `executeSearch()` action to store
-- [x] Create `highlightText()` utility that wraps matches in `<mark>` elements
-- [x] Replace Header spacer with search input and integrate with store
-- [x] Update `CardPreview`, `CardPreviewTasks`, and `TaskCheckbox` to highlight and expand on matches
-
-
-### Reference/File Management
-
-**Backend Spec:** `docs/features/reference-file-management.md`
-**Frontend Spec:** `docs/features/frontend-file-management.md`
-
-**Backend Complete** ✓
-- [x] Implement FileService with CRUD, associations, MIME type detection (30 unit tests passing)
-- [x] Create REST API routes with WebSocket broadcasting for all file events
-- [x] Add file cleanup on card deletion
-- [x] Implement 3 MCP tools (list_project_files, list_card_files, read_file_content)
-- [x] Enhance get_card MCP tool to include file metadata
-- [x] Add comprehensive error handling with LLM-friendly messages
-
-**Frontend Ready for Implementation** 📋
-- [x] Add file types and WebSocket event interfaces
-- [x] Create filesApi client with upload, delete, associate, disassociate endpoints
-- [x] Document frontend implementation plan (see frontend spec above)
-- [x] Add file state and actions to Zustand store
-- [x] Register WebSocket handlers for real-time file updates
-- [x] Create CardFiles component for card detail panel
-- [x] Build FilesPanel sidebar for project-level file management
-- [x] Add Files toggle button in header
-
-**Testing & Integration**
-- [ ] End-to-end test: file upload/download through UI
-- [ ] Verify WebSocket synchronization across clients
-- [ ] Test MCP tools with AI agent workflows
-- [ ] Manual testing with various file types (text, scripts)
-
-#### Future: URL References
-- [ ] Extend `_files.json` to support URL references alongside file uploads (type discriminator, metadata fetching, MCP tools)
+- [x] **Card Identifiers** — sequential `PREFIX-N` IDs auto-assigned at creation, displayed in UI
+- [x] **Description Editor & Tags** — inline Markdown editor, `TagInput` combobox with autocomplete
+- [x] **Title / Priority / Assignee editing** — inline editing, priority dropdown, delete confirmation
+- [x] **Search & Highlight (v1)** — header search box, title + task highlighting with yellow rings
+- [x] **Reference/File Management** — upload, associate, download; `CardFiles` and `FilesPanel` components
+- [x] **API Improvements (Phase 20)** — history `since` filter, cross-project feed, stats endpoint, `blockedReason`, task timestamps, `digestAnchor`
+- [x] **Real-Time Activity History** — in-memory event log, ActivityLog panel, WebSocket broadcast
+- [x] **URL / Link Management on cards** — first-class link objects with label, URL, description; per-resource FIFO operation queue
 
 ---
 
-## Phase 19B: AI Agent File Creation ("Add File to Card")
+# Upcoming Enhancements — Priority Order
+
+---
+
+## Priority 1: Search Improvements (Command Palette)
+
+**Spec:** `docs/features/search-palette.md` *(to be created)*
+
+Replace the current inline header search with a keyboard-driven command-palette overlay (inspired by VS Code Command Palette, JetBrains Search Everywhere, and Raycast). A global shortcut opens the palette; results appear as you type with context labels; arrow keys navigate; Enter activates; Esc dismisses.
+
+### Search Palette UI
+- [ ] Create `SearchPalette.tsx` overlay — full-screen dimmed backdrop, centered rounded panel, real-time result list with Framer Motion entrance/exit animations
+- [ ] Register global keyboard shortcut (`Ctrl+K` / `Cmd+K` or TBD) to open the palette; `Esc` to close
+- [ ] Remove the current inline header search input; replace with a small "Search" button/chip showing the shortcut hint
+- [ ] Arrow-key navigation with looping focus; `Enter` to activate; mouse hover also works
+- [ ] Show a context label chip on every result (see Result Types below)
+- [ ] Group results by type with collapsible section headers (max ~5 per group, "Show more" expander)
+- [ ] Show a text snippet with the matched portion highlighted for description / task / file-description / link-description results
+- [ ] Debounce input at 150 ms; minimum 2 characters before querying
+
+### Result Types & Context Labels
+
+| Label | What it matches |
+|-------|----------------|
+| `Card` | Card title, card identifier (e.g. `MP-42`) |
+| `Task` | Checklist item text within a card |
+| `Description` | Card body / Markdown content |
+| `Tag` | Card tag values |
+| `Assignee` | Card assignee field |
+| `File` | Attached file name |
+| `File Description` | Attached file description metadata |
+| `Link` | Link URL (hostname + path) |
+| `Link Label` | Link display title |
+| `Link Description` | Link description metadata |
+| `Lane` | Lane display name (for direct lane navigation) |
+| `Project` | Project name / description |
+
+- [ ] Finalize label taxonomy (review with user, add/remove labels as needed)
+- [ ] Design label chip styles — small colored pill, one distinctive color per label type
+
+### Fuzzy Search Engine
+- [ ] Implement `fuzzy.ts` utility in `frontend/src/utils/` — score-based matching: exact substring > word-prefix > initials (e.g. `"cp"` matches `"Card Preview"`)
+- [ ] Apply fuzzy scoring to local in-memory results for instant feel; backend call supplements with description / file / link fields
+- [ ] Min score threshold to suppress low-confidence matches
+
+### Backend Search API
+- [ ] Extend `GET /api/projects/:slug/cards/search` to include card description body, file names, file descriptions, link URLs, link labels, link descriptions, and assignees in the match scope
+- [ ] Return structured results: `{ type, cardSlug, laneSlug, field, snippet, score }` per match
+- [ ] Add `GET /api/projects/:slug/search?q=&types=` — type-filtered version for agent use
+- [ ] Add `GET /api/search?q=&projects=` — global cross-project search (agent-facing)
+- [ ] Keep `GET /api/projects/:slug/cards/search?q=` backward-compatible for existing clients
+
+### Navigation Behavior
+- [ ] **Card / Identifier** — switch to card's project + lane, open card detail panel
+- [ ] **Task** — open card detail panel, scroll to Tasks section, briefly pulse-highlight the matched task row
+- [ ] **Description** — open card detail panel, switch to edit/view mode, scroll to matched text and highlight
+- [ ] **Tag / Assignee / Priority** — open card detail panel, scroll to metadata section, highlight the matching field row
+- [ ] **File / File Description** — open card detail panel, scroll to Files section, highlight the matching file row
+- [ ] **Link URL / Label / Description** — open card detail panel, scroll to Links section, highlight the matching link row
+- [ ] **Lane** — scroll Kanban board to that lane, briefly pulse the lane header
+- [ ] **Project** — switch active project in sidebar
+
+### Post-Navigation Highlight Cleanup
+- [ ] Auto-clear row highlights after 2–3 seconds (use existing `AnimatedCardWrapper` infrastructure where possible)
+- [ ] Implement a `highlightTarget` store field (`{ section, index }`) consumed by card detail panel sections to trigger highlight animations
+
+### Future: RAG Integration
+- [ ] Add `GET /api/projects/:slug/search?mode=semantic` stub (returns `501 Not Implemented` until embedding pipeline is ready)
+- [ ] Document integration point with Obsidian/Scribe RAG in `docs/features/rag-integration.md`
+- [ ] Plan cross-project relationship queries (DevPlanner implementation tracking ↔ Obsidian documentation)
+
+---
+
+## Priority 2: Project-Level Background Documents
+
+**Spec:** `docs/features/project-readme.md` *(to be created)*
+
+Each project gains a `_README.md` in its workspace directory for higher-level context — project goals, architecture notes, key decisions. Both humans and AI agents read and edit it.
+
+### Storage & API
+- [ ] Design storage: `_README.md` Markdown file alongside `_project.json`
+- [ ] `GET /api/projects/:slug/readme` — returns `{ content: string, updatedAt: string }`
+- [ ] `PUT /api/projects/:slug/readme` — full replace of content
+- [ ] Expose `updatedAt` from file `mtime`
+
+### UI
+- [ ] Collapsible README section in `ProjectSidebar` below the project name — shows first paragraph as preview when collapsed
+- [ ] Rendered Markdown in read mode; textarea with Save/Cancel in edit mode (pencil icon, reuse `CardContent.tsx` pattern)
+- [ ] Show word count / last-updated timestamp in collapsed preview
+
+### Agent Integration
+- [ ] Add MCP tool `get_project_readme` (read access)
+- [ ] Add MCP tool `update_project_readme` (write access, append or replace)
+- [ ] Update `devplanner` skill (`SKILL.md`) to note: read project README before planning work
+- [ ] Update `devplanner-insights` skill to include README first paragraph in digests
+
+---
+
+## Priority 3: URL Link Enhancements
+
+URL links are already implemented. These are the next improvements:
+
+- [ ] **Open Graph metadata auto-fetch** — `GET /api/og?url=` backend endpoint fetches page title + description; used to auto-populate link label when user pastes a URL into the Add Link form
+- [ ] **Link preview on hover** — show URL hostname + favicon badge when hovering a link chip in card preview
+- [ ] **Link ordering** — drag-to-reorder links within the card detail Links section (reuse `@dnd-kit/sortable`)
+- [ ] **Link categories** — optional tag on a link (`reference`, `design`, `issue`, `pr`, `doc`) with small colored icon
+- [ ] **Search integration** — link URLs, labels, and descriptions indexed in the search palette (covered in Priority 1)
+
+---
+
+## Priority 4: Reference File Management — Testing & Integration
+
+Backend and frontend implementation are complete. Remaining:
+
+- [ ] End-to-end test: file upload/download through UI
+- [ ] Verify WebSocket synchronization across clients
+- [ ] Test MCP tools with AI agent workflows
+- [ ] Manual testing with various file types (text, scripts, PDFs)
+
+---
+
+## Priority 5: AI Agent File Creation ("Add File to Card")
 
 **Feature Doc:** `docs/features/add-file-to-card.md`
 
-Add atomic "create text file and link to card" operation for AI agent workflows. Closes critical gap where agents can read files but not create them.
+Atomic "create text file and link to card" operation — closes the gap where agents can read files but not create them.
 
-**Backend Implementation**
-- [ ] Add `addFileToCard()` method to FileService (validate card exists, create file, associate)
-- [ ] Add `POST /api/projects/:projectSlug/cards/:cardSlug/files` REST endpoint (supports JSON with content and multipart upload)
-- [ ] Add MCP tool: `add_file_to_card` schema in `schemas.ts` (required: projectSlug, cardSlug, filename, content; optional: description)
-- [ ] Add MCP tool handler: `handleAddFileToCard()` in `tool-handlers.ts` (LLM-friendly errors, deduplication feedback)
-- [ ] Register MCP tool in `mcp-server.ts` (18 → 19 tools)
-- [ ] Add TypeScript interfaces: `AddFileToCardInput`, `AddFileToCardOutput` in `src/types/index.ts`
+**Backend**
+- [ ] Add `addFileToCard()` to `FileService` (validate card exists, create file, associate)
+- [ ] Add `POST /api/projects/:projectSlug/cards/:cardSlug/files` REST endpoint (JSON body with `filename` + `content`; also supports multipart)
+- [ ] Add MCP tool `add_file_to_card` — schema in `schemas.ts`, handler in `tool-handlers.ts`
+- [ ] Register in `mcp-server.ts` (18 → 19 tools)
+- [ ] Add `AddFileToCardInput` / `AddFileToCardOutput` types to `src/types/index.ts`
 
 **Testing**
-- [ ] Unit tests: Add 6 test cases to `file.service.test.ts` (success, card not found, deduplication, UTF-8, empty content, optional description)
-- [ ] MCP tool tests: Create `mcp/__tests__/add-file-to-card.test.ts` with 6 test cases (valid input, project not found, card not found, empty content, deduplication, description handling)
-- [ ] E2E demo: Add Act 7B to `scripts/e2e-demo.ts` (create technical spec for navigation-system card, verify file exists)
+- [ ] 6 unit test cases in `file.service.test.ts`
+- [ ] 6 MCP tool tests in `mcp/__tests__/add-file-to-card.test.ts`
+- [ ] Act 7B in `scripts/e2e-demo.ts`
 
-**Documentation**
-- [ ] Update `docs/SPECIFICATION.md` section 3.3 (Card Endpoints) with new POST endpoint
-- [ ] Update `docs/openapi.yaml` with endpoint definition and examples
-- [ ] Update `docs/features/e2e-demo.md` with Act 7B description
-
-**Frontend Preparation**
-- [ ] Add `addFileToCard()` to `frontend/src/api/client.ts` filesApi object
+**Frontend**
+- [ ] Add `addFileToCard()` to `frontend/src/api/client.ts` filesApi
 - [ ] Mirror types in `frontend/src/types/index.ts`
 
 ---
 
-### Frontend Features
-- [ ] Sub-task support with multiple levels of indenting ideally via tab and shift-tab
+## Priority 6: Multi-Agent Support
 
+**Spec:** `docs/features/multi-agent.md` *(to be created)*
 
-### Search Improvements
-- [ ] Search card descriptions in addition to titles and tasks
-- [ ] Show card description snippet on cards when search is active
-- [ ] Show all tasks (including completed) when search matches exist on a card
-- [ ] Brainstorm: How to surface search matches in collapsed lanes
+Enable multiple named agents and users to identify themselves as assignees. An agent running a session should be able to discover its own registered name from the API rather than free-typing it.
 
-### History Persistence & Performance
-- [ ] Implement persistent JSON file storage for history events
-- [ ] Design rolling file mechanism for last 50 events per project
-- [ ] Add in-memory write queue to prevent file lock contention
-- [ ] Centralize history updates to single async writer
-- [ ] Handle rapid successive updates (e.g., checking off multiple tasks quickly)
-- [ ] Add history file rotation and archival strategy
+### Agent / Actor Identity
+- [ ] Accept optional `X-DevPlanner-Actor` header on all API write requests; persist into `HistoryEvent.actor`
+- [ ] MCP server reads `DEVPLANNER_AGENT_NAME` env var and injects it automatically as the actor header
+- [ ] Display `actor` in the Activity Log UI (small badge next to event description)
+- [ ] Tool descriptions updated: *"Use the name in `DEVPLANNER_AGENT_NAME`, or call `list_agents` to discover available names."*
 
-### Project-Level Background Documents
+### Agent Registry
+- [ ] `_agents.json` in workspace root — list of `{ name, type: "human"|"agent", color? }`
+- [ ] Seed with a default entry for the primary agent
+- [ ] `GET /api/agents` — returns registered agents/users
+- [ ] `POST /api/agents` — register a new agent/user
+- [ ] MCP tool `list_agents` — agent discovers available names before assigning itself
 
-Future priority: each project should support a `_README.md` file in the project root
-containing higher-level background information — project goals, architecture notes, key
-decisions, and implementation context — accessible to AI agents via the API and MCP tools.
-This allows agents to understand the broader purpose of a project before diving into cards.
+### Assignee UI
+- [ ] Replace free-text assignee input with a combobox backed by `/api/agents`
+- [ ] Show type indicator (icon differentiating human vs. agent)
+- [ ] "Create new" option to register a previously unknown agent on the fly
 
-- [ ] Design storage: `_README.md` Markdown file in the project workspace directory
-- [ ] Expose content via `GET /api/projects/:slug/readme` (or extend `GET /api/projects/:slug`)
-- [ ] Add MCP tool `get_project_readme` for agent read access and `update_project_readme` for writes
-- [ ] Update `devplanner` and `devplanner-insights` agent skills to mention reading project README for broader context
-- [ ] UI: display and edit project README in sidebar or as a collapsible panel below the project header
+### Atomic Card Claiming (Tier 2, see `feature-priorities.md`)
+- [ ] MCP tool `claim_card` — atomically checks if card is unclaimed, sets assignee, records history; returns `CARD_ALREADY_CLAIMED` error if taken
+- [ ] MCP tool `release_card` — clears assignee atomically
+- [ ] Optimistic locking (`version` field + `If-Match` header on card updates) — prerequisite: concurrency guard already implemented
 
-### Documentation Maintenance
-- [ ] Review and update SPECIFICATION.md to reflect all Phase 12-18 features
-- [ ] Review and update README.md feature list and API overview
-- [ ] Ensure TASKS.md is in sync with actual implementation status
-- [ ] Add architecture diagrams for WebSocket and history features
+---
 
-## Future Enhancements
+## Medium Priority: Sub-task Support
 
-### WebSocket Smart Merge — Preventing Edit Interruptions
+- [ ] Support indented markdown checkboxes (`  - [ ]` for level 2, `    - [ ]` for level 3) in `MarkdownService`
+- [ ] Tab / Shift+Tab indenting in the TaskList UI
+- [ ] Visual indentation in `TaskList` and `CardPreviewTasks`
+- [ ] Task progress counts all nesting levels
+
+---
+
+## Medium Priority: WebSocket Smart Merge
 
 **Spec:** `docs/features/websocket-smart-merge.md`
 
-**Problem:** WebSocket messages currently interrupt users mid-edit, causing the edit screen to disappear and work to be lost.
+Prevents WebSocket updates from interrupting mid-edit by merging only non-edited fields.
 
-**Solution:** Track active editing state and intelligently merge WebSocket updates without interrupting the user.
+- [ ] Add `activeCardEdits` to Zustand store (`isEditingTitle`, `isEditingContent`, `isEditingMetadata`)
+- [ ] Track editing state in `CardDetailHeader`, `CardContent`, `CardMetadata`
+- [ ] `card:updated` WebSocket handler merges only fields not currently being edited
+- [ ] Clear edit state on panel close
 
-**Implementation tasks:**
-- [ ] Add edit state tracking to Zustand store (`activeCardEdits` with `isEditingTitle`, `isEditingContent`, `isEditingMetadata`)
-- [ ] Track editing state in CardDetailHeader, CardContent, and CardMetadata components
-- [ ] Implement smart merge logic in WebSocket `card:updated` handler that preserves edited fields while updating non-edited fields
-- [ ] Clean up edit state when detail panel closes
-- [ ] Verify with multi-tab testing that edits are never interrupted while external changes still appear in real-time
+---
 
-**Benefits:** No more edit interruptions, real-time collaboration on non-edited fields, better UX for concurrent editing scenarios.
+## Medium Priority: History Persistence & Performance
 
-### Task Status & Collaboration
-- [ ] Add task status tracking (not-started, in-progress, complete) beyond checkboxes
-- [ ] Design task assignment/claiming mechanism to prevent work conflicts
-- [ ] Implement task-level locking or "claimed by" indicator
-- [ ] Add UI for marking individual tasks as in-progress
-- [ ] Support multiple agents working on different tasks within same card
-  - [ ] Optimistic locking conflict UI
+- [ ] Persist history events to `_history.json` per project (write queue to avoid lock contention)
+- [ ] Rolling rotation: keep last 200 events, archive older
+- [ ] Handle rapid successive updates (e.g. checking off multiple tasks quickly)
+- [ ] Implement `history:event` WebSocket handler in frontend to append events in real-time
+- [ ] Test activity log real-time updates end-to-end
 
-### User Attribution & Multi-Agent Support
-- [ ] Add user/agent identification to all history events
-- [ ] Track who made each card/task modification
-- [ ] Design authentication/session mechanism for user tracking
-- [ ] Add "modified by" metadata to cards and tasks
-- [ ] Implement agent identity system (user vs agent1 vs agent2)
-- [ ] Add activity log filtering by user/agent
-- [ ] Brainstorm requirements for multi-agent, multi-project workflows
-- [ ] Design conflict resolution for concurrent agent modifications
+---
+
+## Medium Priority: Dashboard View
+
+The `/api/projects/:slug/stats` endpoint already computes WIP count, backlog depth, blocked count, and completion velocity. This is a pure frontend addition.
+
+- [ ] New frontend route (`/dashboard`) showing project stats as metric cards
+- [ ] Per-project sparkline for completion velocity (last 30 days)
+- [ ] "Control tower" view useful when multiple agents are active simultaneously
+
+---
+
+## Lower Priority: Task Status & Collaboration
+
+- [ ] Task status beyond checkboxes: `not-started` / `in-progress` / `complete`
+- [ ] Task assignment / "claimed by" indicator
+- [ ] UI for marking individual tasks as in-progress
+- [ ] Task-level locking for concurrent agent safety
+
+---
+
+## Lower Priority: Documentation Maintenance
+
+- [ ] Review and update `SPECIFICATION.md` to reflect Phases 12–20 and all completed enhancements
+- [ ] Review and update `README.md` feature list and API overview
+- [ ] Add architecture diagrams for WebSocket and history features
+- [ ] Claude Desktop and Claude Code MCP configuration examples
+
+---
+
+## Future: MCP (Phase 18 — Remaining Items)
+
+**Feature spec:** `docs/features/mcp-server.md`
+
+- [ ] 18.24–18.26: Resource Providers (see mcp-server.md for details)
+- [ ] Integration tests with MCP Inspector
+- [ ] Real-world testing with Claude Desktop / Claude Code
+- [ ] Demo video / GIF showing agent workflows
 
 ### MCP Verification & Tuning
 - [ ] Test verification script with real Ollama models (qwen2.5, llama3.1, mistral)
-- [ ] Collect baseline scores for different models
-- [ ] Iterate on tool descriptions based on failure patterns
-- [ ] Add more scenarios (AI/ML pipeline, web app, IoT system)
-- [ ] Implement LMAPI provider for multi-model comparison
-- [ ] Add OpenRouter provider for testing cloud models (GPT-4, Claude)
+- [ ] Collect baseline scores for different models; iterate on tool descriptions
+- [ ] Add more test scenarios (AI/ML pipeline, web app, IoT system)
+- [ ] LMAPI and OpenRouter providers for multi-model comparison
 - [ ] A/B test different system prompts
-- [ ] Implement automated tuning of tool descriptions
-- [ ] Add conversation history analysis (how many turns needed?)
-- [ ] Track which tools are never/rarely used
-- [ ] Identify tool combinations that cause confusion
-- [ ] Create "best practices" guide for MCP tool usage based on metrics
+- [ ] Track rarely-used tools; identify confusing tool combinations
+- [ ] "Best practices" guide for MCP tool usage based on collected metrics
 
+---
 
+## Future: User Attribution
 
-## Real-Time Activity History
+- [ ] `actor` field on all history events (groundwork in Priority 6 above)
+- [ ] "Modified by" metadata on cards and tasks
+- [ ] Activity log filtering by user / agent
+- [ ] Design conflict resolution for concurrent agent modifications
 
-- [x] Create `src/services/history.service.ts` — in-memory event log with max 50 events per project, `HistoryEvent` type with timestamp, action,     description, metadata
-- [x] Integrate HistoryService with FileWatcherService — record events on file changes (task completed, card moved, card created, card archived)
-- [x] Create `src/routes/history.ts` — REST endpoint `GET /api/projects/:slug/history?limit=50` to fetch recent history
-- [x] Register history routes in `src/server.ts`, add `HistoryEvent` types to `src/types/index.ts`
-- [x] Broadcast `history:event` via WebSocket when new events are recorded
-- [x] Add history state to Zustand store — `historyEvents[]`, `addHistoryEvent()`, `loadHistory()`
-- [x] Create `frontend/src/components/ActivityLog.tsx` — real-time event display grouped by time period (Today, Yesterday, This Week)
-- [ ] Implement `history:event` WebSocket handler to append events to store in real-time (requires Phase 14 WebSocket client)
-- [x] Render ActivityLog in sidebar or collapsible panel (slide-out panel with tabs and animations)
-- [ ] Test activity log — verify events appear in real-time as cards/tasks are modified (requires Phase 14-15 for WebSocket support)
+---
 
+## Future: RAG Integration
 
-## Final Phase: Production Optimization & Testing
+**Spec:** `docs/features/rag-integration.md` *(to be created)*
 
-- [ ] Implement message batching for rapid changes (200ms window, send single combined update)
-- [ ] Add environment variable for WebSocket URL (`VITE_WS_URL`) with sensible default
-- [ ] Add graceful degradation — show warning if WebSocket unavailable, fallback to manual refresh
-- [ ] Write unit tests for WebSocketService (connection tracking, subscription, broadcast)
-- [ ] Write unit tests for FileWatcherService (change detection, debouncing, file filtering)
-- [ ] Test multi-client scenario — two browser tabs, verify both receive updates simultaneously
-- [ ] Test reconnection scenario — stop/restart server, verify clients auto-reconnect and re-subscribe
-- [ ] Test edge cases — rapid file changes, corrupted files, file rename vs delete, large payloads
+Long-term integration of embedding-based semantic search backed by Obsidian (managed by Scribe agent).
 
-## Phase 20: API Improvements for Agent Workflows
+- [ ] Define API contract for external RAG providers
+- [ ] Design bridge protocol between DevPlanner and Obsidian knowledge base
+- [ ] `GET /api/projects/:slug/search?mode=semantic` stub (501 until ready)
+- [ ] Plan cross-project relationship queries: implementation tracking ↔ documentation
 
-High-value additions to the DevPlanner REST API to improve data precision and reduce round-trips for automated digest agents and AI workflows.
+---
 
-### Time-bounded history filter
-- [x] Add `?since={ISO timestamp}` query parameter to `GET /api/projects/:slug/history`
-- [x] Update `HistoryService.getEvents()` to accept and apply an optional `since` filter
+## Future: Production Optimization
 
-### Cross-project activity feed
-- [x] Create `GET /api/activity?since={ISO timestamp}&limit=N` endpoint
-- [x] Add `HistoryService.getActivityFeed()` that merges events across all projects
-- [x] Register `activityRoutes` in `src/server.ts`
+- [ ] Message batching for rapid changes (200 ms window, single combined WebSocket update)
+- [ ] `VITE_WS_URL` environment variable with sensible default
+- [ ] Graceful degradation when WebSocket unavailable (warning banner, manual refresh)
+- [ ] Unit tests for `WebSocketService` and `FileWatcherService`
+- [ ] Multi-client and reconnection edge-case tests
 
-### Completed-since and stale WIP filters on cards
-- [x] Add `?since={ISO timestamp}` query param to `GET /api/projects/:slug/cards` — returns only cards with `updated >= since`
-- [x] Add `?staleDays=N` query param — returns only in-progress cards with `updated` older than N days
+---
 
-### Project stats endpoint
-- [x] Create `GET /api/projects/:slug/stats` endpoint
-- [x] Response includes: `completionsLast7Days`, `completionsLast30Days`, `avgDaysInProgress`, `wipCount`, `backlogDepth`, `blockedCount`
-- [x] Register `statsRoutes` in `src/server.ts`
+## Future: Card Templates
 
-### `blockedReason` field on cards
-- [x] Add optional `blockedReason?: string` to `CardFrontmatter` type
-- [x] Support `blockedReason` in `CreateCardInput` and `UpdateCardInput`
-- [x] Update `CardService.createCard()` and `updateCard()` to persist/clear `blockedReason`
-- [x] Expose `blockedReason` in POST and PATCH `/cards` route schemas
+- [ ] Store reusable card structures (bug, feature, spike) in `_templates/` directory
+- [ ] Expose via API and MCP so agents can create cards from templates
+- [ ] Template picker in `QuickAddCard` UI
 
-### Task-level timestamps
-- [x] Add `addedAt?: string` and `completedAt?: string | null` to `TaskItem`
-- [x] Add `taskMeta?: Array<{addedAt: string, completedAt: string | null}>` to `CardFrontmatter` for storage
-- [x] Update `TaskService.addTask()` to record `addedAt` in `taskMeta`
-- [x] Update `TaskService.setTaskChecked()` to record/clear `completedAt` in `taskMeta`
-- [x] Update `MarkdownService.parse()` to merge `taskMeta` timestamps into parsed `TaskItem[]`
+---
 
-### Digest checkpoint in preferences
-- [x] Add `digestAnchor?: string | null` to `Preferences` type
-- [x] Update `PATCH /api/preferences` route schema to accept `digestAnchor`
+## Future: Webhook / Event Sink
 
-### Documentation & Tests
-- [x] Add 17 unit tests for new features (`src/__tests__/api-improvements.test.ts`) — all passing
-- [x] Update `docs/SPECIFICATION.md` — API contracts for new endpoints and fields
-- [x] Update `docs/openapi.yaml` — OpenAPI definitions for new endpoints
-- [x] Update `README.md` — API overview table and feature list
-- [x] Update `.claude/skills/devplanner/SKILL.md` — improved agent workflow guidance
+- [ ] POST events to a configured external URL (for CI, Slack, custom dashboards)
+- [ ] Complements WebSocket for consumers that can't maintain a persistent connection

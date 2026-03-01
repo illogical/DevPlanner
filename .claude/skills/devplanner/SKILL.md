@@ -36,7 +36,7 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 3. PATCH /projects/{slug}/cards/{card}         → claim: {"assignee":"agent","status":"in-progress"}
 4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
-6. POST /projects/{slug}/cards/{card}/files    → create summary.md (required before completing)
+6. Ensure card has spec + summary links via `/links` (minimum 2 links on completion)
 7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}
 ```
 
@@ -50,7 +50,7 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 3. POST /projects/{slug}/cards/{card}/files    → {"filename":"INTRO.md","content":"# ...\n\nFull plan/instructions.","description":"File's purpose in 1 sentence"}
 4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
-6. POST /projects/{slug}/cards/{card}/files    → create SUMMARY.md when done with all tasks (required before completing)
+6. Create Scribe summary artifact in Obsidian and attach summary link via `/links`
 7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}
 ```
 
@@ -83,14 +83,14 @@ DELETE /projects/{slug}/cards/{card}/links/{linkId}
 
 **Read the card first** to check `frontmatter.links` before adding — avoid duplicates.
 
-| Kind | When to use |
-|------|-------------|
-| `doc` | Documentation or wiki page (Obsidian, Notion, Confluence) |
-| `spec` | Technical specification or RFC |
-| `ticket` | Issue tracker link (GitHub Issue, Jira, Linear) |
-| `repo` | Source code repository or PR |
-| `reference` | Reference material (article, tutorial) |
-| `other` | Fallback for anything else |
+| Kind        | When to use                                               |
+| ----------- | --------------------------------------------------------- |
+| `doc`       | Documentation or wiki page (Obsidian, Notion, Confluence) |
+| `spec`      | Technical specification or RFC                            |
+| `ticket`    | Issue tracker link (GitHub Issue, Jira, Linear)           |
+| `repo`      | Source code repository or PR                              |
+| `reference` | Reference material (article, tutorial)                    |
+| `other`     | Fallback for anything else                                |
 
 ## Card Identifiers
 
@@ -106,39 +106,42 @@ identifier useful as **conversation shorthand** between the agent and the user
 
 ## Card Fields Reference
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `cardId` | `string\|null` | Short ID e.g. `DE-12`. Computed; read-only. Null for old cards. |
-| `description` | `string\|null` | 1–5 sentence summary of the card. Set on create; update or clear via PATCH. |
-| `status` | `"in-progress"\|"blocked"\|"review"\|"testing"\|null` | Card workflow state |
-| `blockedReason` | `string\|null` | Why blocked. Set alongside `status:"blocked"`. |
-| `priority` | `"low"\|"medium"\|"high"\|null` | Urgency level |
-| `assignee` | `"user"\|"agent"\|null` | Who owns the card |
-| `links` | `CardLink[]` | URL references attached to the card. Each has `id`, `label`, `url`, `kind`. Add via POST `/links`. |
+| Field           | Type                                                  | Notes                                                                                              |
+| --------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `cardId`        | `string\|null`                                        | Short ID e.g. `DE-12`. Computed; read-only. Null for old cards.                                    |
+| `description`   | `string\|null`                                        | 1–5 sentence summary of the card. Set on create; update or clear via PATCH.                        |
+| `status`        | `"in-progress"\|"blocked"\|"review"\|"testing"\|null` | Card workflow state                                                                                |
+| `blockedReason` | `string\|null`                                        | Why blocked. Set alongside `status:"blocked"`.                                                     |
+| `priority`      | `"low"\|"medium"\|"high"\|null`                       | Urgency level                                                                                      |
+| `assignee`      | `"user"\|"agent"\|null`                               | Who owns the card                                                                                  |
+| `links`         | `CardLink[]`                                          | URL references attached to the card. Each has `id`, `label`, `url`, `kind`. Add via POST `/links`. |
 
 **Setting a blocked reason:**
+
 ```json
 PATCH /projects/{slug}/cards/{card}
 {"status":"blocked","blockedReason":"Waiting for API key from user"}
 ```
 
 **Clearing blocked status:**
+
 ```json
-{"status":"in-progress","blockedReason":null}
+{ "status": "in-progress", "blockedReason": null }
 ```
 
 ## Creating Artifact Files
 
 Attach files at natural checkpoints — not only at completion.
 
-| When to create | Filename |
-|----------------|----------|
-| Before implementing — research, findings | `research.md` |
-| Before significant implementation | `spec.md` |
-| After all tasks complete (**required**) | `summary.md` |
-| After verification | `test-results.md` |
+| When to create                           | Filename          |
+| ---------------------------------------- | ----------------- |
+| Before implementing — research, findings | `research.md`     |
+| Before significant implementation        | `spec.md`         |
+| After all tasks complete (**required**)  | `summary.md`      |
+| After verification                       | `test-results.md` |
 
 **Required summary template:**
+
 ```json
 POST /projects/{slug}/cards/{card}/files
 {
@@ -158,7 +161,7 @@ POST /projects/{slug}/cards/{card}/files
 
 - **NEVER batch task toggling.** Toggle each task the moment it's complete. The board must reflect current reality at all times.
 
-- **NEVER use files as a substitute for `description`.** Set a `description` on the card itself for the 1–5 sentence summary; use `POST /files` (e.g. `INTRO.md`) for full plans and implementation notes.
+- **NEVER rely on card-level files for core project documentation.** Prefer Obsidian artifacts + `/links` attachments; keep `description` short (1–5 sentence summary).
 
 - **NEVER assume project slugs.** Use `GET /projects` if the project slug is not confirmed in context. Slugs are lowercase-hyphenated directory names.
 
@@ -166,22 +169,22 @@ POST /projects/{slug}/cards/{card}/files
 
 ## Error Handling
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| 404 card not found | Slug = filename without `.md` | List cards to get correct slug |
-| 400 validation error | Invalid field value | Read `message` + `expected` in response |
-| 409 DUPLICATE_LINK | URL already on this card | Check `frontmatter.links`; update the existing link or use a different URL |
-| 400 INVALID_URL | URL missing or not http/https | Ensure URL starts with `http://` or `https://` |
-| 400 INVALID_LABEL | Label is empty or whitespace | Provide a meaningful display label |
-| API unreachable | Server not running | Ask user to run `bun run dev` in DevPlanner directory |
+| Error                | Cause                         | Fix                                                                        |
+| -------------------- | ----------------------------- | -------------------------------------------------------------------------- |
+| 404 card not found   | Slug = filename without `.md` | List cards to get correct slug                                             |
+| 400 validation error | Invalid field value           | Read `message` + `expected` in response                                    |
+| 409 DUPLICATE_LINK   | URL already on this card      | Check `frontmatter.links`; update the existing link or use a different URL |
+| 400 INVALID_URL      | URL missing or not http/https | Ensure URL starts with `http://` or `https://`                             |
+| 400 INVALID_LABEL    | Label is empty or whitespace  | Provide a meaningful display label                                         |
+| API unreachable      | Server not running            | Ask user to run `bun run dev` in DevPlanner directory                      |
 
 ## Lanes
 
-| Slug | Meaning | Priority order |
-|------|---------|----------------|
-| `01-upcoming` | Backlog / planned | Top = highest priority |
-| `02-in-progress` | Active work | Top = most urgent |
-| `03-complete` | Done | — |
-| `04-archive` | Soft-archived | — |
+| Slug             | Meaning           | Priority order         |
+| ---------------- | ----------------- | ---------------------- |
+| `01-upcoming`    | Backlog / planned | Top = highest priority |
+| `02-in-progress` | Active work       | Top = most urgent      |
+| `03-complete`    | Done              | —                      |
+| `04-archive`     | Soft-archived     | —                      |
 
 See [api-reference.md](references/api-reference.md) for the full endpoint reference.

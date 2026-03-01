@@ -17,6 +17,17 @@ function formatDate(isoString: string): string {
   });
 }
 
+function formatDateTime(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 // Priority selector component
 function PrioritySelector({
   currentPriority,
@@ -253,7 +264,7 @@ export function CardMetadata({ card }: CardMetadataProps) {
         </div>
         <div>
           <p className="text-xs text-gray-500 mb-0.5">Updated</p>
-          <p className="text-gray-300">{formatDate(frontmatter.updated)}</p>
+          <p className="text-gray-300">{formatDateTime(frontmatter.updated)}</p>
         </div>
       </div>
     </div>
