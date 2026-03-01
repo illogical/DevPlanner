@@ -1,6 +1,6 @@
 ---
 name: devplanner-insights
-description: "Extract structured insights from DevPlanner Kanban boards for daily digests, project health reports, and status updates. Use when creating a daily digest, answering what got done today, what is in progress, what are the priorities, what happened since last run, stale work, or what should I work on next. Runs a bundled script that collects all data in one call. Detects stale boards automatically and outputs a short notice instead of a full digest."
+description: "Extract structured insights from DevPlanner Kanban boards for daily digests, project health reports, and status updates. Use when creating a daily digest, answering what got done today, what is in progress, what are the priorities, what happened since last run, stale work, or what should I work on next. Cards include URL links and attached files with additional context about feature intent — fetch these to deepen understanding of in-progress or blocked work. Runs a bundled script that collects all data in one call. Detects stale boards automatically and outputs a short notice instead of a full digest."
 ---
 
 # DevPlanner Insights
@@ -57,6 +57,8 @@ projects[]:
     blockedCount             → blocked cards count
   recentlyCompleted[]        → cards moved to complete since windowStart
   inProgress[]               → active cards (includes tasks[] when taskProgress.total > 0)
+    frontmatter.links[]      → URL links on the card (doc, spec, ticket, repo, reference, other)
+    frontmatter.description  → short summary; may be absent for older cards
   upcoming.cards[]           → top 5 by lane position (index 0 = highest priority)
   upcoming.totalCount        → full backlog size
   upcoming.hasMore           → true if backlog > 5
@@ -64,6 +66,27 @@ projects[]:
   recentActivity[]           → HistoryEvent[] for this project in the window
   recentHistory[]            → project history events in the window
 ```
+
+### Looking Deeper into Cards
+
+Cards may carry URL links and attached files that contain the real context about what a
+feature is for and how it should be implemented. When reporting on any in-progress or
+blocked card, check whether richer context is available before summarising:
+
+1. **Check `frontmatter.links`** — look for `kind: "doc"` or `kind: "spec"` entries first.
+   These are the most likely to explain the card's purpose and implementation intent.
+2. **Fetch accessible links** — use `WebFetch` for public URLs (Obsidian publish sites,
+   GitHub issues, spec pages). Skip links that require authentication.
+3. **Read card artifact files** — call `GET /projects/{slug}/cards/{card}/files` to list
+   attached files, then read `.md` files for implementation notes, specs, and research.
+
+**When to go deeper:**
+- A blocked card with no `description` — check links and files to understand why it matters
+- A card whose title is ambiguous — the linked doc or spec usually explains the full intent
+- A card with a `kind: "spec"` or `kind: "doc"` link — these are explicitly reference material
+
+You do not need to fetch every link on every card. Focus on in-progress and blocked cards
+where additional context would meaningfully improve your summary.
 
 ### Section Format Guide
 

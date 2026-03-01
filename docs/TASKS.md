@@ -368,6 +368,19 @@ Add atomic "create text file and link to card" operation for AI agent workflows.
 - [ ] Handle rapid successive updates (e.g., checking off multiple tasks quickly)
 - [ ] Add history file rotation and archival strategy
 
+### Project-Level Background Documents
+
+Future priority: each project should support a `_README.md` file in the project root
+containing higher-level background information — project goals, architecture notes, key
+decisions, and implementation context — accessible to AI agents via the API and MCP tools.
+This allows agents to understand the broader purpose of a project before diving into cards.
+
+- [ ] Design storage: `_README.md` Markdown file in the project workspace directory
+- [ ] Expose content via `GET /api/projects/:slug/readme` (or extend `GET /api/projects/:slug`)
+- [ ] Add MCP tool `get_project_readme` for agent read access and `update_project_readme` for writes
+- [ ] Update `devplanner` and `devplanner-insights` agent skills to mention reading project README for broader context
+- [ ] UI: display and edit project README in sidebar or as a collapsible panel below the project header
+
 ### Documentation Maintenance
 - [ ] Review and update SPECIFICATION.md to reflect all Phase 12-18 features
 - [ ] Review and update README.md feature list and API overview

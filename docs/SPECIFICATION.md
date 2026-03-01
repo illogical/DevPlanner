@@ -154,6 +154,19 @@ updated: 2026-02-04T14:30:00Z
 tags:
   - feature
   - security
+links:
+  - id: 550e8400-e29b-41d4-a716-446655440000
+    label: OIDC Core Specification
+    url: https://openid.net/specs/openid-connect-core-1_0.html
+    kind: spec
+    createdAt: 2026-02-04T10:05:00Z
+    updatedAt: 2026-02-04T10:05:00Z
+  - id: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+    label: Obsidian Auth Design Notes
+    url: https://publish.obsidian.md/myvault/auth-design
+    kind: doc
+    createdAt: 2026-02-04T10:06:00Z
+    updatedAt: 2026-02-04T10:06:00Z
 ---
 
 Implement OAuth2 authentication flow with support for Google and GitHub providers.
@@ -169,6 +182,17 @@ Implement OAuth2 authentication flow with support for Google and GitHub provider
 **TypeScript interfaces:**
 
 ```typescript
+type LinkKind = 'doc' | 'spec' | 'ticket' | 'repo' | 'reference' | 'other';
+
+interface CardLink {
+  id: string;           // UUID v4
+  label: string;        // Display label (e.g. "OIDC Specification")
+  url: string;          // Normalized http/https URL
+  kind: LinkKind;       // Semantic category
+  createdAt: string;    // ISO 8601
+  updatedAt: string;    // ISO 8601
+}
+
 interface CardFrontmatter {
   title: string;
   description?: string;  // Short 1–5 sentence summary of the card
@@ -180,6 +204,7 @@ interface CardFrontmatter {
   tags?: string[];
   blockedReason?: string;  // Free-text reason when status is "blocked"
   taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps (index-aligned)
+  links?: CardLink[];  // URL references attached to the card
 }
 
 interface Card {
@@ -654,7 +679,95 @@ Reorder cards within a lane (for drag-and-drop within the same lane).
 
 ---
 
-### 3.6 Activity History Endpoints
+### 3.6 Link Endpoints
+
+#### `POST /api/projects/:projectSlug/cards/:cardSlug/links`
+
+Add a URL link to a card.
+
+**Request Body:**
+```json
+{
+  "label": "OIDC Core Specification",
+  "url": "https://openid.net/specs/openid-connect-core-1_0.html",
+  "kind": "spec"
+}
+```
+
+- `label` (required): Display label, 1–200 characters
+- `url` (required): Must start with `http://` or `https://`
+- `kind` (optional): One of `doc`, `spec`, `ticket`, `repo`, `reference`, `other`. Defaults to `other`.
+
+**Behavior:**
+1. Validate `url` (must be parseable and http/https protocol)
+2. Validate `label` (must be non-empty, trimmed)
+3. Check for duplicate URL on this card — reject with `409` if found
+4. Assign a UUID v4 `id`, set `createdAt` and `updatedAt` to current time
+5. Append to `frontmatter.links` array in the card file
+6. Update card's `updated` timestamp
+
+**Response `201`:**
+```json
+{
+  "link": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "label": "OIDC Core Specification",
+    "url": "https://openid.net/specs/openid-connect-core-1_0.html",
+    "kind": "spec",
+    "createdAt": "2026-02-28T10:00:00Z",
+    "updatedAt": "2026-02-28T10:00:00Z"
+  }
+}
+```
+
+**Errors:**
+- `400 INVALID_URL` — URL is missing, malformed, or not http/https
+- `400 INVALID_LABEL` — Label is empty or whitespace-only
+- `404` — Project or card not found
+- `409 DUPLICATE_LINK` — This URL already exists on the card
+
+#### `PATCH /api/projects/:projectSlug/cards/:cardSlug/links/:linkId`
+
+Partially update an existing link.
+
+**Request Body (all fields optional):**
+```json
+{
+  "label": "Updated Label",
+  "url": "https://new-url.example.com",
+  "kind": "reference"
+}
+```
+
+**Behavior:**
+1. Find link by `linkId` in the card's `frontmatter.links`
+2. Validate any provided `url` or `label`
+3. Check for duplicate URL if `url` is changing
+4. Merge changes; update `updatedAt` on the link
+5. Write card file
+
+**Response `200`:**
+```json
+{ "link": { /* Updated CardLink */ } }
+```
+
+**Errors:** Same as POST plus `404 LINK_NOT_FOUND`.
+
+#### `DELETE /api/projects/:projectSlug/cards/:cardSlug/links/:linkId`
+
+Remove a link from a card.
+
+**Response `200`:**
+```json
+{ "success": true }
+```
+
+**Errors:**
+- `404 LINK_NOT_FOUND` — Link ID does not exist on the card
+
+---
+
+### 3.7 Activity History Endpoints
 
 #### `GET /api/projects/:projectSlug/history`
 
@@ -697,6 +810,7 @@ Retrieve activity history for a project (recent card/task modifications).
 - `card:deleted` - Card permanently deleted
 - `project:created` / `project:updated` / `project:archived` - Project lifecycle
 - `file:uploaded` / `file:deleted` / `file:associated` / `file:disassociated` / `file:updated` - File operations
+- `link:added` / `link:updated` / `link:deleted` - Link operations
 
 #### `GET /api/activity`
 
@@ -715,7 +829,7 @@ GET /api/activity?since=2026-02-19T07:52:00Z
 
 ---
 
-### 3.7 Project Stats Endpoint
+### 3.8 Project Stats Endpoint
 
 #### `GET /api/projects/:projectSlug/stats`
 
@@ -745,7 +859,7 @@ Returns aggregated health metrics for a project in a single call.
 
 ---
 
-### 3.8 Preferences Endpoint
+### 3.9 Preferences Endpoint
 
 #### `GET /api/preferences` / `PATCH /api/preferences`
 
@@ -768,7 +882,7 @@ Workspace-level preferences persisted to `_preferences.json`.
 
 ---
 
-### 3.9 WebSocket Endpoint
+### 3.10 WebSocket Endpoint
 
 #### `WS /api/ws`
 
@@ -859,6 +973,9 @@ Heartbeat response:
 - `task:toggled` - Task checked/unchecked
 - `lane:reordered` - Cards reordered within a lane
 - `project:updated` - Project metadata changed
+- `link:added` - URL link added to a card
+- `link:updated` - URL link updated on a card
+- `link:deleted` - URL link removed from a card
 - `history:event` - Activity history event recorded
 
 **Behavior:**

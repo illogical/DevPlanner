@@ -254,6 +254,9 @@ All endpoints are under `/api` and return JSON.
 | `PATCH` | `/api/projects/:slug/cards/:card/move` | Move card to lane |
 | `POST` | `/api/projects/:slug/cards/:card/tasks` | Add checklist item |
 | `PATCH` | `/api/projects/:slug/cards/:card/tasks/:index` | Toggle task |
+| `POST` | `/api/projects/:slug/cards/:card/links` | Add a URL link to a card |
+| `PATCH` | `/api/projects/:slug/cards/:card/links/:linkId` | Update a link |
+| `DELETE` | `/api/projects/:slug/cards/:card/links/:linkId` | Delete a link |
 | `PATCH` | `/api/projects/:slug/lanes/:lane/order` | Reorder cards in lane |
 | `GET` | `/api/projects/:slug/stats` | Project health stats |
 | `GET` | `/api/projects/:slug/history` | Activity history (`?limit=`, `?since=`) |
@@ -280,6 +283,7 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 - ✅ **Responsive Design** - Mobile, tablet, and desktop layouts
 - ✅ **Preferences** - Last-selected project and digest anchor persistence
 - ✅ **MCP Server** - Model Context Protocol integration for AI agents (17 tools, 3 resources)
+- ✅ **Card Links** - Attach structured URL references to cards (docs, specs, tickets, repos) with `doc|spec|ticket|repo|reference|other` kind classification
 
 ### Planned (Post-MVP)
 - 📋 **User Attribution** - Track who made each change
@@ -288,6 +292,7 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 - 📋 **Multi-Agent Support** - Coordinate multiple AI agents on different tasks
 - 📋 **Markdown Editor** - Rich text editing for card content
 - 📋 **Search & Filter** - Find cards and tasks across projects
+- 📋 **Project README** - Per-project background document accessible to AI agents via API and MCP
 
 ## Project Documents
 

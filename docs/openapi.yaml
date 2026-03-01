@@ -588,6 +588,134 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ─────────────────────────────────────────────
+  # Links
+  # ─────────────────────────────────────────────
+  /api/projects/{projectSlug}/cards/{cardSlug}/links:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/cardSlug"
+
+    post:
+      operationId: addLink
+      tags: [cards]
+      summary: Add a URL link to a card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label, url]
+              properties:
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Display label for the link.
+                  example: "OIDC Specification"
+                url:
+                  type: string
+                  description: "URL to attach. Must start with http:// or https://."
+                  example: "https://openid.net/specs/openid-connect-core-1_0.html"
+                kind:
+                  $ref: "#/components/schemas/LinkKind"
+      responses:
+        "201":
+          description: Created link
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [link]
+                properties:
+                  link:
+                    $ref: "#/components/schemas/CardLink"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+          description: INVALID_URL or INVALID_LABEL
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: DUPLICATE_LINK — URL already exists on this card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /api/projects/{projectSlug}/cards/{cardSlug}/links/{linkId}:
+    parameters:
+      - $ref: "#/components/parameters/projectSlug"
+      - $ref: "#/components/parameters/cardSlug"
+      - name: linkId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: UUID of the link to update or delete
+
+    patch:
+      operationId: updateLink
+      tags: [cards]
+      summary: Update a link on a card (partial update)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                url:
+                  type: string
+                  description: "New URL. Must start with http:// or https://."
+                kind:
+                  $ref: "#/components/schemas/LinkKind"
+      responses:
+        "200":
+          description: Updated link
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [link]
+                properties:
+                  link:
+                    $ref: "#/components/schemas/CardLink"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: DUPLICATE_LINK — URL conflicts with another link on card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+    delete:
+      operationId: deleteLink
+      tags: [cards]
+      summary: Delete a link from a card
+      responses:
+        "200":
+          description: Link deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
   # Files
   # ─────────────────────────────────────────────
   /api/projects/{projectSlug}/files:
@@ -1047,7 +1175,7 @@ paths:
         {
           "type": "event",
           "event": {
-            "type": "card:created | card:updated | card:moved | card:deleted | task:toggled | lane:reordered | project:updated | project:deleted | file:added | file:updated | file:deleted | file:associated | file:disassociated | history:event",
+            "type": "card:created | card:updated | card:moved | card:deleted | task:toggled | lane:reordered | project:updated | project:deleted | file:added | file:updated | file:deleted | file:associated | file:disassociated | link:added | link:updated | link:deleted | history:event",
             "projectSlug": "string",
             "timestamp": "ISO 8601",
             "data": { }
@@ -1071,6 +1199,9 @@ paths:
         | `file:deleted` | `{ filename }` |
         | `file:associated` | `{ filename, cardSlug }` |
         | `file:disassociated` | `{ filename, cardSlug }` |
+        | `link:added` | `{ cardSlug, link: CardLink }` |
+        | `link:updated` | `{ cardSlug, link: CardLink }` |
+        | `link:deleted` | `{ cardSlug, linkId: string }` |
       responses:
         "101":
           description: Switching Protocols (WebSocket handshake)
@@ -1141,6 +1272,38 @@ components:
     Assignee:
       type: string
       enum: [user, agent]
+
+    LinkKind:
+      type: string
+      enum: [doc, spec, ticket, repo, reference, other]
+      description: "Semantic category of the link. doc=wiki/Obsidian, spec=RFC/technical spec, ticket=issue tracker, repo=source code, reference=article/tutorial, other=fallback."
+
+    # ── CardLink ─────────────────────────────────
+    CardLink:
+      type: object
+      required: [id, label, url, kind, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID v4 identifier for the link
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        label:
+          type: string
+          description: Display label shown in the UI and digests
+          example: "OIDC Specification"
+        url:
+          type: string
+          description: "Normalized URL. Must be http:// or https://."
+          example: "https://openid.net/specs/openid-connect-core-1_0.html"
+        kind:
+          $ref: "#/components/schemas/LinkKind"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
     LaneName:
       type: string
@@ -1265,6 +1428,11 @@ components:
                   - string
                   - "null"
                 format: date-time
+        links:
+          type: array
+          description: URL references attached to this card.
+          items:
+            $ref: "#/components/schemas/CardLink"
 
     Card:
       type: object
@@ -1413,6 +1581,9 @@ components:
         - "file:associated"
         - "file:disassociated"
         - "file:updated"
+        - "link:added"
+        - "link:updated"
+        - "link:deleted"
 
     HistoryEventMetadata:
       type: object
@@ -1439,6 +1610,13 @@ components:
           type: string
         projectName:
           type: string
+        linkId:
+          type: string
+          format: uuid
+          description: UUID of the link (for link:added, link:updated, link:deleted events)
+        linkLabel:
+          type: string
+          description: Display label of the link at the time of the event
 
     HistoryEvent:
       type: object
