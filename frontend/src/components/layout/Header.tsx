@@ -14,7 +14,7 @@ export function Header({ connectionState }: HeaderProps) {
     isActivityPanelOpen, toggleActivityPanel,
     isActivitySidebarOpen, toggleActivitySidebar,
     isFilesPanelOpen, toggleFilesPanel,
-    searchQuery, setSearchQuery, clearSearch, isSearching,
+    openPalette,
   } = useStore();
 
   const handleRetry = () => {
@@ -22,6 +22,10 @@ export function Header({ connectionState }: HeaderProps) {
     client.disconnect();
     setTimeout(() => client.connect(), 100);
   };
+
+  // Detect Mac for shortcut hint
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(navigator.platform);
+  const shortcutHint = isMac ? '⌘K' : 'Ctrl+K';
 
   return (
     <header className="h-14 bg-gray-900 border-b border-gray-700 flex items-center px-4">
@@ -102,46 +106,21 @@ export function Header({ connectionState }: HeaderProps) {
         </div>
       </div>
 
-      {/* Center group: search box */}
+      {/* Center group: search trigger button */}
       <div className="flex-1 flex justify-center px-6">
-        <div className="w-full max-w-md relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
+        <button
+          onClick={openPalette}
+          className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:border-gray-600 transition-colors w-full max-w-xs"
+          aria-label="Open search palette"
+        >
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input
-            type="text"
-            placeholder="Search cards..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-8 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-          />
-          {searchQuery && !isSearching && (
-            <button
-              onClick={clearSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
-              aria-label="Clear search"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-          {isSearching && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2">
-              <div className="w-4 h-4 border-2 border-gray-600 border-t-blue-400 rounded-full animate-spin" />
-            </div>
-          )}
-        </div>
+          <span className="flex-1 text-left">Search…</span>
+          <kbd className="hidden sm:inline text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded font-mono border border-gray-600">
+            {shortcutHint}
+          </kbd>
+        </button>
       </div>
 
       {/* Right group: action buttons + activity sidebar toggle */}

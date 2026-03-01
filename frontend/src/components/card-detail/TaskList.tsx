@@ -3,6 +3,7 @@ import { useStore } from '../../store';
 import { TaskCheckbox } from '../tasks/TaskCheckbox';
 import { AddTaskInput } from '../tasks/AddTaskInput';
 import { TaskProgressBar } from '../tasks/TaskProgressBar';
+import { useDetailScroll } from '../../hooks/useDetailScroll';
 import type { TaskItem } from '../../types';
 
 interface TaskListProps {
@@ -18,6 +19,7 @@ const taskVariants = {
 
 export function TaskList({ tasks, cardSlug }: TaskListProps) {
   const { toggleTask, addTask, updateTaskText, deleteTask } = useStore();
+  useDetailScroll('tasks');
 
   const checkedCount = tasks.filter((t) => t.checked).length;
   const totalCount = tasks.length;
@@ -39,7 +41,7 @@ export function TaskList({ tasks, cardSlug }: TaskListProps) {
   };
 
   return (
-    <div className="border-t border-gray-700 pt-4">
+    <div id="card-section-tasks" className="border-t border-gray-700 pt-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-gray-400">Tasks</h3>
         {totalCount > 0 && (

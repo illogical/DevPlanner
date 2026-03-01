@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { marked } from 'marked';
 import { useStore } from '../../store';
+import { useDetailScroll } from '../../hooks/useDetailScroll';
 
 interface CardContentProps {
   description?: string;
@@ -8,6 +9,7 @@ interface CardContentProps {
 }
 
 export const CardContent = memo(function CardContent({ description, cardSlug }: CardContentProps) {
+  useDetailScroll('description');
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -69,7 +71,7 @@ export const CardContent = memo(function CardContent({ description, cardSlug }: 
   };
 
   return (
-    <div className="border-t border-gray-700 pt-4">
+    <div id="card-section-description" className="border-t border-gray-700 pt-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-gray-400">Description</h3>
         {!isEditing && (

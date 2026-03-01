@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { projectsApi, cardsApi, tasksApi, preferencesApi, filesApi, linksApi } from '../api/client';
+import { projectsApi, cardsApi, tasksApi, preferencesApi, filesApi, linksApi, searchApi } from '../api/client';
 import type {
   ProjectSummary,
   CardSummary,
@@ -23,10 +23,15 @@ import type {
   LinkAddedData,
   LinkUpdatedData,
   LinkDeletedData,
+  PaletteSearchResult,
+  PaletteFilterTab,
+  DetailScrollTarget,
 } from '../types';
 
 // Search debounce timer
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+// Palette debounce timer
+let paletteDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Change indicator types for visual animations
 export type ChangeIndicatorType = 
@@ -195,6 +200,26 @@ interface DevPlannerStore {
   clearSearch: () => void;
   isCardHighlighted: (cardSlug: string) => boolean;
   getMatchedTaskIndices: (cardSlug: string) => number[];
+
+  // Search Palette
+  isPaletteOpen: boolean;
+  paletteQuery: string;
+  paletteResults: PaletteSearchResult[];
+  isPaletteSearching: boolean;
+  isPaletteGlobal: boolean;
+  paletteTab: PaletteFilterTab;
+  selectedPaletteIndex: number;
+  openPalette: () => void;
+  closePalette: () => void;
+  setPaletteQuery: (query: string) => void;
+  setPaletteTab: (tab: PaletteFilterTab) => void;
+  togglePaletteGlobal: () => void;
+  setSelectedPaletteIndex: (index: number) => void;
+  activatePaletteResult: (result: PaletteSearchResult) => Promise<void>;
+
+  // Detail scroll target (set by palette activation to scroll card sections)
+  detailScrollTarget: DetailScrollTarget | null;
+  setDetailScrollTarget: (target: DetailScrollTarget | null) => void;
 }
 
 export const useStore = create<DevPlannerStore>((set, get) => ({
@@ -224,6 +249,16 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   searchQuery: '',
   searchResults: [],
   isSearching: false,
+
+  // Palette search initial state
+  isPaletteOpen: false,
+  paletteQuery: '',
+  paletteResults: [],
+  isPaletteSearching: false,
+  isPaletteGlobal: false,
+  paletteTab: 'all',
+  selectedPaletteIndex: 0,
+  detailScrollTarget: null,
 
   // File management initial state
   projectFiles: [],
@@ -1941,6 +1976,93 @@ export const useStore = create<DevPlannerStore>((set, get) => ({
   getMatchedTaskIndices: (cardSlug: string) => {
     const result = get().searchResults.find(r => r.slug === cardSlug);
     return result?.matchedTaskIndices || [];
+  },
+
+  // Palette actions
+  openPalette: () => set({ isPaletteOpen: true, paletteQuery: '', paletteResults: [], selectedPaletteIndex: 0, paletteTab: 'all' }),
+
+  closePalette: () => {
+    if (paletteDebounceTimer) clearTimeout(paletteDebounceTimer);
+    const lastQuery = get().paletteQuery;
+    set({ isPaletteOpen: false, paletteQuery: '', paletteResults: [], isPaletteSearching: false });
+    // Sync board search to last palette query so highlights remain visible
+    if (lastQuery.trim()) {
+      get().setSearchQuery(lastQuery);
+    }
+  },
+
+  setPaletteQuery: (query: string) => {
+    set({ paletteQuery: query, selectedPaletteIndex: 0 });
+    if (paletteDebounceTimer) clearTimeout(paletteDebounceTimer);
+    if (!query.trim() || query.trim().length < 2) {
+      set({ paletteResults: [], isPaletteSearching: false });
+      return;
+    }
+    set({ isPaletteSearching: true });
+    paletteDebounceTimer = setTimeout(async () => {
+      const { activeProjectSlug, isPaletteGlobal } = get();
+      try {
+        let results: PaletteSearchResult[];
+        if (isPaletteGlobal) {
+          const resp = await searchApi.global(query.trim());
+          results = resp.results;
+        } else {
+          if (!activeProjectSlug) { set({ isPaletteSearching: false }); return; }
+          const resp = await searchApi.palette(activeProjectSlug, query.trim());
+          results = resp.results;
+        }
+        set({ paletteResults: results, isPaletteSearching: false });
+      } catch (err) {
+        console.error('Palette search failed:', err);
+        set({ isPaletteSearching: false });
+      }
+    }, 150);
+  },
+
+  setPaletteTab: (tab: PaletteFilterTab) => set({ paletteTab: tab, selectedPaletteIndex: 0 }),
+
+  togglePaletteGlobal: () => {
+    const newGlobal = !get().isPaletteGlobal;
+    set({ isPaletteGlobal: newGlobal, selectedPaletteIndex: 0 });
+    const query = get().paletteQuery;
+    if (query.trim().length >= 2) get().setPaletteQuery(query);
+  },
+
+  setSelectedPaletteIndex: (index: number) => set({ selectedPaletteIndex: index }),
+
+  setDetailScrollTarget: (target: DetailScrollTarget | null) => set({ detailScrollTarget: target }),
+
+  activatePaletteResult: async (result: PaletteSearchResult) => {
+    const { openCardDetail, setActiveProject, projects, setDetailScrollTarget, loadCards } = get();
+
+    const activeSlug = get().activeProjectSlug;
+    if (result.projectSlug !== activeSlug) {
+      const project = projects.find(p => p.slug === result.projectSlug);
+      if (project) {
+        setActiveProject(result.projectSlug);
+        await loadCards();
+      }
+    }
+
+    await openCardDetail(result.cardSlug);
+
+    const target: DetailScrollTarget = (() => {
+      switch (result.type) {
+        case 'task': return { section: 'tasks', taskIndex: result.taskIndex };
+        case 'description': return { section: 'description' };
+        case 'tag':
+        case 'assignee': return { section: 'metadata' };
+        case 'file':
+        case 'file-description': return { section: 'files', filename: result.fileFilename };
+        case 'link':
+        case 'link-label':
+        case 'link-description': return { section: 'links', linkId: result.linkId };
+        default: return { section: 'description' };
+      }
+    })();
+    setDetailScrollTarget(target);
+
+    get().closePalette();
   },
 }));
 
