@@ -150,6 +150,7 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
   const { addLink, updateLink, deleteLink } = useStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleAdd = async (form: LinkFormState) => {
@@ -186,12 +187,19 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
 
   const handleDelete = async (linkId: string) => {
     setError(null);
-    if (!confirm('Delete this link?')) return;
+    setConfirmDeleteId(linkId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteId) return;
+    setError(null);
     try {
-      await deleteLink(cardSlug, linkId);
+      await deleteLink(cardSlug, confirmDeleteId);
     } catch (err: unknown) {
       const e = err as { message?: string };
       setError(e?.message ?? 'Failed to delete link.');
+    } finally {
+      setConfirmDeleteId(null);
     }
   };
 
@@ -225,6 +233,27 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
         <p className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded px-3 py-2">
           {error}
         </p>
+      )}
+
+      {/* Inline delete confirmation */}
+      {confirmDeleteId && (
+        <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 space-y-2">
+          <p className="text-sm text-gray-300">Delete this link?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleConfirmDelete}
+              className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs rounded transition-colors"
+            >
+              Delete
+            </button>
+            <button
+              onClick={() => setConfirmDeleteId(null)}
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Add form */}
