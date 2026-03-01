@@ -185,16 +185,10 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
     }
   };
 
-  const handleDelete = async (linkId: string) => {
-    setError(null);
-    setConfirmDeleteId(linkId);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!confirmDeleteId) return;
+  const handleConfirmDelete = async (linkId: string) => {
     setError(null);
     try {
-      await deleteLink(cardSlug, confirmDeleteId);
+      await deleteLink(cardSlug, linkId);
     } catch (err: unknown) {
       const e = err as { message?: string };
       setError(e?.message ?? 'Failed to delete link.');
@@ -235,27 +229,6 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
         </p>
       )}
 
-      {/* Inline delete confirmation */}
-      {confirmDeleteId && (
-        <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 space-y-2">
-          <p className="text-sm text-gray-300">Delete this link?</p>
-          <div className="flex gap-2">
-            <button
-              onClick={handleConfirmDelete}
-              className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs rounded transition-colors"
-            >
-              Delete
-            </button>
-            <button
-              onClick={() => setConfirmDeleteId(null)}
-              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Add form */}
       {showAddForm && (
         <LinkForm
@@ -273,8 +246,9 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
             No links yet — add a URL to get started.
           </p>
         ) : (
-          links.map((link) =>
-            editingId === link.id ? (
+          links.map((link) => {
+            const isPendingDelete = confirmDeleteId === link.id;
+            return editingId === link.id ? (
               <LinkForm
                 key={link.id}
                 initial={{ label: link.label, url: link.url, kind: link.kind }}
@@ -306,42 +280,74 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                   {link.label}
                 </a>
 
-                {/* Edit / Delete buttons (visible on hover) */}
-                <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => setEditingId(link.id)}
-                    title="Edit link"
-                    className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors"
-                  >
-                    {/* Pencil icon */}
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(link.id)}
-                    title="Delete link"
-                    className="p-1 rounded text-gray-400 hover:text-red-400 hover:bg-gray-700 transition-colors"
-                  >
-                    {/* Trash icon */}
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                {/* Action buttons — morph to confirm-delete state on first trash click */}
+                <div
+                  className={`shrink-0 flex items-center gap-1 transition-opacity ${
+                    isPendingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                >
+                  {isPendingDelete ? (
+                    <>
+                      {/* Morphed confirm button */}
+                      <button
+                        onClick={() => handleConfirmDelete(link.id)}
+                        title="Confirm delete"
+                        className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-700 hover:bg-red-600 text-white text-xs font-medium transition-colors"
+                      >
+                        {/* Trash icon */}
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                        Delete?
+                      </button>
+                      {/* Cancel button */}
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        title="Cancel delete"
+                        className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors"
+                      >
+                        {/* X icon */}
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Edit button */}
+                      <button
+                        onClick={() => { setEditingId(link.id); setConfirmDeleteId(null); }}
+                        title="Edit link"
+                        className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                          />
+                        </svg>
+                      </button>
+                      {/* Trash button — first click starts morph */}
+                      <button
+                        onClick={() => setConfirmDeleteId(link.id)}
+                        title="Delete link"
+                        className="p-1 rounded text-gray-400 hover:text-red-400 hover:bg-gray-700 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
-            )
-          )
+            );
+          })
         )}
       </div>
     </div>
