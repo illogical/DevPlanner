@@ -280,7 +280,7 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                   {link.label}
                 </a>
 
-                {/* Action buttons — morph to confirm-delete state on first trash click */}
+                {/* Action buttons — × arms delete, then red trash executes */}
                 <div
                   className={`shrink-0 flex items-center gap-1 transition-opacity ${
                     isPendingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
@@ -288,30 +288,27 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                 >
                   {isPendingDelete ? (
                     <>
-                      {/* Morphed confirm button */}
+                      {/* Armed: red trash executes delete */}
                       <button
                         onClick={() => handleConfirmDelete(link.id)}
                         title="Confirm delete"
-                        className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-700 hover:bg-red-600 text-white text-xs font-medium transition-colors"
+                        className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-red-900/40 transition-colors"
                       >
-                        {/* Trash icon */}
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                           />
                         </svg>
-                        Delete?
                       </button>
-                      {/* Cancel button */}
+                      {/* Cancel — back arrow icon */}
                       <button
                         onClick={() => setConfirmDeleteId(null)}
                         title="Cancel delete"
                         className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors"
                       >
-                        {/* X icon */}
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
+                            d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
                           />
                         </svg>
                       </button>
@@ -330,15 +327,15 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                           />
                         </svg>
                       </button>
-                      {/* Trash button — first click starts morph */}
+                      {/* × button — first click arms delete */}
                       <button
                         onClick={() => setConfirmDeleteId(link.id)}
-                        title="Delete link"
+                        title="Remove link"
                         className="p-1 rounded text-gray-400 hover:text-red-400 hover:bg-gray-700 transition-colors"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            d="M6 18L18 6M6 6l12 12"
                           />
                         </svg>
                       </button>
