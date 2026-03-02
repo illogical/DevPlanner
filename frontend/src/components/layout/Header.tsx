@@ -16,6 +16,8 @@ export function Header({ connectionState }: HeaderProps) {
     isFilesPanelOpen, toggleFilesPanel,
     openPalette,
   } = useStore();
+  const searchQuery = useStore((s) => s.searchQuery);
+  const clearSearch = useStore((s) => s.clearSearch);
 
   const handleRetry = () => {
     const client = getWebSocketClient();
@@ -108,19 +110,42 @@ export function Header({ connectionState }: HeaderProps) {
 
       {/* Center group: search trigger button */}
       <div className="flex-1 flex justify-center px-6">
-        <button
-          onClick={openPalette}
-          className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-gray-200 hover:border-gray-600 transition-colors w-full max-w-xs"
-          aria-label="Open search palette"
-        >
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <span className="flex-1 text-left">Search…</span>
-          <kbd className="hidden sm:inline text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded font-mono border border-gray-600">
-            {shortcutHint}
-          </kbd>
-        </button>
+        <div className="flex items-center gap-1 w-full max-w-xs">
+          <button
+            onClick={openPalette}
+            className={cn(
+              'flex items-center gap-2 px-3 py-1.5 bg-gray-800 border rounded-lg text-sm transition-colors flex-1 min-w-0',
+              searchQuery
+                ? 'border-yellow-500/50 text-yellow-300 hover:border-yellow-400'
+                : 'border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+            )}
+            aria-label="Open search palette"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span className="flex-1 text-left truncate">
+              {searchQuery || 'Search…'}
+            </span>
+            {!searchQuery && (
+              <kbd className="hidden sm:inline text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded font-mono border border-gray-600 shrink-0">
+                {shortcutHint}
+              </kbd>
+            )}
+          </button>
+          {searchQuery && (
+            <button
+              onClick={clearSearch}
+              title="Clear search"
+              aria-label="Clear search"
+              className="shrink-0 p-1.5 rounded text-gray-400 hover:text-gray-100 hover:bg-gray-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Right group: action buttons + activity sidebar toggle */}

@@ -151,6 +151,9 @@ function ResultRow({ result, query, isSelected, onActivate, onHover, isGlobal }:
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(navigator.platform);
+const scopeHint = isMac ? '⌥A' : 'Alt+A';
+
 export function SearchPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -217,6 +220,13 @@ export function SearchPalette() {
       if (e.key === 'Tab') {
         e.preventDefault();
         advanceTab(e.shiftKey);
+        return;
+      }
+      // Use e.code (physical key) so this works on macOS where Alt+A
+      // produces 'å' via e.key instead of 'a'.
+      if (e.altKey && e.code === 'KeyA') {
+        e.preventDefault();
+        togglePaletteGlobal();
       }
     };
 
@@ -284,14 +294,16 @@ export function SearchPalette() {
               {/* Scope toggle */}
               <button
                 onClick={togglePaletteGlobal}
+                title={`Toggle search scope (${scopeHint})`}
                 className={cn(
-                  'shrink-0 text-xs px-2 py-1 rounded border transition-colors',
+                  'shrink-0 text-xs px-2 py-1 rounded border transition-colors flex items-center gap-1',
                   isPaletteGlobal
                     ? 'bg-blue-600/20 border-blue-500 text-blue-300'
                     : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500'
                 )}
               >
                 {isPaletteGlobal ? 'All projects' : 'This project'}
+                <kbd className="text-[9px] opacity-50 font-mono leading-none">{scopeHint}</kbd>
               </button>
 
               {/* Esc hint */}
@@ -386,6 +398,7 @@ export function SearchPalette() {
               <span><kbd className="font-mono bg-gray-800 px-1 rounded">↑↓</kbd> navigate</span>
               <span><kbd className="font-mono bg-gray-800 px-1 rounded">↵</kbd> open</span>
               <span><kbd className="font-mono bg-gray-800 px-1 rounded">Tab</kbd> filter</span>
+              <span><kbd className="font-mono bg-gray-800 px-1 rounded">{scopeHint}</kbd> scope</span>
             </div>
           </motion.div>
         </motion.div>

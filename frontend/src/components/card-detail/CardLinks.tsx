@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store';
 import { useDetailScroll } from '../../hooks/useDetailScroll';
+import { cn } from '../../utils/cn';
 import type { CardLink, CreateLinkInput, UpdateLinkInput } from '../../types';
 
 interface CardLinksProps {
@@ -149,6 +150,7 @@ function LinkForm({ initial, existingLinks, editingId, onSave, onCancel }: LinkF
 
 export function CardLinks({ links, cardSlug }: CardLinksProps) {
   const { addLink, updateLink, deleteLink } = useStore();
+  const detailScrollTarget = useStore((s) => s.detailScrollTarget);
   useDetailScroll('links');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -261,7 +263,12 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
             ) : (
               <div
                 key={link.id}
-                className="flex items-center gap-2 group rounded-lg px-2 py-1.5 hover:bg-gray-800/50"
+                id={`link-row-${link.id}`}
+                className={cn(
+                  'flex items-center gap-2 group rounded-lg px-2 py-1.5 hover:bg-gray-800/50 transition-colors',
+                  detailScrollTarget?.section === 'links' && detailScrollTarget?.linkId === link.id
+                    && 'ring-2 ring-amber-400/60'
+                )}
               >
                 {/* Kind badge */}
                 <span

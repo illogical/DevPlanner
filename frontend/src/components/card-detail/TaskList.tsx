@@ -19,6 +19,7 @@ const taskVariants = {
 
 export function TaskList({ tasks, cardSlug }: TaskListProps) {
   const { toggleTask, addTask, updateTaskText, deleteTask } = useStore();
+  const searchQuery = useStore((s) => s.searchQuery);
   useDetailScroll('tasks');
 
   const checkedCount = tasks.filter((t) => t.checked).length;
@@ -60,6 +61,7 @@ export function TaskList({ tasks, cardSlug }: TaskListProps) {
           {tasks.map((task, idx) => (
             <motion.div
               key={`${task.index}-${task.text}-${idx}`}
+              id={`task-item-${task.index}`}
               variants={taskVariants}
               initial="initial"
               animate="animate"
@@ -73,6 +75,7 @@ export function TaskList({ tasks, cardSlug }: TaskListProps) {
                 onToggle={(checked) => handleToggle(task, checked)}
                 onEdit={(text) => handleEdit(task, text)}
                 onDelete={() => handleDelete(task)}
+                searchQuery={searchQuery || undefined}
               />
             </motion.div>
           ))}

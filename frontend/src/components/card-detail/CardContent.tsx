@@ -15,12 +15,21 @@ export const CardContent = memo(function CardContent({ description, cardSlug }: 
   const [isSaving, setIsSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { updateCard } = useStore();
+  const searchQuery = useStore((s) => s.searchQuery);
 
   const html = useMemo(() => {
     marked.setOptions({ breaks: true, gfm: true });
     if (!description) return '';
-    return marked.parse(description);
-  }, [description]);
+    let src = description;
+    if (searchQuery?.trim()) {
+      // Inject <mark> tags into the markdown source before parsing so matched
+      // text is highlighted in the rendered HTML. Operates on raw text so it
+      // avoids touching HTML tag attributes.
+      const escaped = searchQuery.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      src = src.replace(new RegExp(escaped, 'gi'), (m) => `<mark class="search-mark">${m}</mark>`);
+    }
+    return marked.parse(src);
+  }, [description, searchQuery]);
 
   const handleStartEditing = () => {
     setEditContent(description ?? '');

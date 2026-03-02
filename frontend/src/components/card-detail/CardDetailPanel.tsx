@@ -16,6 +16,8 @@ export function CardDetailPanel() {
   const isDetailPanelOpen = useStore((state) => state.isDetailPanelOpen);
   const isLoadingCardDetail = useStore((state) => state.isLoadingCardDetail);
   const closeCardDetail = useStore((state) => state.closeCardDetail);
+  const searchQuery = useStore((state) => state.searchQuery);
+  const clearSearch = useStore((state) => state.clearSearch);
 
   console.log(`[CardDetailPanel] RENDER:`, {
     slug: activeCard?.slug,
@@ -25,17 +27,21 @@ export function CardDetailPanel() {
 
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape key
+  // Escape: clear active search first (keeps card open), then close card
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isDetailPanelOpen) {
-        closeCardDetail();
+        if (searchQuery) {
+          clearSearch();
+        } else {
+          closeCardDetail();
+        }
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isDetailPanelOpen, closeCardDetail]);
+  }, [isDetailPanelOpen, searchQuery, clearSearch, closeCardDetail]);
 
   // Prevent body scroll when panel is open
   useEffect(() => {
@@ -54,9 +60,10 @@ export function CardDetailPanel() {
     <AnimatePresence>
       {isDetailPanelOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — starts below the header (top-14) so the header
+              remains interactive. Clicking the backdrop closes the panel. */}
           <motion.div
-            className="fixed inset-0 bg-black/60 z-20"
+            className="fixed inset-x-0 top-14 bottom-0 bg-black/60 z-20"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

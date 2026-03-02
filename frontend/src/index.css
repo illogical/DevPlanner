@@ -103,3 +103,11 @@ textarea {
   50%  { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
   100% { box-shadow: none; }
 }
+
+/* Inline search term highlighting in card description and palette snippets */
+mark.search-mark {
+  background: rgba(251, 191, 36, 0.35);
+  border-radius: 2px;
+  color: inherit;
+  padding: 0 1px;
+}
