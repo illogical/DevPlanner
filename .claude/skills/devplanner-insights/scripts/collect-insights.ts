@@ -14,8 +14,10 @@
  */
 
 const BASE_URL = "http://192.168.7.45:17103/api";
-const UPCOMING_LIMIT = 5;      // Top N upcoming cards per project (position = priority)
-const IN_PROGRESS_DETAIL = 10; // Max in-progress cards to fetch full task detail for
+const RECENT_WINDOW_DAYS = 2;        // Days from NOW considered "recent" — triggers full detail display
+const ACCOMPLISHMENTS_FALLBACK = 3;  // Completed cards to show when none in current window
+const IDEAS_FALLBACK = 5;            // Cards to show in Latest Ideas when no recent activity
+const IN_PROGRESS_DETAIL = 10;       // Max in-progress cards to fetch full task detail for
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,8 +26,15 @@ interface Preferences {
   digestAnchor: string | null;
 }
 
+interface CardLink {
+  title: string;
+  url: string;
+  kind?: "doc" | "spec" | "ticket" | "repo" | "reference" | "other";
+}
+
 interface CardFrontmatter {
   title: string;
+  description?: string;
   status?: "in-progress" | "blocked" | "review" | "testing";
   priority?: "low" | "medium" | "high";
   assignee?: "user" | "agent";
@@ -34,6 +43,7 @@ interface CardFrontmatter {
   tags?: string[];
   cardNumber?: number;
   blockedReason?: string;
+  links?: CardLink[];
   taskMeta?: Array<{ addedAt: string; completedAt: string | null }>;
 }
 
@@ -41,6 +51,7 @@ interface CardSummary {
   slug: string;
   filename: string;
   lane: string;
+  cardId?: string | null;
   frontmatter: CardFrontmatter;
   taskProgress: { total: number; checked: number };
 }
@@ -98,10 +109,19 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function fetchFullCard(slug: string, cardSlug: string): Promise<Card | CardSummary> {
+  try {
+    return await get<Card>(`/projects/${slug}/cards/${cardSlug}`);
+  } catch {
+    return { slug: cardSlug, filename: `${cardSlug}.md`, lane: "", frontmatter: { title: cardSlug, created: "", updated: "" }, taskProgress: { total: 0, checked: 0 }, content: "", tasks: [] };
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   const generatedAt = new Date().toISOString();
+  const recentWindowCutoff = new Date(Date.now() - RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   // Step 1: Read digestAnchor from preferences
   let digestAnchor: string | null = null;
@@ -150,18 +170,49 @@ async function main() {
       const since = encodeURIComponent(windowStart);
 
       // Parallel per-project requests
-      const [inProgressResp, upcomingResp, recentlyCompletedResp, stats, historyResp] =
+      const [inProgressResp, upcomingResp, recentlyCompletedResp, allCompletedResp, stats, historyResp] =
         await Promise.all([
           get<{ cards: CardSummary[] }>(`/projects/${slug}/cards?lane=02-in-progress`),
           get<{ cards: CardSummary[] }>(`/projects/${slug}/cards?lane=01-upcoming`),
-          get<{ cards: CardSummary[] }>(
-            `/projects/${slug}/cards?lane=03-complete&since=${since}`
-          ),
+          get<{ cards: CardSummary[] }>(`/projects/${slug}/cards?lane=03-complete&since=${since}`),
+          get<{ cards: CardSummary[] }>(`/projects/${slug}/cards?lane=03-complete`),
           get<ProjectStats>(`/projects/${slug}/stats`),
-          get<{ events: HistoryEvent[] }>(
-            `/projects/${slug}/history?limit=100&since=${since}`
-          ),
+          get<{ events: HistoryEvent[] }>(`/projects/${slug}/history?limit=100&since=${since}`),
         ]);
+
+      // Fetch full details for recently completed cards (description + tasks for the digest)
+      const recentlyCompletedFull = await Promise.all(
+        recentlyCompletedResp.cards.map((card) => fetchFullCard(slug, card.slug))
+      );
+
+      // Fallback: most recently updated completed cards when none in current window
+      const completedFallback = allCompletedResp.cards
+        .slice()
+        .sort((a, b) => b.frontmatter.updated.localeCompare(a.frontmatter.updated))
+        .slice(0, ACCOMPLISHMENTS_FALLBACK);
+
+      // Latest Ideas: combine all non-archive cards, sort by updated desc
+      const allNonArchive: CardSummary[] = [
+        ...upcomingResp.cards,
+        ...inProgressResp.cards,
+        ...allCompletedResp.cards,
+      ];
+      const sortedByUpdated = allNonArchive
+        .slice()
+        .sort((a, b) => b.frontmatter.updated.localeCompare(a.frontmatter.updated));
+
+      const recentCards = sortedByUpdated.filter(
+        (c) => c.frontmatter.updated >= recentWindowCutoff
+      );
+      const isIdeasRecent = recentCards.length > 0;
+      const ideasSource = isIdeasRecent
+        ? recentCards
+        : sortedByUpdated.slice(0, IDEAS_FALLBACK);
+
+      // Fetch full details for ideas cards
+      const latestIdeasFull = await Promise.all(
+        ideasSource.map((card) => fetchFullCard(slug, card.slug))
+      );
 
       // Fetch full task list for in-progress cards that have tasks
       const inProgressFull = await Promise.all(
@@ -171,35 +222,37 @@ async function main() {
             const full = await get<Card>(`/projects/${slug}/cards/${card.slug}`);
             return { ...card, tasks: full.tasks };
           } catch {
-            return card; // Fall back to summary if full fetch fails
+            return card;
           }
         })
       );
 
       // Agent-claimable: no assignee or explicitly agent-assigned, ordered by lane position
-      const agentClaimable = upcomingResp.cards
-        .filter(
-          (c) => !c.frontmatter.assignee || c.frontmatter.assignee === "agent"
-        )
-        .slice(0, UPCOMING_LIMIT);
+      const agentClaimable = upcomingResp.cards.filter(
+        (c) => !c.frontmatter.assignee || c.frontmatter.assignee === "agent"
+      );
 
       // Filter global activity down to this project
-      const projectActivity = activity.events.filter(
-        (e) => e.projectSlug === slug
-      );
+      const projectActivity = activity.events.filter((e) => e.projectSlug === slug);
 
       return {
         slug,
         name: p.name,
         stats,
+        recentWindowCutoff,
+        recentlyCompleted: recentlyCompletedFull,
+        completedFallback,
+        latestIdeas: {
+          cards: latestIdeasFull,
+          isRecent: isIdeasRecent,
+        },
         inProgress: inProgressFull,
         upcoming: {
           // Lane position = priority; slice preserves order
-          cards: upcomingResp.cards.slice(0, UPCOMING_LIMIT),
+          cards: upcomingResp.cards.slice(0, 5),
           totalCount: upcomingResp.cards.length,
-          hasMore: upcomingResp.cards.length > UPCOMING_LIMIT,
+          hasMore: upcomingResp.cards.length > 5,
         },
-        recentlyCompleted: recentlyCompletedResp.cards,
         recentHistory: historyResp.events,
         recentActivity: projectActivity,
         agentClaimable,
@@ -213,6 +266,7 @@ async function main() {
     generatedAt,
     digestAnchor,
     windowStart,
+    recentWindowCutoff,
     totalActivityEvents: activity.events.length,
     summary: {
       totalCompleted: projectData.reduce(

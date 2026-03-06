@@ -41,6 +41,9 @@ stale: boolean               → true = skip full digest
 generatedAt: ISO string      → use this when updating digestAnchor
 digestAnchor: ISO|null       → timestamp of last successful digest
 windowStart: ISO string      → start of the current reporting window
+recentWindowCutoff: ISO      → anything updated after this is "recent" (within 2 days of NOW)
+totalActivityEvents          → total events in the window
+
 summary.totalCompleted       → cards completed since last digest
 summary.totalInProgress      → active cards across all projects
 summary.totalBlocked         → blocked cards across all projects
@@ -48,6 +51,7 @@ summary.agentClaimableCount  → unassigned upcoming cards agent can start
 
 projects[]:
   slug, name
+  recentWindowCutoff         → per-project copy (same value as top-level)
   stats:
     completionsLast7Days     → velocity (last 7 days)
     completionsLast30Days    → velocity (last 30 days)
@@ -55,10 +59,14 @@ projects[]:
     wipCount                 → cards in In Progress lane
     backlogDepth             → cards in Upcoming lane
     blockedCount             → blocked cards count
-  recentlyCompleted[]        → cards moved to complete since windowStart
+  recentlyCompleted[]        → full card details for cards moved to complete since windowStart
+  completedFallback[]        → last 3 completed (by updated) — used when recentlyCompleted is empty
+  latestIdeas:
+    isRecent: boolean        → true if any cards updated within recentWindowCutoff
+    cards[]                  → full card details; if isRecent=true: all recent cards; else: top 5 by updated
   inProgress[]               → active cards (includes tasks[] when taskProgress.total > 0)
-    frontmatter.links[]      → URL links on the card (doc, spec, ticket, repo, reference, other)
     frontmatter.description  → short summary; may be absent for older cards
+    frontmatter.links[]      → URL links on the card (doc, spec, ticket, repo, reference, other)
   upcoming.cards[]           → top 5 by lane position (index 0 = highest priority)
   upcoming.totalCount        → full backlog size
   upcoming.hasMore           → true if backlog > 5
@@ -67,77 +75,189 @@ projects[]:
   recentHistory[]            → project history events in the window
 ```
 
-### Looking Deeper into Cards
+### Visual Weight Guide
 
-Cards may carry URL links and attached files that contain the real context about what a
-feature is for and how it should be implemented. When reporting on any in-progress or
-blocked card, check whether richer context is available before summarising:
+Use consistent formatting to make the digest scannable. Apply this hierarchy for every card in every section:
 
-1. **Check `frontmatter.links`** — look for `kind: "doc"` or `kind: "spec"` entries first.
-   These are the most likely to explain the card's purpose and implementation intent.
-2. **Fetch accessible links** — use `WebFetch` for public URLs (Obsidian publish sites,
-   GitHub issues, spec pages). Skip links that require authentication.
-3. **Read card artifact files** — call `GET /projects/{slug}/cards/{card}/files` to list
-   attached files, then read `.md` files for implementation notes, specs, and research.
+| Element | Markdown | Visual role |
+|---------|----------|-------------|
+| Card ID | `*(HX-7)*` — italic, inline with title | Low weight — reference only |
+| Title | `### Title` (H3) | Highest weight — always prominent |
+| Description | Plain paragraph under title | Medium weight — context |
+| Task list | Indented `- [ ]` / `- [x]` bullets | Lower weight — supporting detail |
+| Links | `` `[Title](https://...)` `` inline | Inline reference |
+| Status/meta | `*italic note*` | Subtle annotation |
 
-**When to go deeper:**
-- A blocked card with no `description` — check links and files to understand why it matters
-- A card whose title is ambiguous — the linked doc or spec usually explains the full intent
-- A card with a `kind: "spec"` or `kind: "doc"` link — these are explicitly reference material
+Use horizontal rules (`---`) or blank lines between cards for visual separation within a section. Use `##` headings for section titles.
 
-You do not need to fetch every link on every card. Focus on in-progress and blocked cards
-where additional context would meaningfully improve your summary.
+---
 
 ### Section Format Guide
 
-**✅ Recently Completed** — source: `projects[].recentlyCompleted`, grouped by project.
-If none: *"No completions since last digest."*
-Include `cardId` alongside the title when non-null (e.g., `[DE-7]`). Omit bracket when `cardId` is null.
-```
-✅ Recently Completed
-• [DevPlanner] [DE-7] Improve card filtering — 4 tasks done
-• [Hex] [HX-3] Set up CI pipeline
+Sections appear in this order in the digest:
+
+1. Latest Accomplishments
+2. Latest Ideas
+3. In Progress
+4. Up Next
+5. How I Can Help
+6. Focus Themes
+7. Project Health
+
+---
+
+### Latest Accomplishments
+
+Source: `projects[].recentlyCompleted` (full card details).
+Fallback when empty: use `projects[].completedFallback`.
+
+**If `recentlyCompleted` has cards** (work done since last digest): Show all with full details.
+**If empty** (no completions since last digest): Show `completedFallback` cards with title + description + relative time ("3 days ago").
+
+```markdown
+## Latest Accomplishments
+
+### Build OAuth Login *(HX-7)*
+*Completed recently — [Hex]*
+Implemented full OAuth2 flow with Google and GitHub providers.
+- [x] Set up OAuth2 client
+- [x] Session management
+- [x] Logout endpoint
+
+---
+
+### Fix card ordering bug *(DE-12)*
+*Completed 4 days ago — [DevPlanner]*
+Resolved race condition in lane reorder endpoint.
 ```
 
-**🔄 In Progress** — source: `projects[].inProgress`. Show remaining unchecked tasks.
-Sort: blocked cards first, then by completion % ascending (least progress = needs most attention).
-Include `cardId` alongside the title when non-null.
-```
-🔄 In Progress
-• [Hex] [HX-5] Build auth service (2/5 tasks · high)
-  Remaining: Write tests, Deploy to staging
-  ⚠️ BLOCKED: Waiting for SSL cert from user
+---
+
+### Latest Ideas
+
+Source: `projects[].latestIdeas`.
+
+**If `latestIdeas.isRecent = true`** (cards updated within 2 days of NOW): Show all with full details including tasks and links.
+**If `latestIdeas.isRecent = false`**: Show top 5 by `updated` with cardId, title, and description only.
+
+Always sort newest `updated` first. Include any `frontmatter.links` as inline links.
+
+```markdown
+## Latest Ideas
+
+### Dark Mode Support *(HX-9)*
+*Updated 1 day ago — Upcoming · [Hex]*
+Add system-preference-based dark mode with persistent user preference.
+- [ ] CSS variable theming
+- [ ] Toggle component
+- [ ] Persist setting to localStorage
+[Design spec](https://example.com/design-spec)
+
+---
+
+### Keyboard shortcut system *(HX-11)*
+*Updated 2 days ago — In Progress · [Hex]*
+Global hotkey registry for power-user navigation.
 ```
 
-**📋 Up Next** — source: `projects[].upcoming.cards`. Array order IS priority order.
+---
+
+### In Progress
+
+Source: `projects[].inProgress`.
+Show: cardId, title, description, and only the **first unchecked task** per card.
+Sort: cards with `frontmatter.status === "blocked"` first, then by task completion % ascending (least progress = needs most attention).
+
+```markdown
+## In Progress
+
+### Build Auth Service *(HX-5)* · 2/5 tasks · high
+*[Hex]*
+Handles user authentication including JWT issuance and session management.
+Next: Write integration tests
+⚠️ BLOCKED: Waiting for SSL cert from user
+
+---
+
+### Improve card filtering *(DE-7)* · 1/3 tasks · medium
+*[DevPlanner]*
+Add multi-field filter support to the Kanban board.
+Next: Add tag filter UI
+```
+
+---
+
+### Up Next
+
+Source: `projects[].upcoming.cards`. Array order IS priority order.
 Never sort by any other field. If `upcoming.hasMore`, append "... and N more in backlog."
 Include `cardId` alongside the title when non-null.
-```
-📋 Up Next
-1. [Hex] [HX-8] Implement OAuth login (high) 🤖 agent-claimable
-2. [Hex] [HX-9] Write API documentation (medium)
-3. [DevPlanner] [DE-11] Fix file upload bug (high)
+
+```markdown
+## Up Next
+
+1. [Hex] *(HX-8)* Implement OAuth login (high) 🤖 agent-claimable
+2. [Hex] *(HX-9)* Write API documentation (medium)
+3. [DevPlanner] *(DE-11)* Fix file upload bug (high)
 ```
 
-**🆕 Newly Added** — source: `projects[].recentActivity` filtered to `action === "card:created"`.
-Omit section entirely if no new cards.
+---
 
-**🤖 How I Can Help** — source: `projects[].agentClaimable` + blocked in-progress cards.
+### How I Can Help
+
+Source: `projects[].agentClaimable` + blocked in-progress cards.
 Include `cardId` alongside the title when non-null.
-```
-🤖 How I Can Help
-• Start: [Hex] [HX-8] Implement OAuth login — agent-claimable, high priority
-• Unblock: [DevPlanner] [DE-11] Fix file upload bug — currently blocked, I can investigate
+
+```markdown
+## How I Can Help
+
+- Start: [Hex] *(HX-8)* Implement OAuth login — agent-claimable, high priority
+- Unblock: [DevPlanner] *(DE-11)* Fix file upload bug — currently blocked, I can investigate
 ```
 
-**📊 Project Health** — source: `projects[].stats`. Flag anomalies explicitly.
+---
+
+### Focus Themes
+
+Source: aggregate `frontmatter.tags` across `latestIdeas.cards` and `inProgress` cards.
+Count tag frequency. Show top 5 tags with a count if > 1. Skip section if no cards have tags.
+
+```markdown
+## Focus Themes
+
+auth (4) · ui (3) · performance (2) · refactor (1)
+```
+
+---
+
+### Project Health
+
+Source: `projects[].stats`. Flag anomalies explicitly.
 
 | Signal | Threshold | Flag as |
 |--------|-----------|---------|
 | High cycle time | `avgDaysInProgress > 5` | Slow cycle time |
 | WIP overload | `wipCount > 5` | Too much WIP |
-| Blocked cards | `blockedCount > 0` | Always mention |
-| Shrinking backlog | `backlogDepth < 3` | Low backlog |
+| Low backlog | `backlogDepth < 3` | Low backlog |
+
+Only include projects with at least one anomaly. Skip section entirely if all projects are healthy.
+
+---
+
+### Looking Deeper into Cards
+
+Cards may carry URL links and attached files with real context about what a feature is for.
+When reporting on any in-progress or blocked card, check whether richer context is available:
+
+1. **Check `frontmatter.links`** — look for `kind: "doc"` or `kind: "spec"` entries first.
+2. **Fetch accessible links** — use `WebFetch` for public URLs. Skip links that require authentication.
+3. **Read card artifact files** — call `GET /projects/{slug}/cards/{card}/files` to list attached files, then read `.md` files for implementation notes.
+
+**When to go deeper:**
+- A card whose title is ambiguous — the linked doc or spec explains the full intent
+- A card with a `kind: "spec"` or `kind: "doc"` link — these are explicitly reference material
+
+You do not need to fetch every link on every card. Focus on in-progress cards where additional context meaningfully improves your summary.
 
 ## Step 4 — Update digestAnchor
 
@@ -161,7 +281,5 @@ contiguous with the data that was actually collected.
 - **NEVER reorder Up Next cards.** Index 0 in `upcoming.cards[]` is the highest priority card. Position in the lane IS the priority — do not sort by name, date, or priority field.
 
 - **NEVER show all upcoming cards.** The script limits to top 5. Showing a full backlog obscures what actually matters.
-
-- **NEVER omit Project Health when `blockedCount > 0`.** Blocked cards always deserve explicit mention in the digest.
 
 See [api-reference.md](references/api-reference.md) for the full endpoint reference if additional direct API calls are needed beyond the script output.
