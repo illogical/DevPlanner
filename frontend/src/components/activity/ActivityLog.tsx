@@ -219,31 +219,6 @@ function getEventIcon(action: HistoryActionType) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
         </svg>
       );
-    case 'file:uploaded':
-      return (
-        <svg className={baseClassName} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-        </svg>
-      );
-    case 'file:deleted':
-      return (
-        <svg className={baseClassName} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      );
-    case 'file:associated':
-    case 'file:disassociated':
-      return (
-        <svg className={baseClassName} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-        </svg>
-      );
-    case 'file:updated':
-      return (
-        <svg className={baseClassName} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>
-      );
     default:
       return (
         <svg className={baseClassName} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,18 +256,6 @@ function getEventColor(action: HistoryActionType): string {
     case 'project:updated':
       return 'text-blue-500';
     case 'project:archived':
-      return 'text-gray-500';
-
-    // File events
-    case 'file:uploaded':
-      return 'text-green-500';
-    case 'file:deleted':
-      return 'text-red-500';
-    case 'file:updated':
-      return 'text-blue-500';
-    case 'file:associated':
-      return 'text-blue-500';
-    case 'file:disassociated':
       return 'text-gray-500';
 
     default:

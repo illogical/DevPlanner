@@ -17,8 +17,10 @@ tags:
     description: Card CRUD and lane management
   - name: tasks
     description: Checklist item management within cards
-  - name: files
-    description: Reference file upload and card associations
+  - name: artifacts
+    description: Vault artifact creation and linking
+  - name: links
+    description: URL link management
   - name: history
     description: Per-project activity log
   - name: preferences
@@ -716,288 +718,102 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ─────────────────────────────────────────────
-  # Files
+  # Artifacts
   # ─────────────────────────────────────────────
-  /api/projects/{projectSlug}/files:
-    parameters:
-      - $ref: "#/components/parameters/projectSlug"
-
-    get:
-      operationId: listFiles
-      tags: [files]
-      summary: List all files for a project
-      responses:
-        "200":
-          description: File list
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [files]
-                properties:
-                  files:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ProjectFileEntry"
-
-    post:
-      operationId: uploadFile
-      tags: [files]
-      summary: Upload a file to a project
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file]
-              properties:
-                file:
-                  type: string
-                  format: binary
-                description:
-                  type: string
-      responses:
-        "201":
-          description: Uploaded file metadata
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProjectFileEntry"
-
-  /api/projects/{projectSlug}/files/{filename}:
-    parameters:
-      - $ref: "#/components/parameters/projectSlug"
-      - $ref: "#/components/parameters/filename"
-
-    get:
-      operationId: getFile
-      tags: [files]
-      summary: Get metadata for a specific file
-      responses:
-        "200":
-          description: File metadata
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProjectFileEntry"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-    patch:
-      operationId: updateFile
-      tags: [files]
-      summary: Update a file's description
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [description]
-              properties:
-                description:
-                  type: string
-      responses:
-        "200":
-          description: Updated file metadata
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProjectFileEntry"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-    delete:
-      operationId: deleteFile
-      tags: [files]
-      summary: Delete a file and all its card associations
-      responses:
-        "200":
-          description: Returns the card slugs that were associated before deletion
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [associatedCards]
-                properties:
-                  associatedCards:
-                    type: array
-                    items:
-                      type: string
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /api/projects/{projectSlug}/files/{filename}/download:
-    parameters:
-      - $ref: "#/components/parameters/projectSlug"
-      - $ref: "#/components/parameters/filename"
-
-    get:
-      operationId: downloadFile
-      tags: [files]
-      summary: Download/serve a file with its proper MIME type
-      responses:
-        "200":
-          description: Binary file content
-          content:
-            "*/*":
-              schema:
-                type: string
-                format: binary
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /api/projects/{projectSlug}/files/{filename}/associate:
-    parameters:
-      - $ref: "#/components/parameters/projectSlug"
-      - $ref: "#/components/parameters/filename"
-
-    post:
-      operationId: associateFile
-      tags: [files]
-      summary: Associate a file with a card (many-to-many)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [cardSlug]
-              properties:
-                cardSlug:
-                  type: string
-      responses:
-        "200":
-          description: Updated file metadata with new cardSlugs
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProjectFileEntry"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /api/projects/{projectSlug}/files/{filename}/associate/{cardSlug}:
-    parameters:
-      - $ref: "#/components/parameters/projectSlug"
-      - $ref: "#/components/parameters/filename"
-      - $ref: "#/components/parameters/cardSlug"
-
-    delete:
-      operationId: disassociateFile
-      tags: [files]
-      summary: Remove a file-card association
-      responses:
-        "200":
-          description: Updated file metadata without the card
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProjectFileEntry"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /api/projects/{projectSlug}/cards/{cardSlug}/files:
+  /api/projects/{projectSlug}/cards/{cardSlug}/artifacts:
     parameters:
       - $ref: "#/components/parameters/projectSlug"
       - $ref: "#/components/parameters/cardSlug"
 
-    get:
-      operationId: listCardFiles
-      tags: [files]
-      summary: List files associated with a specific card
-      responses:
-        "200":
-          description: Files for this card
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [files]
-                properties:
-                  files:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/ProjectFileEntry"
-
     post:
-      operationId: addFileToCard
-      tags: [files]
-      summary: Create a text file and associate it with this card (atomic operation)
+      operationId: createArtifact
+      tags: [artifacts]
+      summary: Create a vault artifact and attach as a link to the card
       description: |
-        Create a new text file and link it to the specified card in one operation.
-        Designed for AI agent workflows where creating reference files (specs, docs) for cards is common.
-        
-        Supports two request formats:
-        - **JSON**: For creating text files with inline content (preferred for agents)
-        - **Multipart**: For uploading files from disk (UI workflows)
-        
-        Filename deduplication: If `filename` already exists, a numeric suffix is added
-        (e.g., `spec.md` → `spec-2.md`). The response includes both `filename` (actual)
-        and `originalName` (requested).
+        Write a text file to the Obsidian Vault and automatically attach it as a link on the card.
+
+        The API generates the filename from the label and timestamp:
+        - Timestamp: `YYYY-MM-DD_HH-MM-SS` (UTC)
+        - Label slug: `slugify(label).toUpperCase()`
+        - Result: `{timestamp}_{label-slug}.md`
+
+        File is written to: `{OBSIDIAN_VAULT_PATH}/{projectSlug}/{cardSlug}/{filename}`
+
+        A link is auto-created with the computed Obsidian viewer URL.
+
+        **Requires** `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in server `.env`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [filename, content]
+              required: [label, content]
               properties:
-                filename:
+                label:
                   type: string
-                  description: Desired filename (e.g., "spec.md"). Will be deduplicated if exists.
-                  example: "technical-spec.md"
+                  description: Display label for the link and source for the filename (e.g., "Implementation Spec" → 2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md)
+                  minLength: 1
+                  example: "Implementation Spec"
                 content:
                   type: string
                   description: UTF-8 text content for the file
-                  example: "# Technical Specification\n\n## Overview\n\nDetailed technical specifications..."
-                description:
+                  minLength: 1
+                  example: "# Implementation Spec\n\n## Overview\n\n..."
+                kind:
                   type: string
-                  description: Optional description of the file's purpose
-                  example: "Technical specifications for implementation"
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file]
-              properties:
-                file:
-                  type: string
-                  format: binary
-                  description: File to upload
-                description:
-                  type: string
-                  description: Optional description of the file's purpose
+                  enum: [doc, spec, ticket, repo, reference, other]
+                  default: doc
+                  description: Link kind classification
       responses:
         "201":
-          description: File created and associated with card
+          description: Artifact created and linked to card
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProjectFileEntry"
+                type: object
+                required: [link, filePath]
+                properties:
+                  link:
+                    $ref: "#/components/schemas/CardLink"
+                  filePath:
+                    type: string
+                    description: Absolute path to the created file (internal; use link.url for portable references)
+                    example: "C:\\\\vault\\\\10-Projects\\\\hex\\\\my-card\\\\2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md"
               examples:
                 success:
-                  summary: File created successfully
+                  summary: Artifact created successfully
                   value:
-                    filename: "technical-spec.md"
-                    originalName: "technical-spec.md"
-                    description: "Technical specifications for implementation"
-                    mimeType: "text/markdown"
-                    size: 1247
-                    created: "2026-02-17T10:30:00.000Z"
-                    cardSlugs: ["navigation-system"]
-                deduplicated:
-                  summary: Filename was deduplicated
-                  value:
-                    filename: "technical-spec-2.md"
-                    originalName: "technical-spec.md"
-                    description: "Updated specifications"
-                    mimeType: "text/markdown"
-                    size: 1580
-                    created: "2026-02-17T11:45:00.000Z"
-                    cardSlugs: ["navigation-system"]
+                    link:
+                      id: "550e8400-e29b-41d4-a716-446655440000"
+                      label: "Implementation Spec"
+                      url: "https://vaultpad.example.com/view?path=10-Projects%2Fhex%2Fmy-card%2F2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md"
+                      kind: "spec"
+                      createdAt: "2026-03-05T14:00:00.000Z"
+                      updatedAt: "2026-03-05T14:00:00.000Z"
+                    filePath: "C:\\vault\\10-Projects\\hex\\my-card\\2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md"
         "400":
-          $ref: "#/components/responses/BadRequest"
-          description: Invalid input (empty content, invalid filename, missing required fields)
+          description: Bad request or configuration error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                notConfigured:
+                  summary: Vault configuration missing
+                  value:
+                    error: "OBSIDIAN_NOT_CONFIGURED"
+                    message: "Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable vault artifact creation."
+                invalidLabel:
+                  summary: Label is empty
+                  value:
+                    error: "INVALID_LABEL"
+                    message: "Label must be non-empty."
+                duplicateUrl:
+                  summary: Link URL already exists on this card
+                  value:
+                    error: "DUPLICATE_LINK"
+                    message: "A link with this URL already exists on the card."
         "404":
           $ref: "#/components/responses/NotFound"
           description: Project or card not found
@@ -1175,7 +991,7 @@ paths:
         {
           "type": "event",
           "event": {
-            "type": "card:created | card:updated | card:moved | card:deleted | task:toggled | lane:reordered | project:updated | project:deleted | file:added | file:updated | file:deleted | file:associated | file:disassociated | link:added | link:updated | link:deleted | history:event",
+            "type": "card:created | card:updated | card:moved | card:deleted | task:toggled | lane:reordered | project:updated | project:deleted | link:added | link:updated | link:deleted | history:event",
             "projectSlug": "string",
             "timestamp": "ISO 8601",
             "data": { }
@@ -1194,11 +1010,6 @@ paths:
         | `lane:reordered` | `{ lane, order: string[] }` |
         | `project:updated` | `{ slug, config: ProjectConfig }` |
         | `project:deleted` | `{ slug }` |
-        | `file:added` | `{ file: ProjectFileEntry }` |
-        | `file:updated` | `{ file: ProjectFileEntry }` |
-        | `file:deleted` | `{ filename }` |
-        | `file:associated` | `{ filename, cardSlug }` |
-        | `file:disassociated` | `{ filename, cardSlug }` |
         | `link:added` | `{ cardSlug, link: CardLink }` |
         | `link:updated` | `{ cardSlug, link: CardLink }` |
         | `link:deleted` | `{ cardSlug, linkId: string }` |
@@ -1228,15 +1039,6 @@ components:
         type: string
       description: Card slug (filename without .md)
       example: "user-authentication"
-
-    filename:
-      name: filename
-      in: path
-      required: true
-      schema:
-        type: string
-      description: Stored filename (may differ from original; deduplicated)
-      example: "design-spec.pdf"
 
   responses:
     NotFound:
@@ -1527,40 +1329,6 @@ components:
             taskProgress:
               $ref: "#/components/schemas/TaskProgress"
 
-    # ── Files ────────────────────────────────────
-    ProjectFileEntry:
-      type: object
-      required: [filename, originalName, description, mimeType, size, created, cardSlugs]
-      properties:
-        filename:
-          type: string
-          description: Stored unique filename (deduplicated; e.g. 'file-2.txt')
-          example: "design-spec.pdf"
-        originalName:
-          type: string
-          description: Original filename at upload time
-          example: "Design Spec.pdf"
-        description:
-          type: string
-        mimeType:
-          type: string
-          description: >
-            Detected from extension. Supported: pdf, md, txt, json, png, jpg/jpeg,
-            gif, svg, html, css, js, ts, yaml/yml, xml, csv.
-            Unknown → application/octet-stream.
-          example: "application/pdf"
-        size:
-          type: integer
-          description: File size in bytes
-        created:
-          type: string
-          format: date-time
-        cardSlugs:
-          type: array
-          items:
-            type: string
-          description: Card slugs associated with this file (many-to-many)
-
     # ── History ──────────────────────────────────
     HistoryActionType:
       type: string
@@ -1576,11 +1344,6 @@ components:
         - "project:created"
         - "project:updated"
         - "project:archived"
-        - "file:uploaded"
-        - "file:deleted"
-        - "file:associated"
-        - "file:disassociated"
-        - "file:updated"
         - "link:added"
         - "link:updated"
         - "link:deleted"
@@ -1606,8 +1369,6 @@ components:
           type: array
           items:
             type: string
-        filename:
-          type: string
         projectName:
           type: string
         linkId:

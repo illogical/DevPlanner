@@ -159,8 +159,6 @@ export const createSearchSlice: StateCreator<
         case 'description': return { section: 'description' };
         case 'tag':
         case 'assignee': return { section: 'metadata' };
-        case 'file':
-        case 'file-description': return { section: 'files', filename: result.fileFilename };
         case 'link':
         case 'link-label':
         case 'link-description': return { section: 'links', linkId: result.linkId };
