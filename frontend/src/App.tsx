@@ -1,13 +1,15 @@
 import { useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { CardDetailPanel } from './components/card-detail/CardDetailPanel';
 import { ActivityPanel } from './components/activity/ActivityPanel';
 import { SearchPalette } from './components/search/SearchPalette';
+import { DiffViewerPage } from './pages/DiffViewerPage';
 import { useStore } from './store';
 import { useWebSocket } from './hooks/useWebSocket';
 
-function App() {
+function KanbanApp() {
   const {
     isActivityPanelOpen, setActivityPanelOpen,
     isPaletteOpen, openPalette, closePalette,
@@ -37,6 +39,15 @@ function App() {
       />
       <SearchPalette />
     </MainLayout>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/diff" element={<DiffViewerPage />} />
+      <Route path="*" element={<KanbanApp />} />
+    </Routes>
   );
 }
 

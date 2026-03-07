@@ -1122,6 +1122,55 @@ Heartbeat response:
 
 ---
 
+### 3.13 Vault Content Endpoint
+
+#### `GET /api/vault/content`
+
+Serves raw file content from the local Obsidian vault. Used by the Diff Viewer to load vault artifact files.
+
+**Query parameters:**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `path` | Yes | Relative path within `OBSIDIAN_VAULT_PATH` (URL-encoded). Example: `my-project%2Fmy-card%2Ffile.md` |
+
+**Behavior:**
+1. Returns `400 OBSIDIAN_NOT_CONFIGURED` if `OBSIDIAN_VAULT_PATH` is not set.
+2. Returns `400 INVALID_PATH` if `path` is empty or contains a traversal attempt (`../`).
+3. Resolves the absolute path as `path.resolve(OBSIDIAN_VAULT_PATH, decodedPath)`.
+4. Verifies the resolved path is inside `OBSIDIAN_VAULT_PATH` (path traversal guard).
+5. Returns `404 FILE_NOT_FOUND` if the file does not exist.
+6. Returns the raw file content with `Content-Type: text/plain; charset=utf-8`.
+
+**Response `200`:** Raw file text (not JSON).
+
+**Error responses:**
+
+| Status | Error | Condition |
+|--------|-------|-----------|
+| `400` | `OBSIDIAN_NOT_CONFIGURED` | `OBSIDIAN_VAULT_PATH` env var not set |
+| `400` | `INVALID_PATH` | Empty path or path traversal detected |
+| `404` | `FILE_NOT_FOUND` | File not found at resolved path |
+
+---
+
+### 3.14 Public Config Endpoint
+
+#### `GET /api/config/public`
+
+Returns safe public configuration values for the frontend. Used by the Diff Viewer and CardLinks to determine vault artifact link detection.
+
+**Response `200`:**
+```json
+{
+  "obsidianBaseUrl": "https://vaultpad.example.com/view?path=10-Projects"
+}
+```
+
+If `OBSIDIAN_BASE_URL` is not configured, `obsidianBaseUrl` is `null`.
+
+---
+
 ## 4. Service Layer Architecture
 
 The service layer is a set of TypeScript classes that encapsulate all file I/O and business logic. The Elysia routes are thin wrappers that delegate to these services.
@@ -1141,6 +1190,8 @@ src/
 │   ├── stats.ts                    # Project health metrics
 │   ├── preferences.ts              # Workspace preferences
 │   ├── backup.ts                   # Workspace backup
+│   ├── vault.ts                    # Vault file content serving (GET /api/vault/content)
+│   ├── config.ts                   # Public config endpoint (GET /api/config/public)
 │   └── websocket.ts                # WebSocket connection handlers
 ├── services/
 │   ├── project.service.ts          # Project CRUD operations
@@ -1345,12 +1396,15 @@ Since `cardSlug` is unique across the entire project (not scoped to a lane), the
 |---------|---------|---------|
 | React | 19.x | UI framework |
 | Vite | 6.x | Build tool + dev server |
+| react-router-dom | 7.x | URL-based routing (`/` Kanban, `/diff` Diff Viewer) |
 | Tailwind CSS | 4.x | Styling (dark mode first) |
 | Zustand | 5.x | State management |
 | Framer Motion | 12.x | Animations (panel transitions, card effects) |
 | `@dnd-kit/core` | latest | Drag-and-drop |
 | `@dnd-kit/sortable` | latest | Sortable lists within lanes |
 | `marked` | latest | Markdown → HTML rendering |
+| `highlight.js` | 11.x | Syntax highlighting for Diff Viewer |
+| `diff` (jsdiff) | 7.x | Line diff algorithm for Diff Viewer |
 
 ### 5.2 Layout Structure
 
@@ -1410,39 +1464,54 @@ Since `cardSlug` is unique across the entire project (not scoped to a lane), the
 ### 5.3 Component Tree
 
 ```
-App
-└── MainLayout (CSS grid: sidebar + content)
-    ├── Header
-    │   ├── Logo / Title
-    │   ├── SearchInput (cross-card search with highlighting)
-    │   ├── ActivityToggleButton
-    │   └── SidebarToggleButton
-    ├── ProjectSidebar (collapsible left panel)
-    │   ├── ProjectList (with card counts per project)
-    │   │   └── ProjectItem (per project)
-    │   └── CreateProjectButton → CreateProjectModal
-    ├── KanbanBoard
-    │   ├── Lane (per visible lane)
-    │   │   ├── LaneHeader (display name + color bar + card count + collapse toggle)
-    │   │   ├── CardList (sortable via @dnd-kit)
-    │   │   │   └── AnimatedCardWrapper (change indicators with auto-expiry)
-    │   │   │       └── CardPreview (per card)
-    │   │   │           ├── CardTitle (with cardId badge)
-    │   │   │           ├── CardPreviewTasks (expandable pending tasks)
-    │   │   │           ├── TaskProgressBar + count ("3/5")
-    │   │   │           └── AssigneeBadge + Tags
-    │   │   └── QuickAddCard (inline input, appears on [+] click)
-    │   └── CollapsedLaneTab (per collapsed lane, vertical text label)
-    ├── CardDetailPanel (slides in from right via Framer Motion)
-    │   ├── CardDetailHeader (inline title editing, cardId, lane move dropdown)
-    │   ├── CardMetadata (inline editing: priority, assignee, tags, dates, blockedReason)
-    │   ├── CardContent (description editing, rendered Markdown body via `marked`)
-    │   ├── TaskList (interactive checkboxes with inline editing and deletion)
-    │   │   ├── TaskCheckbox (per task)
-    │   │   └── AddTaskInput
-    │   └── CardLinks (URL references + vault artifact upload with kind classification, add/edit/delete)
-    └── ActivityPanel (slide-out panel with time-grouped history events)
-        └── ActivityLog (grouped: Today, Yesterday, This Week, etc.)
+App (React Router)
+├── Route "/" → KanbanApp
+│   └── MainLayout (CSS grid: sidebar + content)
+│       ├── Header
+│       │   ├── Logo / Title
+│       │   ├── SearchInput (cross-card search with highlighting)
+│       │   ├── ActivityToggleButton
+│       │   └── SidebarToggleButton
+│       ├── ProjectSidebar (collapsible left panel)
+│       │   ├── ProjectList (with card counts per project)
+│       │   │   └── ProjectItem (per project)
+│       │   └── CreateProjectButton → CreateProjectModal
+│       ├── KanbanBoard
+│       │   ├── Lane (per visible lane)
+│       │   │   ├── LaneHeader (display name + color bar + card count + collapse toggle)
+│       │   │   ├── CardList (sortable via @dnd-kit)
+│       │   │   │   └── AnimatedCardWrapper (change indicators with auto-expiry)
+│       │   │   │       └── CardPreview (per card)
+│       │   │   │           ├── CardTitle (with cardId badge)
+│       │   │   │           ├── CardPreviewTasks (expandable pending tasks)
+│       │   │   │           ├── TaskProgressBar + count ("3/5")
+│       │   │   │           └── AssigneeBadge + Tags
+│       │   │   └── QuickAddCard (inline input, appears on [+] click)
+│       │   └── CollapsedLaneTab (per collapsed lane, vertical text label)
+│       ├── CardDetailPanel (slides in from right via Framer Motion)
+│       │   ├── CardDetailHeader (inline title editing, cardId, lane move dropdown)
+│       │   ├── CardMetadata (inline editing: priority, assignee, tags, dates, blockedReason)
+│       │   ├── CardContent (description editing, rendered Markdown body via `marked`)
+│       │   ├── TaskList (interactive checkboxes with inline editing and deletion)
+│       │   │   ├── TaskCheckbox (per task)
+│       │   │   └── AddTaskInput
+│       │   └── CardLinks (URL references + vault artifact upload; "Open in Diff Viewer" button on vault links)
+│       └── ActivityPanel (slide-out panel with time-grouped history events)
+│           └── ActivityLog (grouped: Today, Yesterday, This Week, etc.)
+└── Route "/diff" → DiffViewerPage
+    ├── DiffHeader (page title + "Back to DevPlanner" link)
+    ├── DiffToolbar (language selector, wrap, sync-scroll, swap, clear)
+    └── DiffLayout (CSS grid: left | right)
+        ├── DiffPane (left)
+        │   ├── DiffPaneHeader (filename, copy button)
+        │   ├── DropZone (drag-and-drop / paste / file picker — shown when empty)
+        │   └── DiffContent (scrollable; synchronized scroll via useSyncScroll hook)
+        │       └── DiffLine[] (line number + highlight.js + added/removed/unchanged color)
+        └── DiffPane (right)
+            ├── DiffPaneHeader (filename, copy button, file-picker button)
+            ├── DropZone (shown when empty)
+            └── DiffContent (synchronized scroll)
+                └── DiffLine[]
 ```
 
 ### 5.4 Zustand Store

@@ -24,6 +24,9 @@ DevPlanner/
 │   │   ├── stats.ts            # Project health metrics
 │   │   ├── preferences.ts      # Workspace preferences
 │   │   ├── backup.ts           # Workspace backup
+│   │   ├── search.ts           # Global and per-project search
+│   │   ├── vault.ts            # Vault file content serving (`GET /api/vault/content`)
+│   │   ├── config.ts           # Public config endpoint (`GET /api/config/public`)
 │   │   └── websocket.ts        # WebSocket upgrade handler
 │   ├── services/               # Core business logic and file I/O
 │   │   ├── card.service.ts     # Card CRUD, move, reorder, search
@@ -303,6 +306,8 @@ All endpoints are under `/api` and return JSON.
 | `GET` | `/api/preferences` | Get workspace preferences |
 | `PATCH` | `/api/preferences` | Update preferences (incl. `digestAnchor`) |
 | `POST` | `/api/backup` | Create workspace backup (zip) |
+| `GET` | `/api/vault/content?path=` | Read raw vault artifact file content (requires `OBSIDIAN_VAULT_PATH`) |
+| `GET` | `/api/config/public` | Public server configuration (`obsidianBaseUrl`) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
 See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.
@@ -310,6 +315,7 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 ## Features
 
 ### Current
+- ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting; opens vault artifact files directly from card links
 - ✅ **Kanban Board UI** - Drag-and-drop cards between lanes with collapsible lanes
 - ✅ **Card Management** - Create, edit, archive cards with Markdown content; description, `blockedReason` field, inline title/metadata editing
 - ✅ **Card IDs** - Unique identifiers (e.g., `DEV-42`) with project-configurable prefix

@@ -12,7 +12,22 @@ frontend/src/
 │   └── websocket.service.ts   # WebSocket client for real-time updates
 ├── store/
 │   └── index.ts               # Zustand store — single source of truth
+├── hooks/
+│   └── useSyncScroll.ts       # Synchronized scroll hook for Diff Viewer
+├── utils/
+│   └── diffUrl.ts             # buildDiffUrl() helper for vault link → diff URL
+├── pages/
+│   └── DiffViewerPage.tsx     # Top-level Diff Viewer page (route: /diff)
 ├── components/
+│   ├── diff/                  # Diff Viewer components
+│   │   ├── DiffHeader.tsx     # Page title + "Back to DevPlanner" link
+│   │   ├── DiffToolbar.tsx    # Language, wrap, sync-scroll, swap, clear controls
+│   │   ├── DiffLayout.tsx     # Two-pane CSS grid container
+│   │   ├── DiffPane.tsx       # Single pane (header + dropzone/content)
+│   │   ├── DiffPaneHeader.tsx # Filename display, copy, file-picker button
+│   │   ├── DiffContent.tsx    # Scrollable line list container
+│   │   ├── DiffLine.tsx       # Individual line: number + highlight.js + change color
+│   │   └── DropZone.tsx       # Drag-and-drop / paste / file-picker input
 │   ├── kanban/                # Board, lanes, card previews, drag-and-drop
 │   ├── card-detail/           # Slide-in detail panel (header, content, metadata, tasks, links)
 │   ├── tasks/                 # Task checkbox, progress bar, add-task input
@@ -20,29 +35,44 @@ frontend/src/
 │   ├── animations/            # Animated card wrapper (change indicators)
 │   ├── layout/                # Header, MainLayout, ProjectSidebar
 │   └── ui/                    # Shared primitives (Badge, Button, etc.)
-└── App.tsx                    # Root component
+└── App.tsx                    # Root component with React Router routes
 ```
 
 ### Component tree
 
 ```
-App
-└── MainLayout (CSS grid: sidebar + content)
-    ├── Header (project selector, search, activity toggle)
-    ├── ProjectSidebar (project list with card counts)
-    ├── KanbanBoard
-    │   ├── Lane (expanded, with drag-and-drop via @dnd-kit)
-    │   │   ├── LaneHeader (card count, collapse toggle)
-    │   │   ├── CardPreview (title, priority badge, task progress)
-    │   │   └── QuickAddCard (inline card creation)
-    │   └── CollapsedLaneTab (minimized lane)
-    ├── CardDetailPanel (slide-in from right, Framer Motion)
-    │   ├── CardDetailHeader (title editing, card ID, lane move)
-    │   ├── CardMetadata (priority, assignee, tags, dates, blocked reason)
-    │   ├── CardContent (description editing, markdown body)
-    │   ├── TaskList (checkboxes with inline editing and deletion)
-    │   └── CardLinks (URL references + vault artifact upload with kind classification)
-    └── ActivityPanel (slide-out history log)
+App (React Router)
+├── Route "/" → KanbanApp
+│   └── MainLayout (CSS grid: sidebar + content)
+│       ├── Header (project selector, search, activity toggle)
+│       ├── ProjectSidebar (project list with card counts)
+│       ├── KanbanBoard
+│       │   ├── Lane (expanded, with drag-and-drop via @dnd-kit)
+│       │   │   ├── LaneHeader (card count, collapse toggle)
+│       │   │   ├── CardPreview (title, priority badge, task progress)
+│       │   │   └── QuickAddCard (inline card creation)
+│       │   └── CollapsedLaneTab (minimized lane)
+│       ├── CardDetailPanel (slide-in from right, Framer Motion)
+│       │   ├── CardDetailHeader (title editing, card ID, lane move)
+│       │   ├── CardMetadata (priority, assignee, tags, dates, blocked reason)
+│       │   ├── CardContent (description editing, markdown body)
+│       │   ├── TaskList (checkboxes with inline editing and deletion)
+│       │   └── CardLinks (URL references + vault artifact upload; "Open in Diff Viewer" button for vault links)
+│       └── ActivityPanel (slide-out history log)
+└── Route "/diff" → DiffViewerPage
+    ├── DiffHeader (title + "Back to DevPlanner" link)
+    ├── DiffToolbar (language selector, wrap, sync-scroll, swap, clear)
+    └── DiffLayout (CSS grid: left | right)
+        ├── DiffPane (left)
+        │   ├── DiffPaneHeader (filename, copy button)
+        │   ├── DropZone (drag-and-drop / paste / file picker — shown when empty)
+        │   └── DiffContent (scrollable line list)
+        │       └── DiffLine[] (line number + highlight.js + added/removed/unchanged color)
+        └── DiffPane (right)
+            ├── DiffPaneHeader (filename, copy button, file-picker button)
+            ├── DropZone (shown when empty)
+            └── DiffContent (synchronized scroll)
+                └── DiffLine[]
 ```
 
 ## State management
@@ -86,8 +116,11 @@ The Vite dev server proxies all `/api` requests to the backend at `http://localh
 |---------|---------|
 | Framework | React 19 |
 | Build | Vite 6 |
+| Routing | react-router-dom v7 |
 | Styling | Tailwind CSS 4 (dark mode, class-based) |
 | State | Zustand 5 |
 | Drag-and-drop | @dnd-kit |
 | Animations | Framer Motion |
 | Markdown | marked |
+| Syntax highlighting | highlight.js |
+| Diff algorithm | diff (jsdiff) |
