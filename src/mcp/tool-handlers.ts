@@ -1,6 +1,6 @@
 /**
  * MCP Tool Handler Implementations
- * 
+ *
  * Each handler function implements one MCP tool by calling the appropriate
  * DevPlanner service and returning formatted results.
  */
@@ -8,7 +8,7 @@
 import { ProjectService } from '../services/project.service.js';
 import { CardService } from '../services/card.service.js';
 import { TaskService } from '../services/task.service.js';
-import { FileService } from '../services/file.service.js';
+import { VaultService } from '../services/vault.service.js';
 import { ConfigService } from '../services/config.service.js';
 
 import type {
@@ -46,14 +46,8 @@ import type {
   GetProjectProgressOutput,
   ArchiveCardInput,
   ArchiveCardOutput,
-  ListProjectFilesInput,
-  ListProjectFilesOutput,
-  ListCardFilesInput,
-  ListCardFilesOutput,
-  ReadFileContentInput,
-  ReadFileContentOutput,
-  AddFileToCardInput,
-  AddFileToCardOutput,
+  CreateVaultArtifactInput,
+  CreateVaultArtifactOutput,
   LaneOverview,
   NextTask,
   ProjectProgress,
@@ -66,8 +60,6 @@ import {
   taskIndexOutOfRangeError,
   emptyTaskTextError,
   taskTextTooLongError,
-  fileNotFoundError,
-  binaryFileError,
   MCPError,
 } from './errors.js';
 
@@ -82,23 +74,21 @@ const servicesCache = new Map<string, {
   projectService: ProjectService;
   cardService: CardService;
   taskService: TaskService;
-  fileService: FileService;
 }>();
 
 function getServices(workspacePath?: string) {
   const wsPath = workspacePath || ConfigService.getInstance().workspacePath;
-  
+
   let services = servicesCache.get(wsPath);
   if (!services) {
     services = {
       projectService: new ProjectService(wsPath),
       cardService: new CardService(wsPath),
       taskService: new TaskService(wsPath),
-      fileService: new FileService(wsPath),
     };
     servicesCache.set(wsPath, services);
   }
-  
+
   return services;
 }
 
@@ -112,9 +102,8 @@ export function _resetServicesCache() {
 // ============================================================================
 
 async function handleListProjects(input: ListProjectsInput): Promise<ListProjectsOutput> {
-  // Pass includeArchived to the service so it doesn't filter them out
   const projects = await getServices().projectService.listProjects(input.includeArchived || false);
-  
+
   return {
     projects,
     total: projects.length,
@@ -123,17 +112,15 @@ async function handleListProjects(input: ListProjectsInput): Promise<ListProject
 
 async function handleGetProject(input: GetProjectInput): Promise<GetProjectOutput> {
   try {
-    // Get project config from service
-    const config = await getServices().projectService.getProject(input.projectSlug);
-    
-    // Convert to ProjectSummary by listing all projects and finding the matching one
+    await getServices().projectService.getProject(input.projectSlug);
+
     const allProjects = await getServices().projectService.listProjects();
     const project = allProjects.find(p => p.slug === input.projectSlug);
-    
+
     if (!project) {
       throw new Error(`Project not found: ${input.projectSlug}`);
     }
-    
+
     return { project };
   } catch (error) {
     const projects = await getServices().projectService.listProjects();
@@ -145,23 +132,20 @@ async function handleGetProject(input: GetProjectInput): Promise<GetProjectOutpu
 }
 
 async function handleCreateProject(input: CreateProjectInput): Promise<CreateProjectOutput> {
-  // Create the project
   await getServices().projectService.createProject(input.name, input.description);
-  
-  // Get the created project as a ProjectSummary
+
   const allProjects = await getServices().projectService.listProjects();
   const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   const project = allProjects.find(p => p.slug === slug);
-  
+
   if (!project) {
     throw new Error(`Failed to create project: ${input.name}`);
   }
-  
+
   return { project };
 }
 
 async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> {
-  // Verify project exists
   try {
     await getServices().projectService.getProject(input.projectSlug);
   } catch (error) {
@@ -172,26 +156,20 @@ async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> 
     );
   }
 
-  // Get all cards for the project
   let cards = await getServices().cardService.listCards(input.projectSlug);
 
-  // Apply filters
   if (input.lane) {
     cards = cards.filter(c => c.lane === input.lane);
   }
-
   if (input.priority) {
     cards = cards.filter(c => c.frontmatter.priority === input.priority);
   }
-
   if (input.assignee) {
     cards = cards.filter(c => c.frontmatter.assignee === input.assignee);
   }
-
   if (input.status) {
     cards = cards.filter(c => c.frontmatter.status === input.status);
   }
-
   if (input.tags && input.tags.length > 0) {
     cards = cards.filter(c => {
       const cardTags = c.frontmatter.tags || [];
@@ -208,22 +186,8 @@ async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> 
 async function handleGetCard(input: GetCardInput): Promise<GetCardOutput> {
   try {
     const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
-    
-    // Get associated files
-    const files = await getServices().fileService.listCardFiles(input.projectSlug, input.cardSlug);
-    
-    return { 
-      card,
-      files: files.map(f => ({
-        filename: f.filename,
-        originalName: f.originalName,
-        description: f.description,
-        mimeType: f.mimeType,
-        size: f.size,
-      })),
-    };
+    return { card };
   } catch (error) {
-    // Get all cards to provide suggestions
     const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(
       input.cardSlug,
@@ -234,7 +198,6 @@ async function handleGetCard(input: GetCardInput): Promise<GetCardOutput> {
 }
 
 async function handleCreateCard(input: CreateCardInput): Promise<CreateCardOutput> {
-  // Verify project exists
   try {
     await getServices().projectService.getProject(input.projectSlug);
   } catch (error) {
@@ -259,7 +222,6 @@ async function handleCreateCard(input: CreateCardInput): Promise<CreateCardOutpu
 }
 
 async function handleUpdateCard(input: UpdateCardInput): Promise<UpdateCardOutput> {
-  // Verify card exists
   try {
     await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
@@ -283,7 +245,6 @@ async function handleUpdateCard(input: UpdateCardInput): Promise<UpdateCardOutpu
 }
 
 async function handleMoveCard(input: MoveCardInput): Promise<MoveCardOutput> {
-  // Verify project and get valid lanes
   const project = await getServices().projectService.getProject(input.projectSlug);
   const validLanes = Object.keys(project.lanes);
 
@@ -291,7 +252,6 @@ async function handleMoveCard(input: MoveCardInput): Promise<MoveCardOutput> {
     throw invalidLaneError(input.targetLane, validLanes);
   }
 
-  // Verify card exists
   try {
     await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
@@ -314,17 +274,14 @@ async function handleMoveCard(input: MoveCardInput): Promise<MoveCardOutput> {
 }
 
 async function handleAddTask(input: AddTaskInput): Promise<AddTaskOutput> {
-  // Validate task text
   const trimmedText = input.text.trim();
   if (!trimmedText) {
     throw emptyTaskTextError();
   }
-
   if (trimmedText.length > 500) {
     throw taskTextTooLongError(500);
   }
 
-  // Verify card exists
   try {
     await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
@@ -342,7 +299,6 @@ async function handleAddTask(input: AddTaskInput): Promise<AddTaskOutput> {
     trimmedText
   );
 
-  // Get updated card to get task progress
   const updatedCard = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
 
   return {
@@ -358,7 +314,6 @@ async function handleAddTask(input: AddTaskInput): Promise<AddTaskOutput> {
 }
 
 async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutput> {
-  // Verify card exists and get task count
   let card;
   try {
     card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
@@ -371,7 +326,6 @@ async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutpu
     );
   }
 
-  // Validate task index
   if (input.taskIndex < 0 || input.taskIndex >= card.tasks.length) {
     throw taskIndexOutOfRangeError(
       input.taskIndex,
@@ -387,7 +341,6 @@ async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutpu
     input.checked
   );
 
-  // Get updated card to get task progress
   const updatedCard = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
 
   return {
@@ -407,30 +360,18 @@ async function handleToggleTask(input: ToggleTaskInput): Promise<ToggleTaskOutpu
 // ============================================================================
 
 async function handleGetBoardOverview(input: GetBoardOverviewInput): Promise<GetBoardOverviewOutput> {
-  // Verify project exists
   const project = await getServices().projectService.getProject(input.projectSlug);
   const allCards = await getServices().cardService.listCards(input.projectSlug);
 
-  // Build lane overviews
   const lanes: LaneOverview[] = [];
   let totalTasks = 0;
   let completedTasks = 0;
 
   for (const [laneSlug, laneConfig] of Object.entries(project.lanes)) {
     const laneCards = allCards.filter(c => c.lane === laneSlug);
-    
-    const laneTaskStats = {
-      total: 0,
-      checked: 0,
-      unchecked: 0,
-    };
 
-    const priorityBreakdown = {
-      high: 0,
-      medium: 0,
-      low: 0,
-      none: 0,
-    };
+    const laneTaskStats = { total: 0, checked: 0, unchecked: 0 };
+    const priorityBreakdown = { high: 0, medium: 0, low: 0, none: 0 };
 
     for (const card of laneCards) {
       laneTaskStats.total += card.taskProgress.total;
@@ -469,26 +410,20 @@ async function handleGetBoardOverview(input: GetBoardOverviewInput): Promise<Get
 }
 
 async function handleGetNextTasks(input: GetNextTasksInput): Promise<GetNextTasksOutput> {
-  // Verify project exists
   await getServices().projectService.getProject(input.projectSlug);
   let cards = await getServices().cardService.listCards(input.projectSlug);
 
-  // Apply filters
   if (input.assignee) {
     cards = cards.filter(c => c.frontmatter.assignee === input.assignee);
   }
-
   if (input.lane) {
     cards = cards.filter(c => c.lane === input.lane);
   }
 
-  // Extract uncompleted tasks
   const tasks: NextTask[] = [];
 
   for (const card of cards) {
-    // Get full card to access tasks
     const fullCard = await getServices().cardService.getCard(input.projectSlug, card.slug);
-    
     for (const task of fullCard.tasks) {
       if (!task.checked) {
         tasks.push({
@@ -503,7 +438,6 @@ async function handleGetNextTasks(input: GetNextTasksInput): Promise<GetNextTask
     }
   }
 
-  // Sort by priority (high > medium > low > none), then by lane (in-progress first)
   const priorityOrder = { high: 0, medium: 1, low: 2, none: 3 };
   const laneOrder: Record<string, number> = {
     '02-in-progress': 0,
@@ -515,17 +449,10 @@ async function handleGetNextTasks(input: GetNextTasksInput): Promise<GetNextTask
   tasks.sort((a, b) => {
     const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3;
     const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3;
-    
-    if (aPriority !== bPriority) {
-      return aPriority - bPriority;
-    }
-
-    const aLane = laneOrder[a.lane] ?? 999;
-    const bLane = laneOrder[b.lane] ?? 999;
-    return aLane - bLane;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    return (laneOrder[a.lane] ?? 999) - (laneOrder[b.lane] ?? 999);
   });
 
-  // Apply limit
   const limit = Math.min(input.limit || 20, 100);
   const limitedTasks = tasks.slice(0, limit);
 
@@ -536,10 +463,8 @@ async function handleGetNextTasks(input: GetNextTasksInput): Promise<GetNextTask
 }
 
 async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<BatchUpdateTasksOutput> {
-  // Verify card exists
   const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
 
-  // Validate all task indices first
   for (const update of input.updates) {
     if (update.taskIndex < 0 || update.taskIndex >= card.tasks.length) {
       throw taskIndexOutOfRangeError(
@@ -550,7 +475,6 @@ async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<Bat
     }
   }
 
-  // Apply updates
   const updated: any[] = [];
   for (const update of input.updates) {
     const result = await getServices().taskService.setTaskChecked(
@@ -562,7 +486,6 @@ async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<Bat
     updated.push(result.task);
   }
 
-  // Get final task progress
   const updatedCard = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
 
   return {
@@ -578,7 +501,6 @@ async function handleBatchUpdateTasks(input: BatchUpdateTasksInput): Promise<Bat
 }
 
 async function handleSearchCards(input: SearchCardsInput): Promise<SearchCardsOutput> {
-  // Verify project exists
   await getServices().projectService.getProject(input.projectSlug);
   const cards = await getServices().cardService.listCards(input.projectSlug);
 
@@ -590,20 +512,13 @@ async function handleSearchCards(input: SearchCardsInput): Promise<SearchCardsOu
   for (const card of cards) {
     let matches = false;
 
-    if (searchIn.includes('title')) {
-      if (card.frontmatter.title.toLowerCase().includes(query)) {
-        matches = true;
-      }
+    if (searchIn.includes('title') && card.frontmatter.title.toLowerCase().includes(query)) {
+      matches = true;
     }
-
-    if (searchIn.includes('tags') && card.frontmatter.tags) {
-      if (card.frontmatter.tags.some(tag => tag.toLowerCase().includes(query))) {
-        matches = true;
-      }
+    if (searchIn.includes('tags') && card.frontmatter.tags?.some(tag => tag.toLowerCase().includes(query))) {
+      matches = true;
     }
-
     if (searchIn.includes('content')) {
-      // Need to get full card for content search
       const fullCard = await getServices().cardService.getCard(input.projectSlug, card.slug);
       if (fullCard.content.toLowerCase().includes(query)) {
         matches = true;
@@ -622,7 +537,6 @@ async function handleSearchCards(input: SearchCardsInput): Promise<SearchCardsOu
 }
 
 async function handleUpdateCardContent(input: UpdateCardContentInput): Promise<UpdateCardContentOutput> {
-  // Verify card exists
   try {
     await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
@@ -634,7 +548,6 @@ async function handleUpdateCardContent(input: UpdateCardContentInput): Promise<U
     );
   }
 
-  // Update the content field
   const card = await getServices().cardService.updateCard(input.projectSlug, input.cardSlug, {
     content: input.content,
   });
@@ -643,7 +556,6 @@ async function handleUpdateCardContent(input: UpdateCardContentInput): Promise<U
 }
 
 async function handleGetProjectProgress(input: GetProjectProgressInput): Promise<GetProjectProgressOutput> {
-  // Verify project exists
   const project = await getServices().projectService.getProject(input.projectSlug);
   const allCards = await getServices().cardService.listCards(input.projectSlug);
 
@@ -658,18 +570,13 @@ async function handleGetProjectProgress(input: GetProjectProgressInput): Promise
   };
 
   for (const card of allCards) {
-    // Count by lane
     progress.cardsByLane[card.lane] = (progress.cardsByLane[card.lane] || 0) + 1;
-
-    // Task stats
     progress.totalTasks += card.taskProgress.total;
     progress.completedTasks += card.taskProgress.checked;
 
-    // Priority stats
     const priority = card.frontmatter.priority || 'none';
     progress.priorityStats[priority as keyof typeof progress.priorityStats]++;
 
-    // Assignee stats
     if (card.frontmatter.assignee === 'user') {
       progress.assigneeStats.user++;
     } else if (card.frontmatter.assignee === 'agent') {
@@ -691,7 +598,6 @@ async function handleGetProjectProgress(input: GetProjectProgressInput): Promise
 }
 
 async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOutput> {
-  // Verify card exists
   try {
     await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
@@ -703,215 +609,63 @@ async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOu
     );
   }
 
-  // Archive the card (returns void)
   await getServices().cardService.archiveCard(input.projectSlug, input.cardSlug);
-  
-  // Get the archived card
   const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
-  
+
   return { card };
 }
 
 // ============================================================================
-// File Management Tool Handlers
+// Vault Artifact Tool Handler
 // ============================================================================
 
-async function handleListProjectFiles(input: ListProjectFilesInput): Promise<ListProjectFilesOutput> {
-  // Verify project exists
-  try {
-    await getServices().projectService.getProject(input.projectSlug);
-  } catch (error) {
-    const projects = await getServices().projectService.listProjects();
-    throw projectNotFoundError(
-      input.projectSlug,
-      projects.map(p => p.slug)
-    );
-  }
+async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promise<CreateVaultArtifactOutput> {
+  const config = ConfigService.getInstance();
+  const { obsidianBaseUrl, obsidianVaultPath, workspacePath } = config;
 
-  const files = await getServices().fileService.listFiles(input.projectSlug);
-  
-  return {
-    files: files.map(f => ({
-      filename: f.filename,
-      originalName: f.originalName,
-      description: f.description,
-      mimeType: f.mimeType,
-      size: f.size,
-      associatedCards: f.cardSlugs,
-      created: f.created,
-    })),
-    total: files.length,
-  };
-}
-
-async function handleListCardFiles(input: ListCardFilesInput): Promise<ListCardFilesOutput> {
-  // Verify card exists
-  try {
-    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
-  } catch (error) {
-    const allCards = await getServices().cardService.listCards(input.projectSlug);
-    throw cardNotFoundError(
-      input.cardSlug,
-      input.projectSlug,
-      allCards.map(c => c.slug)
-    );
-  }
-
-  const files = await getServices().fileService.listCardFiles(input.projectSlug, input.cardSlug);
-  
-  return {
-    files: files.map(f => ({
-      filename: f.filename,
-      originalName: f.originalName,
-      description: f.description,
-      mimeType: f.mimeType,
-      size: f.size,
-    })),
-    total: files.length,
-  };
-}
-
-async function handleReadFileContent(input: ReadFileContentInput): Promise<ReadFileContentOutput> {
-  // Verify project exists
-  try {
-    await getServices().projectService.getProject(input.projectSlug);
-  } catch (error) {
-    const projects = await getServices().projectService.listProjects();
-    throw projectNotFoundError(
-      input.projectSlug,
-      projects.map(p => p.slug)
-    );
-  }
-
-  // Get file metadata and content
-  try {
-    const file = await getServices().fileService.getFile(input.projectSlug, input.filename);
-    const { content, mimeType } = await getServices().fileService.getFileContent(
-      input.projectSlug,
-      input.filename
-    );
-    
-    return {
-      filename: file.filename,
-      mimeType,
-      size: file.size,
-      content,
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      // Check if this is a binary file error
-      if (error.message.includes('File is binary')) {
-        const file = await getServices().fileService.getFile(input.projectSlug, input.filename);
-        throw binaryFileError(input.filename, file.mimeType, file.size);
-      }
-      
-      // Check if this is a file not found error
-      if (error.message.includes('not found')) {
-        const allFiles = await getServices().fileService.listFiles(input.projectSlug);
-        throw fileNotFoundError(
-          input.filename,
-          input.projectSlug,
-          allFiles.map(f => f.filename)
-        );
-      }
-    }
-    throw error;
-  }
-}
-
-async function handleAddFileToCard(input: AddFileToCardInput): Promise<AddFileToCardOutput> {
-  // Verify project exists and get project details
-  let project;
-  try {
-    project = await getServices().projectService.getProject(input.projectSlug);
-  } catch (error) {
-    const projects = await getServices().projectService.listProjects();
-    throw projectNotFoundError(
-      input.projectSlug,
-      projects.map(p => p.slug)
-    );
-  }
-
-  // Verify card exists and get card details
-  let card;
-  try {
-    card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
-  } catch (error) {
-    const allCards = await getServices().cardService.listCards(input.projectSlug);
-    throw cardNotFoundError(
-      input.cardSlug,
-      input.projectSlug,
-      allCards.map(c => c.slug)
-    );
-  }
-
-  // Validate content
-  if (!input.content || input.content.trim() === '') {
+  if (!obsidianBaseUrl || !obsidianVaultPath) {
     throw new MCPError(
-      'INVALID_INPUT',
-      'File content cannot be empty.',
+      'OBSIDIAN_NOT_CONFIGURED',
+      'Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable vault artifact creation.',
       [
         {
-          action: 'Provide text content for the file',
-          reason: 'Minimum 1 character required',
+          action: 'Add OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH to your .env file',
+          reason: 'Both env vars are required for vault artifact creation',
         },
       ]
     );
   }
 
-  // Create file and associate with card (service handles filename formatting)
   try {
-    const fileEntry = await getServices().fileService.addFileToCard(
+    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+  } catch (error) {
+    const allCards = await getServices().cardService.listCards(input.projectSlug);
+    throw cardNotFoundError(input.cardSlug, input.projectSlug, allCards.map(c => c.slug));
+  }
+
+  const vaultService = new VaultService(workspacePath, obsidianVaultPath, obsidianBaseUrl);
+
+  try {
+    const { link, filePath } = await vaultService.createArtifact(
       input.projectSlug,
       input.cardSlug,
-      input.filename,
-      input.content,
-      input.description || '',
-      project.prefix,
-      card.frontmatter.cardNumber
+      input.label,
+      input.kind ?? 'doc',
+      input.content
     );
-
-    // Format file size for message
-    const sizeKB = (fileEntry.size / 1024).toFixed(1);
-    const sizeStr = fileEntry.size < 1024 
-      ? `${fileEntry.size} bytes` 
-      : `${sizeKB} KB`;
-
-    // Build message based on whether filename was deduplicated
-    let message = `Successfully created '${fileEntry.filename}' (${sizeStr})`;
-    if (fileEntry.filename !== fileEntry.originalName) {
-      message += ' (filename was deduplicated)';
+    return { link, filePath };
+  } catch (err: any) {
+    if (err?.error === 'INVALID_LABEL') {
+      throw new MCPError('INVALID_LABEL', err.message, [
+        { action: 'Provide a non-empty label', reason: 'Label is required' },
+      ]);
     }
-    message += ` and linked to card '${input.cardSlug}'`;
-
-    return {
-      filename: fileEntry.filename,
-      originalName: fileEntry.originalName,
-      description: fileEntry.description,
-      mimeType: fileEntry.mimeType,
-      size: fileEntry.size,
-      created: fileEntry.created,
-      associatedCards: fileEntry.cardSlugs,
-      message,
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      // Re-throw validation errors from service
-      if (error.message.includes('cannot be empty') || 
-          error.message.includes('path separator')) {
-        throw new MCPError(
-          'INVALID_INPUT',
-          error.message,
-          [
-            {
-              action: 'Provide a valid filename without path separators and non-empty content',
-              reason: 'Filename and content must meet basic validation requirements',
-            },
-          ]
-        );
-      }
+    if (err?.error === 'DUPLICATE_LINK') {
+      throw new MCPError('DUPLICATE_LINK', err.message, [
+        { action: 'Use a different label or update the existing link', reason: 'A link with this URL already exists on the card' },
+      ]);
     }
-    throw error;
+    throw err;
   }
 }
 
@@ -937,8 +691,5 @@ export const toolHandlers: Record<string, (input: any) => Promise<any>> = {
   update_card_content: handleUpdateCardContent,
   get_project_progress: handleGetProjectProgress,
   archive_card: handleArchiveCard,
-  list_project_files: handleListProjectFiles,
-  list_card_files: handleListCardFiles,
-  read_file_content: handleReadFileContent,
-  add_file_to_card: handleAddFileToCard,
+  create_vault_artifact: handleCreateVaultArtifact,
 };

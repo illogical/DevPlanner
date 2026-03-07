@@ -2,7 +2,6 @@ import type { StateCreator } from 'zustand';
 import type {
   CardSummary,
   CardLink,
-  ProjectFileEntry,
   CardCreatedData,
   CardUpdatedData,
   CardMovedData,
@@ -359,64 +358,6 @@ export const createWSSlice: StateCreator<
     } else {
       set({ projects });
     }
-  },
-
-  wsHandleFileAdded: (data: { file: ProjectFileEntry }) => {
-    const { file } = data;
-    const state = get();
-    if (state._isRecentLocalAction(`file:added:${file.filename}`)) return;
-    set((state) => {
-      const exists = state.projectFiles.some(f => f.filename === file.filename);
-      return {
-        projectFiles: exists
-          ? state.projectFiles.map(f => f.filename === file.filename ? file : f)
-          : [file, ...state.projectFiles],
-      };
-    });
-  },
-
-  wsHandleFileDeleted: (data: { filename: string }) => {
-    const { filename } = data;
-    const state = get();
-    if (state._isRecentLocalAction(`file:deleted:${filename}`)) return;
-    set((state) => ({
-      projectFiles: state.projectFiles.filter(f => f.filename !== filename),
-    }));
-  },
-
-  wsHandleFileUpdated: (data: { file: ProjectFileEntry }) => {
-    const { file } = data;
-    const state = get();
-    if (state._isRecentLocalAction(`file:updated:${file.filename}`)) return;
-    set((state) => ({
-      projectFiles: state.projectFiles.map(f => f.filename === file.filename ? file : f),
-    }));
-  },
-
-  wsHandleFileAssociated: (data: { filename: string; cardSlug: string }) => {
-    const { filename, cardSlug } = data;
-    const state = get();
-    if (state._isRecentLocalAction(`file:associated:${filename}:${cardSlug}`)) return;
-    set((state) => ({
-      projectFiles: state.projectFiles.map(f =>
-        f.filename === filename && !f.cardSlugs.includes(cardSlug)
-          ? { ...f, cardSlugs: [...f.cardSlugs, cardSlug] }
-          : f
-      ),
-    }));
-  },
-
-  wsHandleFileDisassociated: (data: { filename: string; cardSlug: string }) => {
-    const { filename, cardSlug } = data;
-    const state = get();
-    if (state._isRecentLocalAction(`file:disassociated:${filename}:${cardSlug}`)) return;
-    set((state) => ({
-      projectFiles: state.projectFiles.map(f =>
-        f.filename === filename
-          ? { ...f, cardSlugs: f.cardSlugs.filter(s => s !== cardSlug) }
-          : f
-      ),
-    }));
   },
 
   wsHandleLinkAdded: (data: LinkAddedData) => {

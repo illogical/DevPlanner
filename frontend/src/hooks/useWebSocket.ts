@@ -11,7 +11,6 @@ import type {
   ProjectUpdatedData,
   ProjectDeletedData,
   HistoryEvent,
-  ProjectFileEntry,
   LinkAddedData,
   LinkUpdatedData,
   LinkDeletedData,
@@ -20,11 +19,11 @@ import type {
 export function useWebSocket() {
   const [client] = useState(() => getWebSocketClient());
   const [connectionState, setConnectionState] = useState(client.getState());
-  
+
   const activeProjectSlug = useStore((state) => state.activeProjectSlug);
   const loadCards = useStore((state) => state.loadCards);
   const loadHistory = useStore((state) => state.loadHistory);
-  
+
   // Get WebSocket handlers from store
   const wsHandleCardCreated = useStore((state) => state.wsHandleCardCreated);
   const wsHandleCardUpdated = useStore((state) => state.wsHandleCardUpdated);
@@ -34,11 +33,6 @@ export function useWebSocket() {
   const wsHandleLaneReordered = useStore((state) => state.wsHandleLaneReordered);
   const wsHandleProjectUpdated = useStore((state) => state.wsHandleProjectUpdated);
   const wsHandleProjectDeleted = useStore((state) => state.wsHandleProjectDeleted);
-  const wsHandleFileAdded = useStore((state) => state.wsHandleFileAdded);
-  const wsHandleFileDeleted = useStore((state) => state.wsHandleFileDeleted);
-  const wsHandleFileUpdated = useStore((state) => state.wsHandleFileUpdated);
-  const wsHandleFileAssociated = useStore((state) => state.wsHandleFileAssociated);
-  const wsHandleFileDisassociated = useStore((state) => state.wsHandleFileDisassociated);
   const wsHandleLinkAdded = useStore((state) => state.wsHandleLinkAdded);
   const wsHandleLinkUpdated = useStore((state) => state.wsHandleLinkUpdated);
   const wsHandleLinkDeleted = useStore((state) => state.wsHandleLinkDeleted);
@@ -94,21 +88,6 @@ export function useWebSocket() {
       client.on('history:event', (data) => {
         addHistoryEvent(data as HistoryEvent);
       }),
-      client.on('file:added', (data) => {
-        wsHandleFileAdded?.(data as { file: ProjectFileEntry });
-      }),
-      client.on('file:deleted', (data) => {
-        wsHandleFileDeleted?.(data as { filename: string });
-      }),
-      client.on('file:updated', (data) => {
-        wsHandleFileUpdated?.(data as { file: ProjectFileEntry });
-      }),
-      client.on('file:associated', (data) => {
-        wsHandleFileAssociated?.(data as { filename: string; cardSlug: string });
-      }),
-      client.on('file:disassociated', (data) => {
-        wsHandleFileDisassociated?.(data as { filename: string; cardSlug: string });
-      }),
       client.on('link:added', (data) => {
         wsHandleLinkAdded?.(data as LinkAddedData);
       }),
@@ -132,11 +111,6 @@ export function useWebSocket() {
     wsHandleProjectUpdated,
     wsHandleProjectDeleted,
     addHistoryEvent,
-    wsHandleFileAdded,
-    wsHandleFileDeleted,
-    wsHandleFileUpdated,
-    wsHandleFileAssociated,
-    wsHandleFileDisassociated,
     wsHandleLinkAdded,
     wsHandleLinkUpdated,
     wsHandleLinkDeleted,

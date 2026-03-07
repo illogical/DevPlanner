@@ -383,20 +383,9 @@ export const ARCHIVE_CARD_SCHEMA = {
   required: ['projectSlug', 'cardSlug'],
 } as const;
 
-// File Management Tool Schemas
+// Vault Artifact Tool Schema
 
-export const LIST_PROJECT_FILES_SCHEMA = {
-  type: 'object',
-  properties: {
-    projectSlug: {
-      type: 'string',
-      description: 'Project identifier',
-    },
-  },
-  required: ['projectSlug'],
-} as const;
-
-export const LIST_CARD_FILES_SCHEMA = {
+export const CREATE_VAULT_ARTIFACT_SCHEMA = {
   type: 'object',
   properties: {
     projectSlug: {
@@ -405,50 +394,22 @@ export const LIST_CARD_FILES_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card identifier to attach the artifact link to',
     },
-  },
-  required: ['projectSlug', 'cardSlug'],
-} as const;
-
-export const READ_FILE_CONTENT_SCHEMA = {
-  type: 'object',
-  properties: {
-    projectSlug: {
+    label: {
       type: 'string',
-      description: 'Project identifier',
-    },
-    filename: {
-      type: 'string',
-      description: 'Filename to read (must be a text-based file)',
-    },
-  },
-  required: ['projectSlug', 'filename'],
-} as const;
-
-export const ADD_FILE_TO_CARD_SCHEMA = {
-  type: 'object',
-  properties: {
-    projectSlug: {
-      type: 'string',
-      description: 'Project identifier',
-    },
-    cardSlug: {
-      type: 'string',
-      description: 'Card identifier to associate the file with',
-    },
-    filename: {
-      type: 'string',
-      description: 'Filename (e.g., "spec.md", "api-docs.txt")',
+      description: 'Display label for the link and source for the filename slug (e.g. "Implementation Spec" → 2026-03-05_IMPLEMENTATION-SPEC.md)',
     },
     content: {
       type: 'string',
-      description: 'UTF-8 text content for the file',
+      description: 'UTF-8 text content to write to the vault file',
     },
-    description: {
+    kind: {
       type: 'string',
-      description: 'Optional file description',
+      enum: ['doc', 'spec', 'ticket', 'repo', 'reference', 'other'],
+      description: 'Link kind. Default: "doc"',
+      default: 'doc',
     },
   },
-  required: ['projectSlug', 'cardSlug', 'filename', 'content'],
+  required: ['projectSlug', 'cardSlug', 'label', 'content'],
 } as const;

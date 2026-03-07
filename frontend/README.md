@@ -14,10 +14,9 @@ frontend/src/
 │   └── index.ts               # Zustand store — single source of truth
 ├── components/
 │   ├── kanban/                # Board, lanes, card previews, drag-and-drop
-│   ├── card-detail/           # Slide-in detail panel (header, content, metadata, tasks, links, files)
+│   ├── card-detail/           # Slide-in detail panel (header, content, metadata, tasks, links)
 │   ├── tasks/                 # Task checkbox, progress bar, add-task input
 │   ├── activity/              # Activity log, activity panel, sidebar
-│   ├── files/                 # File list, files panel
 │   ├── animations/            # Animated card wrapper (change indicators)
 │   ├── layout/                # Header, MainLayout, ProjectSidebar
 │   └── ui/                    # Shared primitives (Badge, Button, etc.)
@@ -42,10 +41,8 @@ App
     │   ├── CardMetadata (priority, assignee, tags, dates, blocked reason)
     │   ├── CardContent (description editing, markdown body)
     │   ├── TaskList (checkboxes with inline editing and deletion)
-    │   ├── CardLinks (URL references with kind classification)
-    │   └── CardFiles (associated reference files)
-    ├── ActivityPanel (slide-out history log)
-    └── FilesPanel (project file management)
+    │   └── CardLinks (URL references + vault artifact upload with kind classification)
+    └── ActivityPanel (slide-out history log)
 ```
 
 ## State management
@@ -55,8 +52,7 @@ A single Zustand store (`store/index.ts`) holds all application state:
 - **Projects**: list, active project, CRUD actions
 - **Cards**: per-project card lists, detail selection, CRUD + move + reorder
 - **Tasks**: add, toggle, edit, delete (with optimistic updates)
-- **Links**: add, update, delete URL references on cards
-- **Files**: project files, card associations
+- **Links**: add, update, delete URL references on cards; `createVaultArtifact` for Obsidian Vault uploads
 - **History**: activity events with time-based grouping
 - **WebSocket**: connection status, real-time event handlers
 

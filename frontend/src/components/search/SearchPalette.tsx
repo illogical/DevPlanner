@@ -8,16 +8,15 @@ import { cn } from '../../utils/cn';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TAB_TYPES: Record<PaletteFilterTab, PaletteResultType[]> = {
-  all: ['card', 'task', 'description', 'tag', 'assignee', 'file', 'file-description', 'link', 'link-label', 'link-description'],
+  all: ['card', 'task', 'description', 'tag', 'assignee', 'link', 'link-label', 'link-description'],
   cards: ['card', 'description', 'tag', 'assignee'],
   tasks: ['task'],
-  files: ['file', 'file-description'],
   links: ['link', 'link-label', 'link-description'],
 };
 
 const GROUP_ORDER: PaletteResultType[] = [
   'card', 'task', 'description', 'tag', 'assignee',
-  'file', 'file-description', 'link', 'link-label', 'link-description',
+  'link', 'link-label', 'link-description',
 ];
 
 const TYPE_LABELS: Record<PaletteResultType, string> = {
@@ -26,8 +25,6 @@ const TYPE_LABELS: Record<PaletteResultType, string> = {
   description: 'Description',
   tag: 'Tag',
   assignee: 'Assignee',
-  file: 'File',
-  'file-description': 'File Desc',
   link: 'Link',
   'link-label': 'Link Label',
   'link-description': 'Link Desc',
@@ -40,8 +37,6 @@ const TYPE_CHIP_CLASSES: Record<PaletteResultType, string> = {
   description: 'bg-teal-900/60 text-teal-300',
   tag: 'bg-green-900/60 text-green-300',
   assignee: 'bg-orange-900/60 text-orange-300',
-  file: 'bg-yellow-900/60 text-yellow-300',
-  'file-description': 'bg-amber-900/60 text-amber-300',
   link: 'bg-sky-900/60 text-sky-300',
   'link-label': 'bg-indigo-900/60 text-indigo-300',
   'link-description': 'bg-violet-900/60 text-violet-300',
@@ -51,7 +46,6 @@ const FILTER_TABS: { key: PaletteFilterTab; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'cards', label: 'Cards' },
   { key: 'tasks', label: 'Tasks' },
-  { key: 'files', label: 'Files' },
   { key: 'links', label: 'Links' },
 ];
 
@@ -340,7 +334,7 @@ export function SearchPalette() {
 
               {!paletteQuery.trim() && !isPaletteSearching && (
                 <div className="text-center text-sm text-gray-500 py-8">
-                  Start typing to search cards, tasks, files, and links
+                  Start typing to search cards, tasks, and links
                 </div>
               )}
 
@@ -371,7 +365,7 @@ export function SearchPalette() {
                       const currentIdx = flatIdx++;
                       return (
                         <ResultRow
-                          key={`${result.type}-${result.cardSlug}-${result.taskIndex ?? result.fileFilename ?? result.linkId ?? ''}`}
+                          key={`${result.type}-${result.cardSlug}-${result.taskIndex ?? result.linkId ?? ''}`}
                           result={result}
                           query={paletteQuery}
                           isSelected={selectedPaletteIndex === currentIdx}

@@ -154,21 +154,6 @@ export interface TagsResponse {
   tags: string[];
 }
 
-// File types
-export interface ProjectFileEntry {
-  filename: string;
-  originalName: string;
-  description: string;
-  mimeType: string;
-  size: number;
-  created: string;
-  cardSlugs: string[];
-}
-
-export interface FilesResponse {
-  files: ProjectFileEntry[];
-}
-
 // Preferences types
 export interface Preferences {
   lastSelectedProject: string | null;
@@ -191,12 +176,6 @@ export type HistoryActionType =
   | 'project:created'
   | 'project:updated'
   | 'project:archived'
-  // NEW - File operations
-  | 'file:uploaded'
-  | 'file:deleted'
-  | 'file:associated'
-  | 'file:disassociated'
-  | 'file:updated'
   // NEW - Link operations
   | 'link:added'
   | 'link:updated'
@@ -249,11 +228,6 @@ export type WebSocketEventType =
   | 'project:updated'
   | 'project:deleted'
   | 'history:event'
-  | 'file:added'
-  | 'file:deleted'
-  | 'file:updated'
-  | 'file:associated'
-  | 'file:disassociated'
   | 'link:added'
   | 'link:updated'
   | 'link:deleted';
@@ -317,29 +291,6 @@ export interface ProjectDeletedData {
   slug: string;
 }
 
-// File event data payloads
-export interface FileAddedData {
-  file: ProjectFileEntry;
-}
-
-export interface FileDeletedData {
-  filename: string;
-}
-
-export interface FileUpdatedData {
-  file: ProjectFileEntry;
-}
-
-export interface FileAssociatedData {
-  filename: string;
-  cardSlug: string;
-}
-
-export interface FileDisassociatedData {
-  filename: string;
-  cardSlug: string;
-}
-
 // Link event data payloads
 export interface LinkAddedData {
   cardSlug: string;
@@ -376,13 +327,11 @@ export type PaletteResultType =
   | 'description'
   | 'tag'
   | 'assignee'
-  | 'file'
-  | 'file-description'
   | 'link'
   | 'link-label'
   | 'link-description';
 
-export type PaletteFilterTab = 'all' | 'cards' | 'tasks' | 'files' | 'links';
+export type PaletteFilterTab = 'all' | 'cards' | 'tasks' | 'links';
 
 export interface PaletteSearchResult {
   type: PaletteResultType;
@@ -392,7 +341,6 @@ export interface PaletteSearchResult {
   laneSlug: string;
   projectSlug: string;
   taskIndex?: number;
-  fileFilename?: string;
   linkId?: string;
   primaryText: string;
   snippet?: string;

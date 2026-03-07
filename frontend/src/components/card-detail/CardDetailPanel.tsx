@@ -5,7 +5,6 @@ import { CardDetailHeader } from './CardDetailHeader';
 import { CardMetadata } from './CardMetadata';
 import { CardContent } from './CardContent';
 import { TaskList } from './TaskList';
-import { CardFiles } from './CardFiles';
 import { CardLinks } from './CardLinks';
 import { Spinner } from '../ui/Spinner';
 
@@ -97,14 +96,9 @@ export function CardDetailPanel() {
                     cardSlug={activeCard.slug}
                   />
 
-                  {/* Links section */}
+                  {/* Links & vault artifacts */}
                   <div className="border-t border-gray-700 pt-4">
                     <CardLinks links={activeCard.frontmatter.links ?? []} cardSlug={activeCard.slug} />
-                  </div>
-
-                  {/* Attachments section - moved to bottom */}
-                  <div className="border-t border-gray-700 pt-4">
-                    <CardFiles cardSlug={activeCard.slug} />
                   </div>
                 </div>
               </>

@@ -7,9 +7,8 @@
  *
  * Slice files:
  *   slices/projectSlice.ts  – projects, card list, CRUD, reorder
- *   slices/cardSlice.ts     – card detail panel, tasks, links
+ *   slices/cardSlice.ts     – card detail panel, tasks, links, vault artifacts
  *   slices/uiSlice.ts       – sidebar, lanes, change indicators
- *   slices/fileSlice.ts     – file management
  *   slices/historySlice.ts  – activity history
  *   slices/searchSlice.ts   – keyword search + command palette
  *   slices/wsSlice.ts       – WebSocket state + real-time event handlers
@@ -18,7 +17,6 @@ import { create } from 'zustand';
 import { createProjectSlice } from './slices/projectSlice';
 import { createCardSlice } from './slices/cardSlice';
 import { createUISlice } from './slices/uiSlice';
-import { createFileSlice } from './slices/fileSlice';
 import { createHistorySlice } from './slices/historySlice';
 import { createSearchSlice } from './slices/searchSlice';
 import { createWSSlice } from './slices/wsSlice';
@@ -31,7 +29,6 @@ export const useStore = create<DevPlannerStore>()((...a) => ({
   ...createProjectSlice(...a),
   ...createCardSlice(...a),
   ...createUISlice(...a),
-  ...createFileSlice(...a),
   ...createHistorySlice(...a),
   ...createSearchSlice(...a),
   ...createWSSlice(...a),

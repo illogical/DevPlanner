@@ -148,7 +148,6 @@ export interface ListCardsOutput {
 
 export interface GetCardOutput {
   card: Card;
-  files: FileMetadata[];
 }
 
 export interface CreateCardOutput {
@@ -277,73 +276,26 @@ export interface ArchiveCardOutput {
   card: Card;
 }
 
-// File Management Tools (18-20)
+// Vault Artifact Tool
 
-export interface ListProjectFilesInput {
-  projectSlug: string;
-}
-
-export interface ListCardFilesInput {
+export interface CreateVaultArtifactInput {
   projectSlug: string;
   cardSlug: string;
-}
-
-export interface ReadFileContentInput {
-  projectSlug: string;
-  filename: string;
-}
-
-export interface AddFileToCardInput {
-  projectSlug: string;
-  cardSlug: string;
-  filename: string;
+  label: string;
   content: string;
-  description?: string;
+  kind?: 'doc' | 'spec' | 'ticket' | 'repo' | 'reference' | 'other';
 }
 
-// ============================================================================
-// MCP Tool Output Types (21 tools)
-// ============================================================================
-
-// File Tool Outputs
-
-export interface FileMetadata {
-  filename: string;
-  originalName: string;
-  description: string;
-  mimeType: string;
-  size: number;
-}
-
-export interface ListProjectFilesOutput {
-  files: Array<FileMetadata & {
-    associatedCards: string[];
-    created: string;
-  }>;
-  total: number;
-}
-
-export interface ListCardFilesOutput {
-  files: FileMetadata[];
-  total: number;
-}
-
-export interface ReadFileContentOutput {
-  filename: string;
-  mimeType: string;
-  size: number;
-  content: string;
-}
-
-export interface AddFileToCardOutput {
-  filename: string;
-  originalName: string;
-  description: string;
-  mimeType: string;
-  size: number;
-  created: string;
-  associatedCards: string[];
-  message: string;
+export interface CreateVaultArtifactOutput {
+  link: {
+    id: string;
+    label: string;
+    url: string;
+    kind: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  filePath: string;
 }
 
 // ============================================================================

@@ -36,7 +36,7 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 3. PATCH /projects/{slug}/cards/{card}         → claim: {"assignee":"agent","status":"in-progress"}
 4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
-6. Ensure card has spec + summary links via `/links` (minimum 2 links on completion)
+6. Ensure card has spec + summary artifacts via `/artifacts` (minimum 2 links on completion)
 7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}
 ```
 
@@ -45,13 +45,13 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 **Title**: 1–4 words. **Description**: 1–5 sentences summarising what the card is for.
 
 ```
-1. POST /projects/{slug}/cards                 → {"title":"Short Title","description":"1–5 sentence summary.","lane":"01-upcoming"}
-2. POST /projects/{slug}/cards/{card}/tasks    → add each subtask (one request per task)
-3. POST /projects/{slug}/cards/{card}/files    → {"filename":"INTRO.md","content":"# ...\n\nFull plan/instructions.","description":"File's purpose in 1 sentence"}
-4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
+1. POST /projects/{slug}/cards                      → {"title":"Short Title","description":"1–5 sentence summary.","lane":"01-upcoming"}
+2. POST /projects/{slug}/cards/{card}/tasks         → add each subtask (one request per task)
+3. POST /projects/{slug}/cards/{card}/artifacts     → {"label":"Intro Plan","content":"# ...\n\nFull plan/instructions.","kind":"doc"}
+4. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
-6. Create Scribe summary artifact in Obsidian and attach summary link via `/links`
-7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}
+6. POST /projects/{slug}/cards/{card}/artifacts     → {"label":"Summary","content":"# Summary\n\n...","kind":"doc"}
+7. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"03-complete"}
 ```
 
 ## Toggling Tasks
@@ -129,27 +129,62 @@ PATCH /projects/{slug}/cards/{card}
 { "status": "in-progress", "blockedReason": null }
 ```
 
-## Creating Artifact Files
+## Creating Vault Artifacts
 
-Attach files at natural checkpoints — not only at completion.
+Write Markdown files directly to the Obsidian Vault. The API automatically writes the file to the vault and attaches a link to your card.
 
-| When to create                           | Filename          |
-| ---------------------------------------- | ----------------- |
-| Before implementing — research, findings | `research.md`     |
-| Before significant implementation        | `spec.md`         |
-| After all tasks complete (**required**)  | `summary.md`      |
-| After verification                       | `test-results.md` |
+**Requires** `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in server `.env`.
+
+### Canonical Workflow
+
+```
+POST /projects/{slug}/cards/{card}/artifacts
+  → {"label":"...", "content":"...", "kind":"doc"}
+  → API writes file to {OBSIDIAN_VAULT_PATH}/{project}/{card}/{TIMESTAMP}_{LABEL-SLUG}.md
+  → API auto-attaches link to card
+  → Response: { "link": { ... }, "filePath": "..." }
+```
+
+**Use the returned `link.url` for all portable references.** The `filePath` is the internal implementation detail and is not guaranteed to be accessible from other clients.
+
+Attach artifacts at natural checkpoints — not only at completion:
+
+| When to create                           | Label                |
+| ---------------------------------------- | -------------------- |
+| Before implementing — research, findings | `"Research Notes"`   |
+| Before significant implementation        | `"Implementation Spec"` |
+| After all tasks complete (**required**)  | `"Summary"`          |
+| After verification                       | `"Test Results"`     |
 
 **Required summary template:**
 
 ```json
-POST /projects/{slug}/cards/{card}/files
+POST /projects/{slug}/cards/{card}/artifacts
 {
-  "filename": "summary.md",
-  "content": "# Summary\n\n## Objective\n[What this card solved]\n\n## Changes Made\n[Concrete changes]\n\n## Verification\n[How to confirm it works]\n\n## Notes\n[Gotchas, follow-ups]",
-  "description": "Completion summary"
+  "label": "Summary",
+  "kind": "doc",
+  "content": "# Summary\n\n## Objective\n[What this card solved]\n\n## Changes Made\n[Concrete changes]\n\n## Verification\n[How to confirm it works]\n\n## Notes\n[Gotchas, follow-ups]"
 }
 ```
+
+**Response 201:**
+```json
+{
+  "link": {
+    "id": "uuid",
+    "label": "Summary",
+    "url": "https://vaultpad.example.com/view?path=10-Projects%2Fhex%2Fmy-card%2F2026-03-05_14-00-00_SUMMARY.md",
+    "kind": "doc",
+    "createdAt": "...",
+    "updatedAt": "..."
+  },
+  "filePath": "/absolute/path/to/vault/hex/my-card/2026-03-05_14-00-00_SUMMARY.md"
+}
+```
+
+The `link.url` is portable and shareable. Use it in references, messages, and cross-references.
+
+**Error 400 `OBSIDIAN_NOT_CONFIGURED`**: Set `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in `.env`.
 
 ## NEVER
 
@@ -161,7 +196,7 @@ POST /projects/{slug}/cards/{card}/files
 
 - **NEVER batch task toggling.** Toggle each task the moment it's complete. The board must reflect current reality at all times.
 
-- **NEVER rely on card-level files for core project documentation.** Prefer Obsidian artifacts + `/links` attachments; keep `description` short (1–5 sentence summary).
+- **NEVER rely on core project documentation outside of vault artifacts + `/links`.** Keep card `description` short (1–5 sentence summary); put full docs in vault artifacts via `/artifacts`.
 
 - **NEVER assume project slugs.** Use `GET /projects` if the project slug is not confirmed in context. Slugs are lowercase-hyphenated directory names.
 
@@ -169,14 +204,15 @@ POST /projects/{slug}/cards/{card}/files
 
 ## Error Handling
 
-| Error                | Cause                         | Fix                                                                        |
-| -------------------- | ----------------------------- | -------------------------------------------------------------------------- |
-| 404 card not found   | Slug = filename without `.md` | List cards to get correct slug                                             |
-| 400 validation error | Invalid field value           | Read `message` + `expected` in response                                    |
-| 409 DUPLICATE_LINK   | URL already on this card      | Check `frontmatter.links`; update the existing link or use a different URL |
-| 400 INVALID_URL      | URL missing or not http/https | Ensure URL starts with `http://` or `https://`                             |
-| 400 INVALID_LABEL    | Label is empty or whitespace  | Provide a meaningful display label                                         |
-| API unreachable      | Server not running            | Ask user to run `bun run dev` in DevPlanner directory                      |
+| Error                         | Cause                              | Fix                                                                        |
+| ----------------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| 404 card not found            | Slug = filename without `.md`      | List cards to get correct slug                                             |
+| 400 validation error          | Invalid field value                | Read `message` + `expected` in response                                    |
+| 409 DUPLICATE_LINK            | URL already on this card           | Check `frontmatter.links`; update the existing link or use a different URL |
+| 400 INVALID_URL               | URL missing or not http/https      | Ensure URL starts with `http://` or `https://`                             |
+| 400 INVALID_LABEL             | Label is empty or whitespace       | Provide a meaningful display label                                         |
+| 400 OBSIDIAN_NOT_CONFIGURED   | Missing env vars for vault         | Set `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in server `.env`         |
+| API unreachable               | Server not running                 | Ask user to run `bun run dev` in DevPlanner directory                      |
 
 ## Lanes
 

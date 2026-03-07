@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import { cardsApi, tasksApi, linksApi } from '../../api/client';
+import { cardsApi, tasksApi, linksApi, artifactsApi } from '../../api/client';
 import type { CardLink, CreateLinkInput, UpdateLinkInput } from '../../types';
 import type { DevPlannerStore, CardSlice } from '../types';
 
@@ -334,6 +334,28 @@ export const createCardSlice: StateCreator<
         const links = (state.activeCard.frontmatter.links ?? []).filter(
           (l: CardLink) => l.id !== linkId
         );
+        return {
+          activeCard: {
+            ...state.activeCard,
+            frontmatter: { ...state.activeCard.frontmatter, links },
+          },
+        };
+      });
+    }
+  },
+
+  createVaultArtifact: async (cardSlug, file, label, kind) => {
+    const { activeProjectSlug, activeCard } = get();
+    if (!activeProjectSlug) return;
+
+    const content = await file.text();
+    const { link } = await artifactsApi.create(activeProjectSlug, cardSlug, { content, label, kind });
+    get()._recordLocalAction(`link:added:${link.id}`);
+
+    if (activeCard?.slug === cardSlug) {
+      set((state) => {
+        if (!state.activeCard) return {};
+        const links = [...(state.activeCard.frontmatter.links ?? []), link];
         return {
           activeCard: {
             ...state.activeCard,

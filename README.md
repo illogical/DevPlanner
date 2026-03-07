@@ -18,7 +18,7 @@ DevPlanner/
 │   │   ├── cards.ts            # Card CRUD, search
 │   │   ├── tasks.ts            # Task add, toggle, edit, delete
 │   │   ├── links.ts            # Card URL link CRUD
-│   │   ├── files.ts            # File upload, metadata, associations
+│   │   ├── artifacts.ts        # Vault artifact creation
 │   │   ├── history.ts          # Per-project activity history
 │   │   ├── activity.ts         # Cross-project activity feed
 │   │   ├── stats.ts            # Project health metrics
@@ -29,8 +29,8 @@ DevPlanner/
 │   │   ├── card.service.ts     # Card CRUD, move, reorder, search
 │   │   ├── task.service.ts     # Checklist add/toggle/edit/delete (per-card mutex)
 │   │   ├── link.service.ts     # Card URL link management
+│   │   ├── vault.service.ts    # Obsidian vault artifact creation
 │   │   ├── project.service.ts  # Project CRUD
-│   │   ├── file.service.ts     # File upload, metadata, card associations
 │   │   ├── markdown.service.ts # Frontmatter parsing, checklist manipulation
 │   │   ├── history.service.ts  # In-memory activity event tracking
 │   │   ├── history-persistence.service.ts # History JSON file persistence
@@ -53,7 +53,7 @@ DevPlanner/
 │       ├── api/client.ts       # Typed fetch wrappers for all endpoints
 │       ├── services/           # WebSocket client
 │       ├── store/index.ts      # Zustand state management
-│       └── components/         # React components (Kanban, card detail, activity, files)
+│       └── components/         # React components (Kanban, card detail, activity)
 └── workspace/                  # Project data directory (gitignored)
 ```
 
@@ -65,10 +65,6 @@ Project data lives in `$DEVPLANNER_WORKSPACE` (configurable via env var):
 workspace/
 └── my-project/
     ├── _project.json           # Project metadata, lane config, card ID prefix
-    ├── _files.json             # File metadata and card associations
-    ├── _files/                 # Uploaded reference files (gitignored)
-    │   ├── design-spec.pdf
-    │   └── api-docs.md
     ├── _history.json           # Persisted activity history events
     ├── 01-upcoming/
     │   ├── _order.json         # Card display order for drag-and-drop
@@ -123,6 +119,8 @@ mkdir -p workspace
 | `PORT` | No | `17103` | Backend server port |
 | `DEVPLANNER_BACKUP_DIR` | No | `{workspace}/_backups` | Directory for workspace backups |
 | `DISABLE_FILE_WATCHER` | No | `false` | Set to `true` to disable file watching (useful for debugging WebSocket vs file watcher issues) |
+| `OBSIDIAN_BASE_URL` | No | — | Base URL prefix for vault artifact links (e.g. `https://viewer.example.com/view?path=10-Projects`). Required for vault artifact creation. |
+| `OBSIDIAN_VAULT_PATH` | No | — | Absolute path to the Obsidian vault subfolder where artifact files are written. Required for vault artifact creation. |
 
 #### Using a `.env` file
 
@@ -229,9 +227,10 @@ DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run mcp
 
 The server communicates via stdin/stdout and provides:
 
-**17 Tools** for project management:
+**Tools** for project management:
 - Core CRUD: `list_projects`, `get_project`, `create_project`, `list_cards`, `get_card`, `create_card`, `update_card`, `move_card`, `add_task`, `toggle_task`
 - Smart/Workflow: `get_board_overview`, `get_next_tasks`, `batch_update_tasks`, `search_cards`, `update_card_content`, `get_project_progress`, `archive_card`
+- Vault: `create_vault_artifact` — writes a Markdown file to the Obsidian Vault and attaches it as a link
 
 **3 Resources** for read-only access:
 - `devplanner://projects` - List all projects
@@ -293,19 +292,11 @@ All endpoints are under `/api` and return JSON.
 | `POST` | `/api/projects/:slug/cards/:card/links` | Add a URL link to a card |
 | `PATCH` | `/api/projects/:slug/cards/:card/links/:linkId` | Update a link |
 | `DELETE` | `/api/projects/:slug/cards/:card/links/:linkId` | Delete a link |
+| `POST` | `/api/projects/:slug/cards/:card/artifacts` | Write Markdown file to Obsidian Vault and attach as link |
 | `GET` | `/api/projects/:slug/cards/search?q=` | Search cards by title, tasks, description (legacy) |
-| `GET` | `/api/projects/:slug/search?q=` | Palette search — cards, tasks, descriptions, tags, assignees, files, links |
+| `GET` | `/api/projects/:slug/search?q=` | Palette search — cards, tasks, descriptions, tags, assignees, links |
 | `GET` | `/api/search?q=&projects=` | Global cross-project palette search |
 | `PATCH` | `/api/projects/:slug/lanes/:lane/order` | Reorder cards in lane |
-| `GET` | `/api/projects/:slug/files` | List project files |
-| `POST` | `/api/projects/:slug/files` | Upload file |
-| `GET` | `/api/projects/:slug/files/:filename` | Get file metadata |
-| `PATCH` | `/api/projects/:slug/files/:filename` | Update file description |
-| `DELETE` | `/api/projects/:slug/files/:filename` | Delete file |
-| `GET` | `/api/projects/:slug/files/:filename/download` | Download file |
-| `POST` | `/api/projects/:slug/files/:filename/associate` | Associate file with card |
-| `DELETE` | `/api/projects/:slug/files/:filename/associate/:card` | Disassociate file from card |
-| `GET` | `/api/projects/:slug/cards/:card/files` | List files for a card |
 | `GET` | `/api/projects/:slug/stats` | Project health stats |
 | `GET` | `/api/projects/:slug/history` | Activity history (`?limit=`, `?since=`) |
 | `GET` | `/api/activity` | Cross-project activity feed (`?since=`, `?limit=`) |
@@ -323,10 +314,10 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 - ✅ **Card Management** - Create, edit, archive cards with Markdown content; description, `blockedReason` field, inline title/metadata editing
 - ✅ **Card IDs** - Unique identifiers (e.g., `DEV-42`) with project-configurable prefix
 - ✅ **Card Links** - Attach structured URL references to cards (docs, specs, tickets, repos) with kind classification
+- ✅ **Vault Artifacts** - Write Markdown files directly to an Obsidian Vault and auto-attach as links; upload files from the card detail panel via `UploadLinkForm`
 - ✅ **Task Tracking** - Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps; inline task editing and deletion
 - ✅ **Project Management** - Multi-project support with card counts
-- ✅ **Search & Filter** - Command-palette overlay (`Ctrl+K`/`Cmd+K`) with real-time search across card titles, tasks, descriptions, tags, assignees, file names, and links; keyboard navigation; type-filter tabs; scope toggle (this project / all projects); matched text highlighted in results
-- ✅ **File Management** - Upload reference files, associate with cards, read text files via MCP
+- ✅ **Search & Filter** - Command-palette overlay (`Ctrl+K`/`Cmd+K`) with real-time search across card titles, tasks, descriptions, tags, assignees, and links; keyboard navigation; type-filter tabs; scope toggle (this project / all projects); matched text highlighted in results
 - ✅ **Real-time Sync** - WebSocket infrastructure for live updates across clients
 - ✅ **File Watching** - Automatic detection of external file changes
 - ✅ **Activity History** - Per-project history with `?since=` filter; cross-project `/api/activity` feed

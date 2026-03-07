@@ -21,9 +21,9 @@ import type {
   ProjectUpdatedData,
   ProjectDeletedData,
   SearchResult,
-  ProjectFileEntry,
   CreateLinkInput,
   UpdateLinkInput,
+  CardLink,
   LinkAddedData,
   LinkUpdatedData,
   LinkDeletedData,
@@ -88,6 +88,7 @@ export interface CardSlice {
   addLink: (cardSlug: string, input: CreateLinkInput) => Promise<void>;
   updateLink: (cardSlug: string, linkId: string, input: UpdateLinkInput) => Promise<void>;
   deleteLink: (cardSlug: string, linkId: string) => Promise<void>;
+  createVaultArtifact: (cardSlug: string, file: File, label: string, kind: CardLink['kind']) => Promise<void>;
 }
 
 export interface UISlice {
@@ -111,22 +112,6 @@ export interface UISlice {
   clearExpiredIndicators: () => void;
   getCardIndicators: (cardSlug: string) => ChangeIndicator[];
   getTaskIndicator: (cardSlug: string, taskIndex: number) => ChangeIndicator | null;
-}
-
-export interface FileSlice {
-  projectFiles: ProjectFileEntry[];
-  isLoadingFiles: boolean;
-  isUploadingFile: boolean;
-  isFilesPanelOpen: boolean;
-
-  loadProjectFiles: () => Promise<void>;
-  uploadFile: (file: File, description?: string, autoAssociateCardSlug?: string) => Promise<void>;
-  deleteFile: (filename: string) => Promise<void>;
-  updateFileDescription: (filename: string, description: string) => Promise<void>;
-  associateFile: (filename: string, cardSlug: string) => Promise<void>;
-  disassociateFile: (filename: string, cardSlug: string) => Promise<void>;
-  toggleFilesPanel: () => void;
-  setFilesPanelOpen: (open: boolean) => void;
 }
 
 export interface HistorySlice {
@@ -185,11 +170,6 @@ export interface WSSlice {
   wsHandleLaneReordered?: (data: LaneReorderedData) => void;
   wsHandleProjectUpdated?: (data: ProjectUpdatedData) => void;
   wsHandleProjectDeleted?: (data: ProjectDeletedData) => void;
-  wsHandleFileAdded?: (data: { file: ProjectFileEntry }) => void;
-  wsHandleFileDeleted?: (data: { filename: string }) => void;
-  wsHandleFileUpdated?: (data: { file: ProjectFileEntry }) => void;
-  wsHandleFileAssociated?: (data: { filename: string; cardSlug: string }) => void;
-  wsHandleFileDisassociated?: (data: { filename: string; cardSlug: string }) => void;
   wsHandleLinkAdded?: (data: LinkAddedData) => void;
   wsHandleLinkUpdated?: (data: LinkUpdatedData) => void;
   wsHandleLinkDeleted?: (data: LinkDeletedData) => void;
@@ -201,7 +181,6 @@ export type DevPlannerStore =
   ProjectSlice &
   CardSlice &
   UISlice &
-  FileSlice &
   HistorySlice &
   SearchSlice &
   WSSlice;

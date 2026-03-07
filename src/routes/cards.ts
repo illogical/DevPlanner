@@ -1,6 +1,5 @@
 import { Elysia, t } from 'elysia';
 import { CardService } from '../services/card.service';
-import { FileService } from '../services/file.service';
 import { ProjectService } from '../services/project.service';
 import { WebSocketService } from '../services/websocket.service';
 import { HistoryService } from '../services/history.service';
@@ -43,23 +42,12 @@ function scoreMatch(text: string, query: string): number {
 export async function searchProjectForPalette(
   projectSlug: string,
   query: string,
-  cardService: CardService,
-  fileService: FileService
+  cardService: CardService
 ): Promise<PaletteSearchResult[]> {
   const q = query.trim().toLowerCase();
   const results: PaletteSearchResult[] = [];
 
   const cards = await cardService.listCards(projectSlug);
-  const files = await fileService.listFiles(projectSlug).catch(() => []);
-
-  // Build a map: cardSlug -> files for that card
-  const filesByCard = new Map<string, typeof files>();
-  for (const file of files) {
-    for (const slug of file.cardSlugs) {
-      if (!filesByCard.has(slug)) filesByCard.set(slug, []);
-      filesByCard.get(slug)!.push(file);
-    }
-  }
 
   for (const card of cards) {
     const cardTitle = card.frontmatter.title;
@@ -223,43 +211,6 @@ export async function searchProjectForPalette(
       }
     }
 
-    // File matches for this card
-    const cardFiles = filesByCard.get(card.slug) ?? [];
-    for (const file of cardFiles) {
-      // File name match
-      const nameScore = scoreMatch(file.originalName || file.filename, query);
-      if (nameScore > 0) {
-        results.push({
-          type: 'file',
-          cardSlug: card.slug,
-          cardTitle,
-          cardId,
-          laneSlug,
-          projectSlug,
-          fileFilename: file.filename,
-          primaryText: file.originalName || file.filename,
-          score: nameScore,
-        });
-      }
-      // File description match
-      if (file.description) {
-        const descScore = scoreMatch(file.description, query);
-        if (descScore > 0) {
-          results.push({
-            type: 'file-description',
-            cardSlug: card.slug,
-            cardTitle,
-            cardId,
-            laneSlug,
-            projectSlug,
-            fileFilename: file.filename,
-            primaryText: file.originalName || file.filename,
-            snippet: buildSnippet(file.description, query),
-            score: descScore,
-          });
-        }
-      }
-    }
   }
 
   return results;
@@ -267,7 +218,6 @@ export async function searchProjectForPalette(
 
 export const cardRoutes = (workspacePath: string) => {
   const cardService = new CardService(workspacePath);
-  const fileService = new FileService(workspacePath);
   const projectService = new ProjectService(workspacePath);
   const wsService = WebSocketService.getInstance();
   const historyService = HistoryService.getInstance();
@@ -413,8 +363,7 @@ export const cardRoutes = (workspacePath: string) => {
       const results = await searchProjectForPalette(
         params.projectSlug,
         searchQuery,
-        cardService,
-        fileService
+        cardService
       );
       return { results, query: searchQuery };
     })
@@ -430,9 +379,6 @@ export const cardRoutes = (workspacePath: string) => {
       const hardDelete = query.hard === 'true';
 
       if (hardDelete) {
-        // Clean up file associations
-        await fileService.removeCardFromAllFiles(params.projectSlug, params.cardSlug);
-
         // Permanently delete the card
         await cardService.deleteCard(params.projectSlug, params.cardSlug);
 

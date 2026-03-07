@@ -1,6 +1,5 @@
 import { Elysia } from 'elysia';
 import { CardService } from '../services/card.service';
-import { FileService } from '../services/file.service';
 import { ProjectService } from '../services/project.service';
 import { searchProjectForPalette } from './cards';
 
@@ -9,7 +8,6 @@ import { searchProjectForPalette } from './cards';
  */
 export const searchRoutes = (workspacePath: string) => {
   const cardService = new CardService(workspacePath);
-  const fileService = new FileService(workspacePath);
   const projectService = new ProjectService(workspacePath);
 
   return new Elysia()
@@ -29,7 +27,7 @@ export const searchRoutes = (workspacePath: string) => {
 
       const allResults = await Promise.all(
         projectsToSearch.map(p =>
-          searchProjectForPalette(p.slug, searchQuery, cardService, fileService).catch(() => [])
+          searchProjectForPalette(p.slug, searchQuery, cardService).catch(() => [])
         )
       );
 

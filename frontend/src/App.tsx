@@ -3,15 +3,13 @@ import { MainLayout } from './components/layout/MainLayout';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { CardDetailPanel } from './components/card-detail/CardDetailPanel';
 import { ActivityPanel } from './components/activity/ActivityPanel';
-import { FilesPanel } from './components/files/FilesPanel';
 import { SearchPalette } from './components/search/SearchPalette';
 import { useStore } from './store';
 import { useWebSocket } from './hooks/useWebSocket';
 
 function App() {
-  const { 
+  const {
     isActivityPanelOpen, setActivityPanelOpen,
-    isFilesPanelOpen, setFilesPanelOpen,
     isPaletteOpen, openPalette, closePalette,
   } = useStore();
   const { connectionState } = useWebSocket();
@@ -36,10 +34,6 @@ function App() {
       <ActivityPanel
         isOpen={isActivityPanelOpen}
         onClose={() => setActivityPanelOpen(false)}
-      />
-      <FilesPanel
-        isOpen={isFilesPanelOpen}
-        onClose={() => setFilesPanelOpen(false)}
       />
       <SearchPalette />
     </MainLayout>

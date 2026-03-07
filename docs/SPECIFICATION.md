@@ -16,6 +16,8 @@ Refer to `BRAINSTORM.md` for the full context of design decisions and resolved q
 | `PORT` | No | `17103` | Port for the Elysia backend server |
 | `DEVPLANNER_BACKUP_DIR` | No | `{workspace}/_backups` | Directory for workspace backup archives |
 | `DISABLE_FILE_WATCHER` | No | `false` | When `true`, disables filesystem monitoring. All real-time updates come from API WebSocket broadcasts instead |
+| `OBSIDIAN_BASE_URL` | No | — | Base URL prefix for vault artifact links (e.g. `https://viewer.example.com/view?path=10-Projects`). Required to enable vault artifact creation. |
+| `OBSIDIAN_VAULT_PATH` | No | — | Absolute path to the Obsidian vault subfolder where artifact files are written. Required to enable vault artifact creation. |
 
 The backend validates that `DEVPLANNER_WORKSPACE` exists and is a readable directory on startup. If missing, the server exits with a clear error message.
 
@@ -40,10 +42,6 @@ $DEVPLANNER_WORKSPACE/
 ├── _preferences.json                   # Workspace-level preferences
 ├── media-manager/                      # Project: folder name is the slug
 │   ├── _project.json                   # Project metadata + card ID config
-│   ├── _files.json                     # File metadata and card associations
-│   ├── _files/                         # Uploaded reference files
-│   │   ├── design-spec.pdf
-│   │   └── api-docs.md
 │   ├── _history.json                   # Persisted activity history events
 │   ├── 01-upcoming/
 │   │   ├── _order.json                 # Card display order within this lane
@@ -879,7 +877,6 @@ Retrieve activity history for a project (recent card/task modifications).
 - `card:archived` - Card moved to archive
 - `card:deleted` - Card permanently deleted
 - `project:created` / `project:updated` / `project:archived` - Project lifecycle
-- `file:uploaded` / `file:deleted` / `file:associated` / `file:disassociated` / `file:updated` - File operations
 - `link:added` / `link:updated` / `link:deleted` - Link operations
 
 #### `GET /api/activity`
@@ -952,110 +949,53 @@ Workspace-level preferences persisted to `_preferences.json`.
 
 ---
 
-### 3.10 File Management Endpoints
+### 3.10 Vault Artifact Endpoint
 
-#### `GET /api/projects/:projectSlug/files`
+Writes a Markdown file to the Obsidian Vault and attaches a link to the card. Requires `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in the server environment.
 
-List all files for a project.
-
-**Response `200`:**
-```json
-{
-  "files": [
-    {
-      "filename": "design-spec.pdf",
-      "originalName": "design-spec.pdf",
-      "mimeType": "application/pdf",
-      "size": 245000,
-      "description": "UI design specification from Figma export",
-      "uploadedAt": "2026-02-20T10:00:00Z",
-      "associatedCards": ["user-auth", "ui-layout"]
-    }
-  ]
-}
-```
-
-#### `POST /api/projects/:projectSlug/files`
-
-Upload a file to the project.
-
-**Request**: `multipart/form-data` with `file` field and optional `description` field.
-
-**Behavior:**
-1. Save file to `_files/` directory
-2. Deduplicate filename if needed (e.g., `file.txt` → `file-2.txt`)
-3. Detect MIME type from extension
-4. Add metadata entry to `_files.json`
-5. Broadcast `file:uploaded` history event
-
-**Response `201`:** File metadata object.
-
-#### `GET /api/projects/:projectSlug/files/:filename`
-
-Get file metadata.
-
-**Response `200`:** File metadata object (same shape as list item).
-
-#### `PATCH /api/projects/:projectSlug/files/:filename`
-
-Update a file's description.
+#### `POST /api/projects/:projectSlug/cards/:cardSlug/artifacts`
 
 **Request Body:**
 ```json
 {
-  "description": "Updated description for this file"
+  "label": "Implementation Spec",
+  "content": "# Implementation Spec\n\n...",
+  "kind": "spec"
 }
 ```
 
-**Response `200`:** Updated file metadata object.
-
-#### `DELETE /api/projects/:projectSlug/files/:filename`
-
-Delete a file and its metadata.
+- `label` (required) — Display label for the link and source for the filename slug
+- `content` (required) — UTF-8 text content written to the file
+- `kind` (optional, default `"doc"`) — Link kind: `doc | spec | ticket | repo | reference | other`
 
 **Behavior:**
-1. Remove file from `_files/` directory
-2. Remove metadata from `_files.json`
-3. Remove all card associations
+1. Validate `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` are configured
+2. Generate filename: `{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`
+3. Write file to `{OBSIDIAN_VAULT_PATH}/{projectSlug}/{cardSlug}/{filename}`
+4. Construct URL: `{OBSIDIAN_BASE_URL}%2F{encoded-relative-path}`
+5. Add link to card via `LinkService`
+6. Broadcast `link:added` WebSocket event
 
-**Response `200`:** `{ "success": true }`
-
-#### `GET /api/projects/:projectSlug/files/:filename/download`
-
-Download/serve a file. Returns the file content with appropriate `Content-Type` header.
-
-#### `POST /api/projects/:projectSlug/files/:filename/associate`
-
-Associate a file with a card.
-
-**Request Body:**
+**Response `201`:**
 ```json
 {
-  "cardSlug": "user-auth"
+  "link": {
+    "id": "uuid",
+    "label": "Implementation Spec",
+    "url": "https://viewer.example.com/view?path=10-Projects%2Fhex%2Fmy-card%2F2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md",
+    "kind": "spec",
+    "createdAt": "...",
+    "updatedAt": "..."
+  },
+  "filePath": "C:\\...\\10-Projects\\hex\\my-card\\2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md"
 }
 ```
-
-**Response `200`:** Updated file metadata with `associatedCards`.
 
 **Errors:**
-- `409` if already associated
-
-#### `DELETE /api/projects/:projectSlug/files/:filename/associate/:cardSlug`
-
-Remove association between a file and a card.
-
-**Response `200`:** Updated file metadata.
-
-#### `GET /api/projects/:projectSlug/cards/:cardSlug/files`
-
-List all files associated with a specific card.
-
-**Response `200`:**
-```json
-{
-  "files": [ /* file metadata objects */ ]
-}
-```
+- `400 OBSIDIAN_NOT_CONFIGURED` — `OBSIDIAN_BASE_URL` or `OBSIDIAN_VAULT_PATH` is not set
+- `400 INVALID_LABEL` — Label is empty or whitespace
+- `404` — Project or card not found
+- `409 DUPLICATE_LINK` — A link with this URL already exists on the card
 
 ---
 
@@ -1172,11 +1112,6 @@ Heartbeat response:
 - `link:added` - URL link added to a card
 - `link:updated` - URL link updated on a card
 - `link:deleted` - URL link removed from a card
-- `file:added` - File uploaded to project
-- `file:deleted` - File removed from project
-- `file:updated` - File metadata updated
-- `file:associated` - File associated with a card
-- `file:disassociated` - File disassociated from a card
 - `history:event` - Activity history event recorded
 
 **Behavior:**
@@ -1200,7 +1135,7 @@ src/
 │   ├── cards.ts                    # Card route handlers (CRUD + search)
 │   ├── tasks.ts                    # Task route handlers (add, toggle, edit, delete)
 │   ├── links.ts                    # Card URL link handlers
-│   ├── files.ts                    # File management handlers
+│   ├── artifacts.ts                # Vault artifact creation handlers
 │   ├── history.ts                  # Per-project activity history handlers
 │   ├── activity.ts                 # Cross-project activity feed
 │   ├── stats.ts                    # Project health metrics
@@ -1212,7 +1147,7 @@ src/
 │   ├── card.service.ts             # Card CRUD, move, reorder, search
 │   ├── task.service.ts             # Checklist add/toggle/edit/delete (per-card mutex)
 │   ├── link.service.ts             # Card URL link management
-│   ├── file.service.ts             # File upload, metadata, card associations
+│   ├── vault.service.ts            # Obsidian vault artifact creation
 │   ├── markdown.service.ts         # Frontmatter parsing, checklist parsing
 │   ├── history.service.ts          # In-memory activity event tracking
 │   ├── history-persistence.service.ts # History JSON file persistence
@@ -1222,7 +1157,7 @@ src/
 │   ├── preferences.service.ts      # Workspace preferences (digestAnchor, etc.)
 │   └── config.service.ts           # Singleton environment configuration
 ├── mcp/                            # MCP server for AI agents
-│   ├── tool-handlers.ts            # 17 tool implementations
+│   ├── tool-handlers.ts            # Tool implementations
 │   ├── resource-providers.ts       # 3 resource providers
 │   ├── schemas.ts                  # JSON schemas for tool inputs
 │   ├── errors.ts                   # LLM-friendly error messages
@@ -1238,8 +1173,7 @@ src/
     ├── project.service.test.ts
     ├── card.service.test.ts
     ├── task.service.test.ts
-    ├── markdown.service.test.ts
-    └── file.service.test.ts
+    └── markdown.service.test.ts
 ```
 
 ### 4.1 Service Classes
@@ -1326,22 +1260,25 @@ class LinkService {
 }
 ```
 
-#### `FileService`
+#### `VaultService`
+
+Writes Markdown artifact files to the Obsidian Vault and attaches them as links to cards.
 
 ```typescript
-class FileService {
-  constructor(workspacePath: string);
+class VaultService {
+  constructor(workspacePath: string, vaultPath: string, obsidianBaseUrl: string);
 
-  listFiles(projectSlug: string): Promise<FileMetadata[]>;
-  getFile(projectSlug: string, filename: string): Promise<FileMetadata>;
-  uploadFile(projectSlug: string, file: File, description?: string): Promise<FileMetadata>;
-  updateFile(projectSlug: string, filename: string, updates: { description: string }): Promise<FileMetadata>;
-  deleteFile(projectSlug: string, filename: string): Promise<void>;
-  associateWithCard(projectSlug: string, filename: string, cardSlug: string): Promise<FileMetadata>;
-  disassociateFromCard(projectSlug: string, filename: string, cardSlug: string): Promise<FileMetadata>;
-  getFilesForCard(projectSlug: string, cardSlug: string): Promise<FileMetadata[]>;
+  createArtifact(
+    projectSlug: string,
+    cardSlug: string,
+    label: string,
+    kind: LinkKind,
+    content: string
+  ): Promise<{ link: CardLink; filePath: string }>;
 }
 ```
+
+Files are written to `{vaultPath}/{projectSlug}/{cardSlug}/{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`. The URL is constructed as `{obsidianBaseUrl}%2F{url-encoded-relative-path}`.
 
 #### `HistoryService`
 
@@ -1503,12 +1440,9 @@ App
     │   ├── TaskList (interactive checkboxes with inline editing and deletion)
     │   │   ├── TaskCheckbox (per task)
     │   │   └── AddTaskInput
-    │   ├── CardLinks (URL references with kind classification, add/edit/delete)
-    │   └── CardFiles (associated reference files with association input)
-    ├── ActivityPanel (slide-out panel with time-grouped history events)
-    │   └── ActivityLog (grouped: Today, Yesterday, This Week, etc.)
-    └── FilesPanel (project file management: upload, list, describe, associate)
-        └── FileListItem (per file)
+    │   └── CardLinks (URL references + vault artifact upload with kind classification, add/edit/delete)
+    └── ActivityPanel (slide-out panel with time-grouped history events)
+        └── ActivityLog (grouped: Today, Yesterday, This Week, etc.)
 ```
 
 ### 5.4 Zustand Store
@@ -1546,10 +1480,7 @@ interface DevPlannerStore {
   addLink: (projectSlug: string, cardSlug: string, data: { label: string; url: string; kind?: LinkKind }) => Promise<void>;
   updateLink: (projectSlug: string, cardSlug: string, linkId: string, updates: Partial<CardLink>) => Promise<void>;
   deleteLink: (projectSlug: string, cardSlug: string, linkId: string) => Promise<void>;
-
-  // Files
-  files: FileMetadata[];
-  loadFiles: (projectSlug: string) => Promise<void>;
+  createVaultArtifact: (cardSlug: string, file: File, label: string, kind: LinkKind) => Promise<void>;
 
   // Search
   searchQuery: string;
@@ -1655,20 +1586,17 @@ Each card preview includes an expandable section showing pending (unchecked) tas
 | Tablet (768–1279px) | Hidden by default, overlay | Horizontal scroll | Full-width overlay |
 | Mobile (<768px) | Hidden, hamburger menu | Stacked vertically or swipeable | Full-screen overlay |
 
-### 5.8 File Management
+### 5.8 Vault Artifact Upload
 
-**Card Detail Panel - CardFiles Section:**
-- Located below CardLinks in the detail panel
-- Lists associated files with MIME type icons
-- FileAssociationInput for linking existing project files to the card
-- Click to download file
+The **CardLinks** section in the card detail panel includes an "Upload File" button alongside "+ Add Link". Clicking it opens an `UploadLinkForm` with:
 
-**FilesPanel - Project File Management:**
-- Slide-out panel for uploading and managing project files
-- Upload via file input, optional description
-- File list with metadata (size, type, upload date, associated cards)
-- Inline description editing
-- Associate/disassociate files with cards
+- File picker (accepts `.md`, `.txt`, `.json`, `.ts`, `.tsx`, `.js`, `.jsx`, `.yaml`, `.yml`, `.csv`)
+- Label field (pre-filled from filename without extension, editable)
+- Kind selector (same options as the URL link form)
+
+On save, the file content is read client-side and sent to `POST /api/projects/:slug/cards/:card/artifacts`. The API writes the file to the Obsidian Vault and returns a link object that is immediately appended to `activeCard.frontmatter.links`.
+
+If `OBSIDIAN_BASE_URL` or `OBSIDIAN_VAULT_PATH` is not configured, a friendly error is shown: *"Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable file uploads."*
 
 ---
 

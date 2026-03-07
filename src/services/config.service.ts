@@ -11,6 +11,8 @@ export class ConfigService {
   public readonly workspacePath: string;
   public readonly port: number;
   public readonly backupDir: string;
+  public readonly obsidianBaseUrl: string | undefined;
+  public readonly obsidianVaultPath: string | undefined;
 
   private constructor() {
     // Load and validate DEVPLANNER_WORKSPACE
@@ -46,6 +48,10 @@ export class ConfigService {
 
     // Load optional DEVPLANNER_BACKUP_DIR, default to _backups inside workspace
     this.backupDir = process.env.DEVPLANNER_BACKUP_DIR ?? join(workspacePath, '_backups');
+
+    // Load optional OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH for vault artifact integration
+    this.obsidianBaseUrl = process.env.OBSIDIAN_BASE_URL?.trimEnd() || undefined;
+    this.obsidianVaultPath = process.env.OBSIDIAN_VAULT_PATH?.trimEnd() || undefined;
   }
 
   /**

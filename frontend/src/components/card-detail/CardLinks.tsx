@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../../store';
 import { useDetailScroll } from '../../hooks/useDetailScroll';
 import { cn } from '../../utils/cn';
@@ -49,7 +49,7 @@ const EMPTY_FORM: LinkFormState = { label: '', url: '', kind: 'other' };
 interface LinkFormProps {
   initial: LinkFormState;
   existingLinks: CardLink[];
-  editingId?: string; // If set, exclude this link from duplicate check
+  editingId?: string;
   onSave: (state: LinkFormState) => void;
   onCancel: () => void;
 }
@@ -68,7 +68,6 @@ function LinkForm({ initial, existingLinks, editingId, onSave, onCancel }: LinkF
     } else if (!isValidUrl(f.url)) {
       errs.url = 'Enter a valid http or https URL.';
     } else {
-      // Duplicate check
       const normalised = new URL(f.url.trim()).href;
       const duplicate = existingLinks.find(
         (l) => l.url === normalised && l.id !== editingId
@@ -148,14 +147,125 @@ function LinkForm({ initial, existingLinks, editingId, onSave, onCancel }: LinkF
   );
 }
 
+interface UploadFormProps {
+  cardSlug: string;
+  onDone: () => void;
+}
+
+function UploadLinkForm({ cardSlug, onDone }: UploadFormProps) {
+  const createVaultArtifact = useStore((s) => s.createVaultArtifact);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [label, setLabel] = useState('');
+  const [kind, setKind] = useState<LinkKind>('doc');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+    if (f && !label) {
+      // Pre-fill label from filename without extension
+      setLabel(f.name.replace(/\.[^.]+$/, ''));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!file) { setError('Select a file first.'); return; }
+    if (!label.trim()) { setError('Label is required.'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      await createVaultArtifact(cardSlug, file, label.trim(), kind);
+      onDone();
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string };
+      if (e?.error === 'OBSIDIAN_NOT_CONFIGURED') {
+        setError('Set OBSIDIAN_BASE_URL in .env to enable file uploads.');
+      } else {
+        setError(e?.message ?? 'Failed to upload file.');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 bg-gray-800/50 rounded-lg p-3">
+      <div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full border border-dashed border-gray-600 rounded px-3 py-2 text-sm text-gray-400 hover:border-gray-400 hover:text-gray-300 transition-colors text-left"
+        >
+          {file ? file.name : 'Choose file…'}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,.txt,.json,.ts,.tsx,.js,.jsx,.yaml,.yml,.csv"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </div>
+
+      <div>
+        <input
+          type="text"
+          placeholder="Label (required)"
+          maxLength={200}
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as LinkKind)}
+          className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          {KIND_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs rounded transition-colors"
+        >
+          {saving ? 'Uploading…' : 'Upload'}
+        </button>
+        <button
+          onClick={onDone}
+          className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CardLinks({ links, cardSlug }: CardLinksProps) {
   const { addLink, updateLink, deleteLink } = useStore();
   const detailScrollTarget = useStore((s) => s.detailScrollTarget);
   useDetailScroll('links');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const noFormOpen = !showAddForm && !showUploadForm;
 
   const handleAdd = async (form: LinkFormState) => {
     setError(null);
@@ -213,15 +323,23 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
               d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
             />
           </svg>
-          <h3 className="font-medium text-sm">Links ({links.length})</h3>
+          <h3 className="font-medium text-sm">Links & Vault Artifacts ({links.length})</h3>
         </div>
-        {!showAddForm && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            + Add Link
-          </button>
+        {noFormOpen && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowUploadForm(true)}
+              className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
+            >
+              ↑ Upload File
+            </button>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              + Add Link
+            </button>
+          </div>
         )}
       </div>
 
@@ -232,7 +350,12 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
         </p>
       )}
 
-      {/* Add form */}
+      {/* Upload form */}
+      {showUploadForm && (
+        <UploadLinkForm cardSlug={cardSlug} onDone={() => setShowUploadForm(false)} />
+      )}
+
+      {/* Add link form */}
       {showAddForm && (
         <LinkForm
           initial={EMPTY_FORM}
@@ -244,9 +367,9 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
 
       {/* Link list */}
       <div className="space-y-2">
-        {links.length === 0 && !showAddForm ? (
+        {links.length === 0 && noFormOpen ? (
           <p className="text-center py-4 text-gray-500 text-xs italic">
-            No links yet — add a URL to get started.
+            No links yet — add a URL or upload a vault artifact.
           </p>
         ) : (
           links.map((link) => {

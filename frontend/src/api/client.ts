@@ -13,8 +13,6 @@ import type {
   TagsResponse,
   Preferences,
   SearchResponse,
-  ProjectFileEntry,
-  FilesResponse,
   CardLink,
   CreateLinkInput,
   UpdateLinkInput,
@@ -201,107 +199,20 @@ export const tasksApi = {
     ),
 };
 
-// File endpoints
-export const filesApi = {
-  list: (projectSlug: string) =>
-    fetchJSON<FilesResponse>(`${API_BASE}/projects/${projectSlug}/files`),
-
-  get: (projectSlug: string, filename: string) =>
-    fetchJSON<ProjectFileEntry>(
-      `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}`
-    ),
-
-  listForCard: (projectSlug: string, cardSlug: string) =>
-    fetchJSON<FilesResponse>(
-      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/files`
-    ),
-
-  upload: async (
-    projectSlug: string,
-    file: File,
-    description?: string
-  ): Promise<ProjectFileEntry> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (description) {
-      formData.append('description', description);
-    }
-
-    const response = await fetch(
-      `${API_BASE}/projects/${projectSlug}/files`,
-      {
-        method: 'POST',
-        body: formData,
-        // Do NOT set Content-Type header - the browser automatically sets it to
-        // 'multipart/form-data' with the correct boundary parameter required for file uploads
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new ApiClientError(
-        error.message || `HTTP ${response.status}`,
-        response.status,
-        error.expected
-      );
-    }
-
-    return response.json();
-  },
-
-  delete: (projectSlug: string, filename: string) =>
-    fetchJSON<{ associatedCards: string[] }>(
-      `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}`,
-      {
-        method: 'DELETE',
-      }
-    ),
-
-  updateDescription: (
-    projectSlug: string,
-    filename: string,
-    description: string
-  ) =>
-    fetchJSON<ProjectFileEntry>(
-      `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ description }),
-      }
-    ),
-
-  associate: (projectSlug: string, filename: string, cardSlug: string) =>
-    fetchJSON<ProjectFileEntry>(
-      `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}/associate`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ cardSlug }),
-      }
-    ),
-
-  disassociate: (projectSlug: string, filename: string, cardSlug: string) =>
-    fetchJSON<ProjectFileEntry>(
-      `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}/associate/${cardSlug}`,
-      {
-        method: 'DELETE',
-      }
-    ),
-
-  addFileToCard: (
+// Vault artifact endpoints
+export const artifactsApi = {
+  create: (
     projectSlug: string,
     cardSlug: string,
-    data: { filename: string; content: string; description?: string }
+    data: { content: string; label: string; kind?: CardLink['kind'] }
   ) =>
-    fetchJSON<ProjectFileEntry>(
-      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/files`,
+    fetchJSON<{ link: CardLink; filePath: string }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/artifacts`,
       {
         method: 'POST',
         body: JSON.stringify(data),
       }
     ),
-
-  getDownloadUrl: (projectSlug: string, filename: string) =>
-    `${API_BASE}/projects/${projectSlug}/files/${encodeURIComponent(filename)}/download`,
 };
 
 // Link endpoints

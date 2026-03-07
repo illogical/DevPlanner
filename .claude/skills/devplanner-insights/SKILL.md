@@ -246,12 +246,12 @@ Only include projects with at least one anomaly. Skip section entirely if all pr
 
 ### Looking Deeper into Cards
 
-Cards may carry URL links and attached files with real context about what a feature is for.
+Cards may carry URL links with real context about what a feature is for.
+Vault artifact files are accessible via `frontmatter.links` entries — they appear as regular links with Obsidian viewer URLs.
 When reporting on any in-progress or blocked card, check whether richer context is available:
 
-1. **Check `frontmatter.links`** — look for `kind: "doc"` or `kind: "spec"` entries first.
+1. **Check `frontmatter.links`** — look for `kind: "doc"` or `kind: "spec"` entries first. Vault artifact files appear here as links with Obsidian viewer URLs.
 2. **Fetch accessible links** — use `WebFetch` for public URLs. Skip links that require authentication.
-3. **Read card artifact files** — call `GET /projects/{slug}/cards/{card}/files` to list attached files, then read `.md` files for implementation notes.
 
 **When to go deeper:**
 - A card whose title is ambiguous — the linked doc or spec explains the full intent
