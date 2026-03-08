@@ -2,11 +2,11 @@ import { useStore } from '../../store';
 import { FileBreadcrumb } from '../doc/FileBreadcrumb';
 import { GitStatusDot } from '../doc/GitStatusDot';
 import { GitCommitPanel } from '../doc/GitCommitPanel';
+import { cn } from '../../utils/cn';
 
 export function BottomBar() {
     const {
         fbIsOpen,
-        fbActivePath,
         docFilePath,
         setFbActivePath,
         toggleFileBrowser,
@@ -31,7 +31,7 @@ export function BottomBar() {
         }
     };
 
-    const breadcrumbPath = fbIsOpen ? fbActivePath : (docFilePath ? docFilePath.split('/').slice(0, -1).join('/') : '');
+    const breadcrumbPath = docFilePath ? docFilePath.split('/').slice(0, -1).join('/') : '';
     const filename = docFilePath ? docFilePath.split('/').pop() : null;
 
     return (
@@ -45,7 +45,7 @@ export function BottomBar() {
                         onFilenameClick={handleFilenameClick}
                         gitNode={
                             filename ? (
-                                <div className="relative flex items-center mr-1">
+                                <div className="relative flex items-center ml-1.5 mr-1">
                                     <GitStatusDot
                                         state={gitCurrentState ?? undefined}
                                         loading={gitIsLoading}
@@ -65,6 +65,16 @@ export function BottomBar() {
                     onClick={toggleFileBrowser}
                     aria-label="Toggle file browser"
                 />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <svg
+                    className={cn("w-4 h-4 text-gray-600 transition-transform duration-200", fbIsOpen && "rotate-180")}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
             </div>
         </div>
     );

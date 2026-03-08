@@ -49,7 +49,7 @@ export function FileBreadcrumb({ path, onNavigate, filename, onFilenameClick, gi
           <button
             className={cn(
               'text-sm cursor-pointer',
-              'text-blue-300 hover:text-blue-200 font-medium truncate max-w-xs'
+              'text-blue-300 hover:text-blue-200 font-medium truncate max-w-xl'
             )}
             onClick={onFilenameClick}
             title={filename}

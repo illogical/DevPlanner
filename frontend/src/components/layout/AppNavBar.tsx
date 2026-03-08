@@ -70,7 +70,7 @@ interface NavTab { label: string; to?: string; icon: React.ReactNode; exact?: bo
 
 const NAV_TABS_BASE: NavTab[] = [
   { label: 'Projects', icon: <ProjectsIcon />, exact: true },
-  { label: 'Document', icon: <DocumentIcon />, isDocToggle: true },
+  { label: 'Review', icon: <DocumentIcon />, isDocToggle: true },
   { label: 'Compare', to: '/diff', icon: <CompareIcon /> },
 ];
 
