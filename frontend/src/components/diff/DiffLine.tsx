@@ -59,7 +59,7 @@ export const DiffLine = memo(function DiffLine({
       >
         <span
           ref={codeRef}
-          className={language !== 'auto' ? undefined : `language-${language}`}
+          className={language !== 'auto' ? `language-${language}` : undefined}
         >
           {text}
         </span>

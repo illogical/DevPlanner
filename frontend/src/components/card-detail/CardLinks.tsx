@@ -270,7 +270,9 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
 
   // Fetch public config once per mount to determine vault artifact links
   useEffect(() => {
-    publicConfigApi.get().then((cfg) => setObsidianBaseUrl(cfg.obsidianBaseUrl)).catch(() => {});
+    publicConfigApi.get().then((cfg) => setObsidianBaseUrl(cfg.obsidianBaseUrl)).catch((err) => {
+      console.warn('Could not load public config (vault diff buttons will be hidden):', err);
+    });
   }, []);
 
   const noFormOpen = !showAddForm && !showUploadForm;
