@@ -69,7 +69,7 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
   },
 
   navigateToFile: (filePath: string, mode: 'push' | 'back' | 'forward' = 'push') => {
-    const { docFilePath, docBackHistory, docForwardHistory } = get();
+    const { docFilePath, docBackHistory } = get();
     if (mode === 'push') {
       const newBack = docFilePath ? [...docBackHistory, docFilePath] : docBackHistory;
       set({ docBackHistory: newBack, docForwardHistory: [] });

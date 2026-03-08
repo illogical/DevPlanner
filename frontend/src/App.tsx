@@ -1,20 +1,21 @@
 import { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
+import { AppShell } from './components/layout/AppShell';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { CardDetailPanel } from './components/card-detail/CardDetailPanel';
 import { ActivityPanel } from './components/activity/ActivityPanel';
 import { SearchPalette } from './components/search/SearchPalette';
 import { DiffViewerPage } from './pages/DiffViewerPage';
+import { ViewerPage } from './pages/ViewerPage';
+import { EditorPage } from './pages/EditorPage';
 import { useStore } from './store';
-import { useWebSocket } from './hooks/useWebSocket';
 
 function KanbanApp() {
   const {
     isActivityPanelOpen, setActivityPanelOpen,
     isPaletteOpen, openPalette, closePalette,
   } = useStore();
-  const { connectionState } = useWebSocket();
 
   // Global Ctrl+K / Cmd+K shortcut to open/close the search palette
   useEffect(() => {
@@ -30,7 +31,7 @@ function KanbanApp() {
   }, [isPaletteOpen, openPalette, closePalette]);
 
   return (
-    <MainLayout connectionState={connectionState}>
+    <MainLayout>
       <KanbanBoard />
       <CardDetailPanel />
       <ActivityPanel
@@ -44,10 +45,14 @@ function KanbanApp() {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/diff" element={<DiffViewerPage />} />
-      <Route path="*" element={<KanbanApp />} />
-    </Routes>
+    <AppShell>
+      <Routes>
+        <Route path="/diff" element={<DiffViewerPage />} />
+        <Route path="/viewer" element={<ViewerPage />} />
+        <Route path="/editor" element={<EditorPage />} />
+        <Route path="*" element={<KanbanApp />} />
+      </Routes>
+    </AppShell>
   );
 }
 

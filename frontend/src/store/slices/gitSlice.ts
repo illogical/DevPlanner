@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { DevPlannerStore, GitSlice, GitState } from '../types';
+import type { DevPlannerStore, GitSlice } from '../types';
 import { gitApi } from '../../api/client';
 
 const STORAGE_KEY = 'devplanner.gitRefreshInterval';

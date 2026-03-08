@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 
 interface DiffPaneHeaderProps {
   filename: string;
