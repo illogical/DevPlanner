@@ -9,6 +9,7 @@ export function BottomBar() {
         fbIsOpen,
         docFilePath,
         setFbActivePath,
+        setFbActiveRoot,
         toggleFileBrowser,
         navigateToFile,
         gitCurrentState,
@@ -18,7 +19,14 @@ export function BottomBar() {
     } = useStore();
 
     const handleBreadcrumbNavigate = (path: string) => {
-        setFbActivePath(path);
+        if (path) {
+            setFbActivePath(path);
+            const root = path.split('/')[0];
+            setFbActiveRoot(root);
+        } else {
+            setFbActivePath('');
+            setFbActiveRoot(null);
+        }
         if (!fbIsOpen) {
             toggleFileBrowser();
         }
@@ -62,7 +70,19 @@ export function BottomBar() {
 
                 <button
                     className="flex-1 h-full cursor-pointer opacity-0"
-                    onClick={toggleFileBrowser}
+                    onClick={() => {
+                        if (docFilePath) {
+                            const parts = docFilePath.split('/');
+                            if (parts.length > 1) {
+                                setFbActivePath(parts.slice(0, -1).join('/'));
+                                setFbActiveRoot(parts[0]);
+                            } else {
+                                setFbActivePath('');
+                                setFbActiveRoot(null);
+                            }
+                        }
+                        if (!fbIsOpen) toggleFileBrowser();
+                    }}
                     aria-label="Toggle file browser"
                 />
             </div>

@@ -71,12 +71,40 @@ export function FileBrowserColumns() {
         </div>
 
         {/* Column 2: Subfolders */}
-        <div className="border-r border-gray-800 overflow-hidden">
-          <FolderColumn
-            folders={subFolders}
-            activePath={fbActivePath}
-            onSelect={handleSubFolderSelect}
-          />
+        <div className="border-r border-gray-800 overflow-hidden flex flex-col">
+          {fbActiveRoot && (
+            <div className="px-3 py-2 border-b border-gray-800 flex items-center gap-2 shrink-0 bg-gray-800/20">
+              <button
+                onClick={() => {
+                  if (fbActivePath && fbActivePath !== fbActiveRoot) {
+                    const parent = fbActivePath.split('/').slice(0, -1).join('/');
+                    setFbActivePath(parent);
+                  }
+                }}
+                disabled={!fbActivePath || fbActivePath === fbActiveRoot}
+                className="text-gray-400 hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-0.5 rounded shrink-0"
+                title="Go up one folder"
+                aria-label="Go up one folder"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div
+                className="text-sm font-medium text-gray-300 truncate"
+                title={fbActivePath || fbActiveRoot}
+              >
+                {fbActivePath || fbActiveRoot}
+              </div>
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto w-full">
+            <FolderColumn
+              folders={subFolders}
+              activePath={fbActivePath}
+              onSelect={handleSubFolderSelect}
+            />
+          </div>
         </div>
 
         {/* Column 3: Files */}
