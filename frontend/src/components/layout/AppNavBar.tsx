@@ -85,7 +85,6 @@ function tabClass(isActive: boolean) {
 
 export function AppNavBar() {
   const location = useLocation();
-  const navigate = useNavigate();
   const {
     docBackHistory, docForwardHistory, docFilePath, goBack, goForward,
     lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen
