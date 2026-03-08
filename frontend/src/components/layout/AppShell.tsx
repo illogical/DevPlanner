@@ -3,6 +3,7 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import { Header } from './Header';
 import { AppNavBar } from './AppNavBar';
 import { FileBrowserDrawer } from '../doc/FileBrowserDrawer';
+import { BottomBar } from './BottomBar';
 
 interface AppShellProps {
   children: ReactNode;
@@ -18,6 +19,7 @@ export function AppShell({ children }: AppShellProps) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {children}
       </div>
+      <BottomBar />
       <FileBrowserDrawer />
     </div>
   );

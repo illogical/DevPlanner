@@ -146,3 +146,28 @@ const buildViewerUrl = (vaultLinkUrl: string, baseUrl: string): string => {
 4. **Scrolling (Editor)**: Open a long file in Editor → left pane (textarea) and right pane (preview) scroll independently.
 5. **Empty state**: Navigate to `/viewer` with no file → centered content with solid `#162D42` background fills full height.
 6. **Open in Viewer button**: Hover a vault artifact link on a card → eye button appears; click → navigates to `/viewer?path=...` and loads the file.
+
+---
+
+## Future Improvements (Planned)
+
+Based on recent UX feedback, the following UI improvements are planned for the next iteration:
+
+1. **Projects Tab & Sidebar Integration**:
+   - Move the sidebar collapse toggle icon into the Projects tab.
+   - Clicking the Projects tab toggles the sidebar open/closed.
+   - Display the selected Project title in the header ("DevPlanner | [PROJECT NAME]").
+   - Rename the "PROJECTS" section title to "BOARDS" in the sidebar.
+
+2. **Top Bar Enhancements**:
+   - Remove the filename, git status indicator, and git settings gear from the top bar to free up space.
+   - Combine "View" and "Edit" tabs into a single toggle button that remembers the last used mode (persisted via `localStorage`).
+
+3. **Persistent File Browser Bottom Bar**:
+   - Add a persistent bottom bar containing file breadcrumbs, replacing the header folder icon.
+   - Move the filename display to the end of these breadcrumbs, preceded by the git status indicator. Clicking the filename will open the file in the last active mode (viewer or editor).
+   - Clicking folder breadcrumbs opens the File Browser to that directory.
+   - Clicking the open area in the bottom bar or the File Browser top empty area toggles the drawer.
+   - Move the Git Settings gear icon to the file browser's top bar, near the close button.
+   - Opening a file will no longer auto-close the File Browser; the user must manually close it.
+   - Ensure full sub-directory navigation support.

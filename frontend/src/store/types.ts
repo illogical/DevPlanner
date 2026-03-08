@@ -98,6 +98,7 @@ export interface UISlice {
   isActivitySidebarOpen: boolean;
   isActivityPanelOpen: boolean;
   changeIndicators: Map<string, ChangeIndicator>;
+  lastDocMode: 'viewer' | 'editor';
 
   toggleCardTaskExpansion: (cardSlug: string) => void;
   toggleLaneCollapsed: (laneSlug: string) => void;
@@ -112,6 +113,7 @@ export interface UISlice {
   clearExpiredIndicators: () => void;
   getCardIndicators: (cardSlug: string) => ChangeIndicator[];
   getTaskIndicator: (cardSlug: string, taskIndex: number) => ChangeIndicator | null;
+  setLastDocMode: (mode: 'viewer' | 'editor') => void;
 }
 
 export interface HistorySlice {

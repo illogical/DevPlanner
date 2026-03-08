@@ -60,7 +60,7 @@ export function GitCommitPanel() {
   const canDiscard = state === 'modified' || state === 'modified-staged';
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
+    <div className="absolute right-0 bottom-full mb-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-gray-200">Git Actions</span>
         <button

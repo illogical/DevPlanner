@@ -1,13 +1,10 @@
-import { useState } from 'react';
+
 import { useLocation } from 'react-router-dom';
 import { useStore } from '../../store';
 import { IconButton } from '../ui/IconButton';
 import { ConnectionIndicator } from '../ui/ConnectionIndicator';
 import { cn } from '../../utils/cn';
 import { getWebSocketClient } from '../../services/websocket.service';
-import { GitStatusDot } from '../doc/GitStatusDot';
-import { GitCommitPanel } from '../doc/GitCommitPanel';
-import { GitSettingsPanel } from '../doc/GitSettingsPanel';
 
 interface HeaderProps {
   connectionState: 'connected' | 'disconnected' | 'reconnecting';
@@ -16,19 +13,17 @@ interface HeaderProps {
 export function Header({ connectionState }: HeaderProps) {
   const location = useLocation();
 
-  const [showGitSettings, setShowGitSettings] = useState(false);
-
   // Determine current view from route
   const view = location.pathname.startsWith('/viewer') ? 'viewer'
     : location.pathname.startsWith('/editor') ? 'editor'
-    : location.pathname.startsWith('/diff') ? 'diff'
-    : 'kanban';
+      : location.pathname.startsWith('/diff') ? 'diff'
+        : 'kanban';
 
   const isKanban = view === 'kanban';
-  const isDocView = view === 'viewer' || view === 'editor';
 
   const {
-    isSidebarOpen, toggleSidebar,
+    projects,
+    activeProjectSlug,
     isActivityPanelOpen, toggleActivityPanel,
     isActivitySidebarOpen, toggleActivitySidebar,
     openPalette,
@@ -36,11 +31,7 @@ export function Header({ connectionState }: HeaderProps) {
     docContent,
     docIsDirty,
     docSaveState,
-    gitCurrentState,
-    gitCommitPanelOpen,
-    gitIsLoading,
     saveDocFile,
-    toggleCommitPanel,
   } = useStore();
   const searchQuery = useStore((s) => s.searchQuery);
   const clearSearch = useStore((s) => s.clearSearch);
@@ -70,48 +61,16 @@ export function Header({ connectionState }: HeaderProps) {
 
   const saveLabel = docSaveState === 'saving' ? 'Saving…'
     : docSaveState === 'saved' ? 'Saved ✓'
-    : docSaveState === 'error' ? 'Save failed'
-    : docIsDirty ? 'Save*' : 'Save';
+      : docSaveState === 'error' ? 'Save failed'
+        : docIsDirty ? 'Save*' : 'Save';
+
+  const activeProject = activeProjectSlug ? projects.find(p => p.slug === activeProjectSlug) : null;
+  const appTitle = activeProject ? `DevPlanner | ${activeProject.name}` : 'DevPlanner';
 
   return (
     <header className="h-14 bg-gray-900 border-b border-gray-700 flex items-center px-4">
       {/* Left group */}
       <div className="flex items-center gap-3">
-        {isKanban && (
-          <>
-            {/* Mobile sidebar toggle */}
-            <IconButton
-              label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-              onClick={toggleSidebar}
-              className="lg:hidden"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isSidebarOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </IconButton>
-
-            {/* Desktop sidebar toggle */}
-            <IconButton
-              label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-              onClick={toggleSidebar}
-              className="hidden lg:flex"
-            >
-              <svg
-                className={cn('w-5 h-5 transition-transform duration-200', !isSidebarOpen && 'rotate-180')}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            </IconButton>
-          </>
-        )}
-
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
@@ -124,36 +83,8 @@ export function Header({ connectionState }: HeaderProps) {
               />
             </svg>
           </div>
-          <h1 className="text-lg font-semibold text-gray-100">DevPlanner</h1>
+          <h1 className="text-lg font-semibold text-gray-100">{appTitle}</h1>
         </div>
-
-        {/* Doc view: file path + git dot */}
-        {isDocView && docFilePath && (
-          <div className="flex items-center gap-2 ml-2">
-            <span className="text-sm text-gray-400 truncate max-w-xs" title={docFilePath}>
-              {docFilePath.split('/').pop()}
-            </span>
-            <div className="relative flex items-center gap-1">
-              <GitStatusDot
-                state={gitCurrentState ?? undefined}
-                loading={gitIsLoading}
-                onClick={toggleCommitPanel}
-              />
-              {/* Gear icon for git settings */}
-              <button
-                onClick={() => setShowGitSettings((v) => !v)}
-                title="Git settings"
-                className="text-gray-600 hover:text-gray-400 transition-colors"
-              >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.32.07-.64.07-.98s-.03-.66-.07-1l2.16-1.63c.19-.15.24-.42.12-.64l-2.05-3.55c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22L2.74 8.87c-.12.21-.08.49.12.64l2.15 1.63c-.05.34-.07.67-.07 1s.02.67.07 1l-2.15 1.63c-.19.15-.24.42-.12.64l2.05 3.55c.12.22.38.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2.05-3.55c.12-.22.07-.49-.12-.64l-2.15-1.63z" />
-                </svg>
-              </button>
-              {gitCommitPanelOpen && <GitCommitPanel />}
-              {showGitSettings && <GitSettingsPanel onClose={() => setShowGitSettings(false)} />}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Center: search (kanban only) or spacer */}
@@ -208,10 +139,10 @@ export function Header({ connectionState }: HeaderProps) {
                 docSaveState === 'saved'
                   ? 'border-green-700 bg-green-900/30 text-green-400'
                   : docSaveState === 'error'
-                  ? 'border-red-700 bg-red-900/30 text-red-400'
-                  : docIsDirty
-                  ? 'border-blue-700 bg-blue-900/30 text-blue-300 hover:bg-blue-900/50'
-                  : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+                    ? 'border-red-700 bg-red-900/30 text-red-400'
+                    : docIsDirty
+                      ? 'border-blue-700 bg-blue-900/30 text-blue-300 hover:bg-blue-900/50'
+                      : 'border-gray-700 text-gray-400 hover:bg-gray-800'
               )}
             >
               {saveLabel}
@@ -259,6 +190,6 @@ export function Header({ connectionState }: HeaderProps) {
           </>
         )}
       </div>
-    </header>
+    </header >
   );
 }

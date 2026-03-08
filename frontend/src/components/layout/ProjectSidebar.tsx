@@ -89,7 +89,7 @@ export function ProjectSidebar() {
         {/* Header */}
         <div className="p-4 border-b border-gray-700">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-            Projects
+            BOARDS
           </h2>
         </div>
 

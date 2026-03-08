@@ -31,6 +31,14 @@ function EditIcon() {
   );
 }
 
+function DocumentIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
 function CompareIcon() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,14 +48,7 @@ function CompareIcon() {
   );
 }
 
-function FolderIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-        d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-    </svg>
-  );
-}
+
 
 function ArrowLeftIcon() {
   return (
@@ -65,12 +66,11 @@ function ArrowRightIcon() {
   );
 }
 
-interface NavTab { label: string; to: string; icon: React.ReactNode; exact?: boolean; }
+interface NavTab { label: string; to?: string; icon: React.ReactNode; exact?: boolean; isDocToggle?: boolean; onClick?: () => void; }
 
-const NAV_TABS: NavTab[] = [
-  { label: 'Projects', to: '/', icon: <ProjectsIcon />, exact: true },
-  { label: 'View', to: '/viewer', icon: <ViewIcon /> },
-  { label: 'Edit', to: '/editor', icon: <EditIcon /> },
+const NAV_TABS_BASE: NavTab[] = [
+  { label: 'Projects', icon: <ProjectsIcon />, exact: true },
+  { label: 'Document', icon: <DocumentIcon />, isDocToggle: true },
   { label: 'Compare', to: '/diff', icon: <CompareIcon /> },
 ];
 
@@ -85,14 +85,14 @@ function tabClass(isActive: boolean) {
 
 export function AppNavBar() {
   const location = useLocation();
-  const { toggleFileBrowser, docBackHistory, docForwardHistory, docFilePath, goBack, goForward } = useStore();
+  const navigate = useNavigate();
+  const {
+    docBackHistory, docForwardHistory, docFilePath, goBack, goForward,
+    lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen
+  } = useStore();
 
-  const getTabTo = (to: string) => {
-    const currentPath = new URLSearchParams(location.search).get('path') || docFilePath;
-    if (currentPath && (to === '/viewer' || to === '/editor')) {
-      return `${to}?path=${encodeURIComponent(currentPath)}`;
-    }
-    return to;
+  const getDocPath = () => {
+    return new URLSearchParams(location.search).get('path') || docFilePath;
   };
 
   const isDocView =
@@ -109,23 +109,83 @@ export function AppNavBar() {
     <nav className="bg-gray-900 border-b border-gray-700 flex items-center px-2">
       {/* Navigation tabs */}
       <div className="flex items-center">
-        {NAV_TABS.map(({ label, to, icon, exact }) => {
-          let isActive: boolean;
-          if (exact) {
+        {NAV_TABS_BASE.map(({ label, to, icon, exact, isDocToggle }) => {
+          let isActive = false;
+          let targetPath = to;
+          let handleClick: React.MouseEventHandler<HTMLAnchorElement> | undefined;
+
+          if (exact && label === 'Projects') {
             isActive = isKanban;
-          } else {
+            targetPath = '/';
+            handleClick = (e) => {
+              if (isActive) {
+                e.preventDefault();
+                toggleSidebar();
+              }
+            };
+          } else if (isDocToggle) {
+            isActive = location.pathname.startsWith('/viewer') || location.pathname.startsWith('/editor');
+            const currentPath = getDocPath();
+            const queryPath = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
+
+            // If already active, clicking toggles the mode
+            if (isActive) {
+              const currentMode = location.pathname.startsWith('/editor') ? 'editor' : 'viewer';
+              const nextMode = currentMode === 'viewer' ? 'editor' : 'viewer';
+              targetPath = `/${nextMode}${queryPath}`;
+              handleClick = () => {
+                setLastDocMode(nextMode);
+              };
+            } else {
+              // Not active, navigate to lastDocMode
+              targetPath = `/${lastDocMode}${queryPath}`;
+              handleClick = () => {
+                // don't change mode here, just navigate
+              };
+            }
+          } else if (to) {
             isActive = location.pathname.startsWith(to);
+            if (label === 'Compare') {
+              const currentPath = getDocPath();
+              targetPath = currentPath ? `${to}?left=${encodeURIComponent(currentPath)}` : to;
+            }
+          }
+
+          // Dynamic icon for "Document" and "Projects"
+          let displayIcon = icon;
+          if (label === 'Projects') {
+            // Adjust Projects icon based on open/close state if active?
+            // User requested: "Move the Project sidebar collapse button toggle to be an appropriate icon and incorporate it into the Projects tab"
+            // Let's replace the fixed ProjectsIcon with a dynamic angle bracket / drawer icon
+            displayIcon = (
+              <svg
+                className={cn('w-4 h-4 transition-transform duration-200', !isSidebarOpen && isActive && 'rotate-180')}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {/* A sidebar icon SVG */}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V5" />
+              </svg>
+            );
+          } else if (isDocToggle && isActive) {
+            const currentMode = location.pathname.startsWith('/editor') ? 'editor' : 'viewer';
+            displayIcon = currentMode === 'editor' ? <EditIcon /> : <ViewIcon />;
           }
 
           return (
             <NavLink
-              key={to}
-              to={getTabTo(to)}
+              key={label}
+              to={targetPath as string}
+              onClick={handleClick}
               className={tabClass(isActive)}
               end={exact}
               aria-label={label}
             >
-              {icon}
+              <div className="flex items-center gap-1.5 transition-transform duration-150">
+                {displayIcon}
+              </div>
               <span>{label}</span>
             </NavLink>
           );
@@ -158,16 +218,6 @@ export function AppNavBar() {
 
       {/* Spacer */}
       <div className="flex-1" />
-
-      {/* File browser toggle */}
-      <button
-        onClick={toggleFileBrowser}
-        title="Toggle file browser"
-        aria-label="Toggle file browser"
-        className="p-1.5 m-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
-      >
-        <FolderIcon />
-      </button>
     </nav>
   );
 }

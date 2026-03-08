@@ -1,6 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../../store';
-import { FileBreadcrumb } from './FileBreadcrumb';
 import { FolderColumn } from './FolderColumn';
 import { FileColumn } from './FileColumn';
 import type { TreeFolder } from '../../store/types';
@@ -17,7 +16,6 @@ export function FileBrowserColumns() {
     gitStatuses,
     setFbActiveRoot,
     setFbActivePath,
-    closeFileBrowser,
   } = useStore();
 
   // Determine navigate target based on current route
@@ -33,10 +31,10 @@ export function FileBrowserColumns() {
   // Subfolders of active root
   const subFolders = fbActiveRoot
     ? fbFolders.filter(
-        (f) =>
-          (f.parentPath === fbActiveRoot || f.parentPath?.startsWith(fbActiveRoot + '/')) &&
-          f.parentPath === fbActiveRoot
-      )
+      (f) =>
+        (f.parentPath === fbActiveRoot || f.parentPath?.startsWith(fbActiveRoot + '/')) &&
+        f.parentPath === fbActiveRoot
+    )
     : [];
 
   // Files in active path folder
@@ -54,26 +52,13 @@ export function FileBrowserColumns() {
 
   const handleFileSelect = (filePath: string) => {
     navigate(getNavTarget(filePath));
-    closeFileBrowser();
+    // Specifically leaving closeFileBrowser() out as per requirements
   };
 
-  const handleBreadcrumbNavigate = (path: string) => {
-    if (!path) {
-      setFbActiveRoot(null);
-      setFbActivePath('');
-    } else {
-      setFbActivePath(path);
-    }
-  };
+
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-gray-800">
-        <FileBreadcrumb
-          path={fbActivePath}
-          onNavigate={handleBreadcrumbNavigate}
-        />
-      </div>
 
       <div className="flex-1 grid grid-cols-3 overflow-hidden border-t border-gray-800">
         {/* Column 1: Root folders */}
