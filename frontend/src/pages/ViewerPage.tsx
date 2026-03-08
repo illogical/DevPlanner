@@ -24,7 +24,7 @@ export function ViewerPage() {
     if (filePath && filePath !== docFilePath) {
       navigateToFile(filePath, 'push');
     }
-  }, [filePath]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filePath, docFilePath, navigateToFile]);
 
   // Auto-refresh git status
   useEffect(() => {

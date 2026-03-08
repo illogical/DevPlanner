@@ -59,7 +59,7 @@ export function FileBrowserColumns() {
 
   const handleBreadcrumbNavigate = (path: string) => {
     if (!path) {
-      setFbActiveRoot(null as unknown as string);
+      setFbActiveRoot(null);
       setFbActivePath('');
     } else {
       setFbActivePath(path);

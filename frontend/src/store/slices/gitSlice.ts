@@ -12,7 +12,9 @@ function loadRefreshInterval(): number {
       const val = parseInt(stored, 10);
       if (!isNaN(val) && val >= 5 && val <= 300) return val;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[gitSlice] Failed to load refresh interval from localStorage:', err);
+  }
   return DEFAULT_INTERVAL;
 }
 

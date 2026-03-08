@@ -226,7 +226,7 @@ export interface FileBrowserSlice {
   openFileBrowser: () => void;
   closeFileBrowser: () => void;
   loadFileTree: () => Promise<void>;
-  setFbActiveRoot: (root: string) => void;
+  setFbActiveRoot: (root: string | null) => void;
   setFbActivePath: (path: string) => void;
   focusCurrentFile: () => void;
 }

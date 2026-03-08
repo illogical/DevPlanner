@@ -114,7 +114,7 @@ export function GitCommitPanel() {
                 ref={textareaRef}
                 className="w-full bg-gray-800 border border-gray-700 rounded text-sm text-gray-200 p-2 resize-none outline-none focus:border-blue-500"
                 rows={3}
-                placeholder="Commit message (Enter to commit)"
+                placeholder="Commit message (Enter to commit, Shift+Enter for new line)"
                 value={gitCommitMessage}
                 onChange={(e) => { setGitCommitMessage(e.target.value); setCommitError(null); }}
                 onKeyDown={handleKeyDown}

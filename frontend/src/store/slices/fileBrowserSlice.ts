@@ -24,7 +24,7 @@ export const createFileBrowserSlice: StateCreator<DevPlannerStore, [], [], FileB
     }
   },
 
-  setFbActiveRoot: (root: string) => set({ fbActiveRoot: root, fbActivePath: root }),
+  setFbActiveRoot: (root: string | null) => set({ fbActiveRoot: root, fbActivePath: root ?? '' }),
 
   setFbActivePath: (path: string) => set({ fbActivePath: path }),
 

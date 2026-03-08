@@ -20,7 +20,7 @@ function runGit(args: string[], cwd: string): { stdout: string; stderr: string; 
   };
 }
 
-function parsePortcelainStatus(line: string): GitState {
+function parsePorcelainStatus(line: string): GitState {
   if (!line || line.length < 2) return 'clean';
   const xy = line.substring(0, 2);
   if (xy === '??') return 'untracked';
@@ -59,7 +59,7 @@ export class GitService {
     }
     const line = result.stdout.trim();
     if (!line) return 'clean';
-    return parsePortcelainStatus(line);
+    return parsePorcelainStatus(line);
   }
 
   async getStatuses(paths: string[]): Promise<Record<string, GitState>> {
