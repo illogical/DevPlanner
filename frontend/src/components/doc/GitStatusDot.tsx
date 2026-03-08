@@ -9,11 +9,11 @@ interface GitStatusDotProps {
 }
 
 const STATE_COLORS: Record<GitState, string> = {
-  clean: 'bg-[#2ea043]',
-  modified: 'bg-[#f5a524]',
-  staged: 'bg-[#416E47]',
-  'modified-staged': 'bg-[#D97757]',
-  untracked: 'bg-[#ce9178]',
+  clean: 'bg-emerald-500',
+  modified: 'bg-orange-500',
+  staged: 'bg-blue-500',
+  'modified-staged': 'bg-yellow-500',
+  untracked: 'bg-red-500',
   ignored: 'bg-gray-500',
   'outside-repo': 'bg-gray-500',
   unknown: 'bg-gray-500',
@@ -34,8 +34,8 @@ export function GitStatusDot({ state, loading, onClick, className }: GitStatusDo
   const colorClass = loading
     ? 'animate-pulse bg-gray-600'
     : state
-    ? STATE_COLORS[state]
-    : 'bg-gray-600';
+      ? STATE_COLORS[state]
+      : 'bg-gray-600';
 
   const label = state ? STATE_LABELS[state] : 'No git status';
 

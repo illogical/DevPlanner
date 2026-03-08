@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import type { GitState } from '../../api/client';
 
@@ -59,19 +60,36 @@ export function GitCommitPanel() {
   const canUnstage = state === 'staged' || state === 'modified-staged';
   const canDiscard = state === 'modified' || state === 'modified-staged';
 
+  const navigate = useNavigate();
+
   return (
-    <div className="absolute right-0 bottom-full mb-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
+    <div className="absolute left-0 bottom-full mb-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-gray-200">Git Actions</span>
-        <button
-          onClick={toggleCommitPanel}
-          className="text-gray-400 hover:text-gray-200 p-0.5 rounded"
-          aria-label="Close"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              toggleCommitPanel();
+              navigate(`/diff?left=${encodeURIComponent(docFilePath)}`);
+            }}
+            className="text-gray-400 hover:text-gray-200 p-0.5 rounded"
+            title="Compare with Last Commit"
+            aria-label="Compare"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </button>
+          <button
+            onClick={toggleCommitPanel}
+            className="text-gray-400 hover:text-gray-200 p-0.5 rounded"
+            aria-label="Close"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {state === 'clean' ? (

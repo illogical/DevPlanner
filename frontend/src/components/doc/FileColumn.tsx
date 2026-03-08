@@ -45,7 +45,7 @@ export function FileColumn({ files, currentFilePath, gitStatuses, onSelect }: Fi
                   <div className="text-xs text-gray-500 mt-0.5">{stamp}</div>
                 )}
               </div>
-              {gitState && gitState !== 'clean' && (
+              {gitState && (
                 <div className="mt-1 shrink-0">
                   <GitStatusDot state={gitState} />
                 </div>
