@@ -276,3 +276,20 @@ export const searchApi = {
 };
 
 export { ApiClientError };
+
+// Vault content endpoint (for Diff Viewer)
+export const vaultApi = {
+  getContent: (relativePath: string): Promise<string> =>
+    fetch(`/api/vault/content?path=${encodeURIComponent(relativePath)}`).then((r) => {
+      if (!r.ok) throw new Error(`Failed to load file: ${r.status}`);
+      return r.text();
+    }),
+};
+
+// Public config endpoint — exposes safe server-side config values to the frontend.
+// Currently returns artifactBaseUrl so the frontend can detect vault artifact links
+// (links whose URL starts with artifactBaseUrl) and show the "Open in Diff Viewer" button.
+export const publicConfigApi = {
+  get: (): Promise<{ artifactBaseUrl: string | null }> =>
+    fetch('/api/config/public').then((r) => r.json()),
+};

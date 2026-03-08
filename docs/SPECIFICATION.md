@@ -16,8 +16,8 @@ Refer to `BRAINSTORM.md` for the full context of design decisions and resolved q
 | `PORT` | No | `17103` | Port for the Elysia backend server |
 | `DEVPLANNER_BACKUP_DIR` | No | `{workspace}/_backups` | Directory for workspace backup archives |
 | `DISABLE_FILE_WATCHER` | No | `false` | When `true`, disables filesystem monitoring. All real-time updates come from API WebSocket broadcasts instead |
-| `OBSIDIAN_BASE_URL` | No | — | Base URL prefix for vault artifact links (e.g. `https://viewer.example.com/view?path=10-Projects`). Required to enable vault artifact creation. |
-| `OBSIDIAN_VAULT_PATH` | No | — | Absolute path to the Obsidian vault subfolder where artifact files are written. Required to enable vault artifact creation. |
+| `ARTIFACT_BASE_URL` | No | — | Base URL prefix for vault artifact links (e.g. `https://viewer.example.com/view?path=10-Projects`). Required to enable vault artifact creation and the Diff Viewer. |
+| `ARTIFACT_BASE_PATH` | No | — | Absolute path to the directory where artifact files are written. Required to enable vault artifact creation and the Diff Viewer. |
 
 The backend validates that `DEVPLANNER_WORKSPACE` exists and is a readable directory on startup. If missing, the server exits with a clear error message.
 
@@ -951,7 +951,7 @@ Workspace-level preferences persisted to `_preferences.json`.
 
 ### 3.10 Vault Artifact Endpoint
 
-Writes a Markdown file to the Obsidian Vault and attaches a link to the card. Requires `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in the server environment.
+Writes a Markdown file to the artifact vault directory and attaches a link to the card. Requires `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in the server environment.
 
 #### `POST /api/projects/:projectSlug/cards/:cardSlug/artifacts`
 
@@ -969,10 +969,10 @@ Writes a Markdown file to the Obsidian Vault and attaches a link to the card. Re
 - `kind` (optional, default `"doc"`) — Link kind: `doc | spec | ticket | repo | reference | other`
 
 **Behavior:**
-1. Validate `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` are configured
+1. Validate `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` are configured
 2. Generate filename: `{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`
-3. Write file to `{OBSIDIAN_VAULT_PATH}/{projectSlug}/{cardSlug}/{filename}`
-4. Construct URL: `{OBSIDIAN_BASE_URL}%2F{encoded-relative-path}`
+3. Write file to `{ARTIFACT_BASE_PATH}/{projectSlug}/{cardSlug}/{filename}`
+4. Construct URL: `{ARTIFACT_BASE_URL}%2F{encoded-relative-path}`
 5. Add link to card via `LinkService`
 6. Broadcast `link:added` WebSocket event
 
@@ -992,7 +992,7 @@ Writes a Markdown file to the Obsidian Vault and attaches a link to the card. Re
 ```
 
 **Errors:**
-- `400 OBSIDIAN_NOT_CONFIGURED` — `OBSIDIAN_BASE_URL` or `OBSIDIAN_VAULT_PATH` is not set
+- `400 ARTIFACT_NOT_CONFIGURED` — `ARTIFACT_BASE_URL` or `ARTIFACT_BASE_PATH` is not set
 - `400 INVALID_LABEL` — Label is empty or whitespace
 - `404` — Project or card not found
 - `409 DUPLICATE_LINK` — A link with this URL already exists on the card
@@ -1122,6 +1122,55 @@ Heartbeat response:
 
 ---
 
+### 3.13 Vault Content Endpoint
+
+#### `GET /api/vault/content`
+
+Serves raw file content from the artifact base directory. Used by the Diff Viewer to load vault artifact files for comparison.
+
+**Query parameters:**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `path` | Yes | Relative path within `ARTIFACT_BASE_PATH` (URL-encoded). Example: `my-project%2Fmy-card%2Ffile.md` |
+
+**Behavior:**
+1. Returns `400 ARTIFACT_NOT_CONFIGURED` if `ARTIFACT_BASE_PATH` is not set.
+2. Returns `400 INVALID_PATH` if `path` is empty or contains a traversal attempt (`../`).
+3. Resolves the absolute path as `path.resolve(ARTIFACT_BASE_PATH, decodedPath)`.
+4. Verifies the resolved path is inside `ARTIFACT_BASE_PATH` (path traversal guard).
+5. Returns `404 FILE_NOT_FOUND` if the file does not exist.
+6. Returns the raw file content with `Content-Type: text/plain; charset=utf-8`.
+
+**Response `200`:** Raw file text (not JSON).
+
+**Error responses:**
+
+| Status | Error | Condition |
+|--------|-------|-----------|
+| `400` | `ARTIFACT_NOT_CONFIGURED` | `ARTIFACT_BASE_PATH` env var not set |
+| `400` | `INVALID_PATH` | Empty path or path traversal detected |
+| `404` | `FILE_NOT_FOUND` | File not found at resolved path |
+
+---
+
+### 3.14 Public Config Endpoint
+
+#### `GET /api/config/public`
+
+Returns safe public configuration values for the frontend. The frontend uses `artifactBaseUrl` to detect which card links are vault artifact links (those whose URL starts with `artifactBaseUrl`) and to build the `/diff?left=<path>` Diff Viewer URL. Exposing this via an API endpoint keeps configuration centralised on the backend and avoids baking server-side env vars into the frontend bundle at build time.
+
+**Response `200`:**
+```json
+{
+  "artifactBaseUrl": "https://viewer.example.com/view?path=10-Projects"
+}
+```
+
+If `ARTIFACT_BASE_URL` is not configured, `artifactBaseUrl` is `null`.
+
+---
+
 ## 4. Service Layer Architecture
 
 The service layer is a set of TypeScript classes that encapsulate all file I/O and business logic. The Elysia routes are thin wrappers that delegate to these services.
@@ -1141,6 +1190,8 @@ src/
 │   ├── stats.ts                    # Project health metrics
 │   ├── preferences.ts              # Workspace preferences
 │   ├── backup.ts                   # Workspace backup
+│   ├── vault.ts                    # Vault file content serving (GET /api/vault/content)
+│   ├── config.ts                   # Public config endpoint (GET /api/config/public)
 │   └── websocket.ts                # WebSocket connection handlers
 ├── services/
 │   ├── project.service.ts          # Project CRUD operations
@@ -1262,11 +1313,11 @@ class LinkService {
 
 #### `VaultService`
 
-Writes Markdown artifact files to the Obsidian Vault and attaches them as links to cards.
+Writes Markdown artifact files to the artifact vault directory and attaches them as links to cards.
 
 ```typescript
 class VaultService {
-  constructor(workspacePath: string, vaultPath: string, obsidianBaseUrl: string);
+  constructor(workspacePath: string, vaultPath: string, artifactBaseUrl: string);
 
   createArtifact(
     projectSlug: string,
@@ -1275,10 +1326,12 @@ class VaultService {
     kind: LinkKind,
     content: string
   ): Promise<{ link: CardLink; filePath: string }>;
+
+  readArtifactContent(relativePath: string): Promise<string>;
 }
 ```
 
-Files are written to `{vaultPath}/{projectSlug}/{cardSlug}/{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`. The URL is constructed as `{obsidianBaseUrl}%2F{url-encoded-relative-path}`.
+Files are written to `{vaultPath}/{projectSlug}/{cardSlug}/{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`. The URL is constructed as `{artifactBaseUrl}%2F{url-encoded-relative-path}`.
 
 #### `HistoryService`
 
@@ -1345,12 +1398,15 @@ Since `cardSlug` is unique across the entire project (not scoped to a lane), the
 |---------|---------|---------|
 | React | 19.x | UI framework |
 | Vite | 6.x | Build tool + dev server |
+| react-router-dom | 7.x | URL-based routing (`/` Kanban, `/diff` Diff Viewer) |
 | Tailwind CSS | 4.x | Styling (dark mode first) |
 | Zustand | 5.x | State management |
 | Framer Motion | 12.x | Animations (panel transitions, card effects) |
 | `@dnd-kit/core` | latest | Drag-and-drop |
 | `@dnd-kit/sortable` | latest | Sortable lists within lanes |
 | `marked` | latest | Markdown → HTML rendering |
+| `highlight.js` | 11.x | Syntax highlighting for Diff Viewer |
+| `diff` (jsdiff) | 7.x | Line diff algorithm for Diff Viewer |
 
 ### 5.2 Layout Structure
 
@@ -1410,39 +1466,54 @@ Since `cardSlug` is unique across the entire project (not scoped to a lane), the
 ### 5.3 Component Tree
 
 ```
-App
-└── MainLayout (CSS grid: sidebar + content)
-    ├── Header
-    │   ├── Logo / Title
-    │   ├── SearchInput (cross-card search with highlighting)
-    │   ├── ActivityToggleButton
-    │   └── SidebarToggleButton
-    ├── ProjectSidebar (collapsible left panel)
-    │   ├── ProjectList (with card counts per project)
-    │   │   └── ProjectItem (per project)
-    │   └── CreateProjectButton → CreateProjectModal
-    ├── KanbanBoard
-    │   ├── Lane (per visible lane)
-    │   │   ├── LaneHeader (display name + color bar + card count + collapse toggle)
-    │   │   ├── CardList (sortable via @dnd-kit)
-    │   │   │   └── AnimatedCardWrapper (change indicators with auto-expiry)
-    │   │   │       └── CardPreview (per card)
-    │   │   │           ├── CardTitle (with cardId badge)
-    │   │   │           ├── CardPreviewTasks (expandable pending tasks)
-    │   │   │           ├── TaskProgressBar + count ("3/5")
-    │   │   │           └── AssigneeBadge + Tags
-    │   │   └── QuickAddCard (inline input, appears on [+] click)
-    │   └── CollapsedLaneTab (per collapsed lane, vertical text label)
-    ├── CardDetailPanel (slides in from right via Framer Motion)
-    │   ├── CardDetailHeader (inline title editing, cardId, lane move dropdown)
-    │   ├── CardMetadata (inline editing: priority, assignee, tags, dates, blockedReason)
-    │   ├── CardContent (description editing, rendered Markdown body via `marked`)
-    │   ├── TaskList (interactive checkboxes with inline editing and deletion)
-    │   │   ├── TaskCheckbox (per task)
-    │   │   └── AddTaskInput
-    │   └── CardLinks (URL references + vault artifact upload with kind classification, add/edit/delete)
-    └── ActivityPanel (slide-out panel with time-grouped history events)
-        └── ActivityLog (grouped: Today, Yesterday, This Week, etc.)
+App (React Router)
+├── Route "/" → KanbanApp
+│   └── MainLayout (CSS grid: sidebar + content)
+│       ├── Header
+│       │   ├── Logo / Title
+│       │   ├── SearchInput (cross-card search with highlighting)
+│       │   ├── ActivityToggleButton
+│       │   └── SidebarToggleButton
+│       ├── ProjectSidebar (collapsible left panel)
+│       │   ├── ProjectList (with card counts per project)
+│       │   │   └── ProjectItem (per project)
+│       │   └── CreateProjectButton → CreateProjectModal
+│       ├── KanbanBoard
+│       │   ├── Lane (per visible lane)
+│       │   │   ├── LaneHeader (display name + color bar + card count + collapse toggle)
+│       │   │   ├── CardList (sortable via @dnd-kit)
+│       │   │   │   └── AnimatedCardWrapper (change indicators with auto-expiry)
+│       │   │   │       └── CardPreview (per card)
+│       │   │   │           ├── CardTitle (with cardId badge)
+│       │   │   │           ├── CardPreviewTasks (expandable pending tasks)
+│       │   │   │           ├── TaskProgressBar + count ("3/5")
+│       │   │   │           └── AssigneeBadge + Tags
+│       │   │   └── QuickAddCard (inline input, appears on [+] click)
+│       │   └── CollapsedLaneTab (per collapsed lane, vertical text label)
+│       ├── CardDetailPanel (slides in from right via Framer Motion)
+│       │   ├── CardDetailHeader (inline title editing, cardId, lane move dropdown)
+│       │   ├── CardMetadata (inline editing: priority, assignee, tags, dates, blockedReason)
+│       │   ├── CardContent (description editing, rendered Markdown body via `marked`)
+│       │   ├── TaskList (interactive checkboxes with inline editing and deletion)
+│       │   │   ├── TaskCheckbox (per task)
+│       │   │   └── AddTaskInput
+│       │   └── CardLinks (URL references + vault artifact upload; "Open in Diff Viewer" button on vault links)
+│       └── ActivityPanel (slide-out panel with time-grouped history events)
+│           └── ActivityLog (grouped: Today, Yesterday, This Week, etc.)
+└── Route "/diff" → DiffViewerPage
+    ├── DiffHeader (page title + "Back to DevPlanner" link)
+    ├── DiffToolbar (language selector, wrap, sync-scroll, swap, clear)
+    └── DiffLayout (CSS grid: left | right)
+        ├── DiffPane (left)
+        │   ├── DiffPaneHeader (filename, copy button)
+        │   ├── DropZone (drag-and-drop / paste / file picker — shown when empty)
+        │   └── DiffContent (scrollable; synchronized scroll via useSyncScroll hook)
+        │       └── DiffLine[] (line number + highlight.js + added/removed/unchanged color)
+        └── DiffPane (right)
+            ├── DiffPaneHeader (filename, copy button, file-picker button)
+            ├── DropZone (shown when empty)
+            └── DiffContent (synchronized scroll)
+                └── DiffLine[]
 ```
 
 ### 5.4 Zustand Store
@@ -1594,9 +1665,9 @@ The **CardLinks** section in the card detail panel includes an "Upload File" but
 - Label field (pre-filled from filename without extension, editable)
 - Kind selector (same options as the URL link form)
 
-On save, the file content is read client-side and sent to `POST /api/projects/:slug/cards/:card/artifacts`. The API writes the file to the Obsidian Vault and returns a link object that is immediately appended to `activeCard.frontmatter.links`.
+On save, the file content is read client-side and sent to `POST /api/projects/:slug/cards/:card/artifacts`. The API writes the file to the artifact vault directory and returns a link object that is immediately appended to `activeCard.frontmatter.links`.
 
-If `OBSIDIAN_BASE_URL` or `OBSIDIAN_VAULT_PATH` is not configured, a friendly error is shown: *"Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable file uploads."*
+If `ARTIFACT_BASE_URL` or `ARTIFACT_BASE_PATH` is not configured, a friendly error is shown.
 
 ---
 

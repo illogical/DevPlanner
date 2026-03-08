@@ -621,15 +621,15 @@ async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOu
 
 async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promise<CreateVaultArtifactOutput> {
   const config = ConfigService.getInstance();
-  const { obsidianBaseUrl, obsidianVaultPath, workspacePath } = config;
+  const { artifactBaseUrl, artifactBasePath, workspacePath } = config;
 
-  if (!obsidianBaseUrl || !obsidianVaultPath) {
+  if (!artifactBaseUrl || !artifactBasePath) {
     throw new MCPError(
-      'OBSIDIAN_NOT_CONFIGURED',
-      'Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable vault artifact creation.',
+      'ARTIFACT_NOT_CONFIGURED',
+      'Set ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env to enable vault artifact creation.',
       [
         {
-          action: 'Add OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH to your .env file',
+          action: 'Add ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH to your .env file',
           reason: 'Both env vars are required for vault artifact creation',
         },
       ]
@@ -643,7 +643,7 @@ async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promi
     throw cardNotFoundError(input.cardSlug, input.projectSlug, allCards.map(c => c.slug));
   }
 
-  const vaultService = new VaultService(workspacePath, obsidianVaultPath, obsidianBaseUrl);
+  const vaultService = new VaultService(workspacePath, artifactBasePath, artifactBaseUrl);
 
   try {
     const { link, filePath } = await vaultService.createArtifact(

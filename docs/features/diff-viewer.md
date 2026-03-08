@@ -6,7 +6,7 @@ A split-pane file comparison view built into DevPlanner, inspired by [SplitDiff]
 
 ## Motivation
 
-DevPlanner's Obsidian Vault integration writes versioned Markdown artifacts for each card. When multiple artifact versions exist, there is currently no way to compare them. This feature closes that gap by embedding a lightweight diff viewer directly into DevPlanner, reachable from any vault artifact link with one click.
+DevPlanner's vault artifact integration writes versioned Markdown artifacts for each card. When multiple artifact versions exist, there is currently no way to compare them. This feature closes that gap by embedding a lightweight diff viewer directly into DevPlanner, reachable from any vault artifact link with one click.
 
 ---
 
@@ -41,24 +41,24 @@ DevPlanner's Obsidian Vault integration writes versioned Markdown artifacts for 
 
 ---
 
-## VaultPad URL Parsing
+## Artifact Viewer URL Parsing
 
-Vault artifact links use the Obsidian viewer (VaultPad) URL format. VaultPad is an external web app — its URLs cannot be fetched for raw content. Instead, DevPlanner's backend serves raw content directly from the local vault path.
+Vault artifact links use an external artifact viewer URL format (e.g. VaultPad). The viewer is an external web app — its URLs cannot be fetched for raw content. Instead, DevPlanner's backend serves raw content directly from the local artifact path.
 
 ### URL structure
 
 ```
-https://vaultpad.bangus-city.ts.net/view?path=10-Projects%2Fmy-project%2Fmy-card%2F2026-03-07_22-13-34_MY-LABEL.md
-                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                                          URL-decoded: 10-Projects/my-project/my-card/2026-03-07_22-13-34_MY-LABEL.md
+https://viewer.example.com/view?path=10-Projects%2Fmy-project%2Fmy-card%2F2026-03-07_22-13-34_MY-LABEL.md
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                    URL-decoded: 10-Projects/my-project/my-card/2026-03-07_22-13-34_MY-LABEL.md
 ```
 
 ### Environment variables involved
 
 | Variable | Example value |
 |----------|--------------|
-| `OBSIDIAN_BASE_URL` | `https://vaultpad.bangus-city.ts.net/view?path=10-Projects` |
-| `OBSIDIAN_VAULT_PATH` | `C:\SynologyDrive\OpenClaw\notes\AgentVault\10-Projects` |
+| `ARTIFACT_BASE_URL` | `https://viewer.example.com/view?path=10-Projects` |
+| `ARTIFACT_BASE_PATH` | `/path/to/artifact/vault/10-Projects` |
 
 ### Parsing logic (frontend)
 
@@ -67,7 +67,7 @@ To convert a vault link URL to a relative path the backend can serve:
 1. Parse the vault link URL; extract the `path` query parameter.
    Example decoded value: `10-Projects/my-project/my-card/2026-03-07_22-13-34_MY-LABEL.md`
 
-2. Parse `OBSIDIAN_BASE_URL` (exposed via a new config endpoint or embedded at build time); extract its `path` query parameter.
+2. Parse `ARTIFACT_BASE_URL` (exposed via `GET /api/config/public`); extract its `path` query parameter.
    Example decoded value: `10-Projects`
 
 3. Strip the base path prefix (plus one `/`) from the file path.
@@ -77,14 +77,9 @@ To convert a vault link URL to a relative path the backend can serve:
 
 ### Detecting vault artifact links (frontend)
 
-A link is a vault artifact if its URL starts with the value of `OBSIDIAN_BASE_URL`. The "Open in Diff Viewer" button is only rendered for links that pass this check.
+A link is a vault artifact if its URL starts with the value of `ARTIFACT_BASE_URL`. The "Open in Diff Viewer" button is only rendered for links that pass this check.
 
-Since `OBSIDIAN_BASE_URL` is a server-side env var, the frontend needs it exposed. Two options:
-
-- **Option A (recommended)**: Add it to a new or existing `GET /api/config` endpoint that returns safe public config values.
-- **Option B**: Embed it as a Vite env var (`VITE_OBSIDIAN_BASE_URL`) in `.env`, so it is baked into the frontend bundle at build time.
-
-Option A is preferred because it keeps config centralized on the backend and does not require rebuilding the frontend when the URL changes.
+Since `ARTIFACT_BASE_URL` is a server-side env var, the frontend fetches it from `GET /api/config/public` on mount. This keeps config centralised on the backend and does not require rebuilding the frontend when the URL changes.
 
 ---
 
@@ -92,18 +87,18 @@ Option A is preferred because it keeps config centralized on the backend and doe
 
 ### New endpoint: `GET /api/vault/content`
 
-Serves raw file content from the local Obsidian vault. Requires `OBSIDIAN_VAULT_PATH` to be configured.
+Serves raw file content from the local artifact base directory. Requires `ARTIFACT_BASE_PATH` to be configured.
 
 **Query parameters:**
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Relative path within `OBSIDIAN_VAULT_PATH` (URL-encoded). Example: `my-project%2Fmy-card%2Ffile.md` |
+| `path` | Yes | Relative path within `ARTIFACT_BASE_PATH` (URL-encoded). Example: `my-project%2Fmy-card%2Ffile.md` |
 
 **Behavior:**
-1. Validate `OBSIDIAN_VAULT_PATH` is configured; return `400 OBSIDIAN_NOT_CONFIGURED` if not.
-2. Resolve the absolute path: `path.join(OBSIDIAN_VAULT_PATH, decodedRelativePath)`.
-3. Verify the resolved path is inside `OBSIDIAN_VAULT_PATH` (path traversal guard — reject if not).
+1. Validate `ARTIFACT_BASE_PATH` is configured; return `400 ARTIFACT_NOT_CONFIGURED` if not.
+2. Resolve the absolute path: `path.resolve(ARTIFACT_BASE_PATH, decodedRelativePath)`.
+3. Verify the resolved path is inside `ARTIFACT_BASE_PATH` (path traversal guard — reject if not).
 4. Read the file; return `404` if not found.
 5. Return the raw file content with `Content-Type: text/plain; charset=utf-8`.
 
@@ -113,7 +108,7 @@ Serves raw file content from the local Obsidian vault. Requires `OBSIDIAN_VAULT_
 
 | Code | Error | Condition |
 |------|-------|-----------|
-| `400` | `OBSIDIAN_NOT_CONFIGURED` | `OBSIDIAN_VAULT_PATH` env var not set |
+| `400` | `ARTIFACT_NOT_CONFIGURED` | `ARTIFACT_BASE_PATH` env var not set |
 | `400` | `INVALID_PATH` | Path traversal detected or path is empty |
 | `404` | `FILE_NOT_FOUND` | File does not exist at resolved path |
 
@@ -122,20 +117,20 @@ Serves raw file content from the local Obsidian vault. Requires `OBSIDIAN_VAULT_
 - `src/routes/vault.ts` — New route file; registers `GET /api/vault/content`
 - `src/server.ts` — Import and register the new vault route
 - `src/services/vault.service.ts` — Add `readArtifactContent(relativePath: string): Promise<string>` method
-- `src/services/config.service.ts` — Verify `obsidianVaultPath` is already exposed (it is)
+- `src/services/config.service.ts` — Verify `artifactBasePath` is already exposed (it is)
 
 ### New endpoint: `GET /api/config/public`
 
-Returns safe public configuration values for the frontend.
+Returns safe public configuration values for the frontend. The `artifactBaseUrl` field is used by the frontend to detect vault artifact links and build Diff Viewer URLs.
 
 **Response `200`:**
 ```json
 {
-  "obsidianBaseUrl": "https://vaultpad.bangus-city.ts.net/view?path=10-Projects"
+  "artifactBaseUrl": "https://viewer.example.com/view?path=10-Projects"
 }
 ```
 
-If `OBSIDIAN_BASE_URL` is not configured, `obsidianBaseUrl` is `null`.
+If `ARTIFACT_BASE_URL` is not configured, `artifactBaseUrl` is `null`.
 
 **Files to create/modify:**
 
@@ -325,7 +320,7 @@ export const vaultApi = {
 };
 
 export const publicConfigApi = {
-  get: (): Promise<{ obsidianBaseUrl: string | null }> =>
+  get: (): Promise<{ artifactBaseUrl: string | null }> =>
     fetch('/api/config/public').then(r => r.json()),
 };
 ```
@@ -338,7 +333,7 @@ export const publicConfigApi = {
 
 ### New button per link row
 
-For each link whose URL starts with `obsidianBaseUrl` (fetched once from `GET /api/config/public` and stored in local state or a lightweight context), render an additional icon button:
+For each link whose URL starts with `artifactBaseUrl` (fetched once from `GET /api/config/public` and stored in local state or a lightweight context), render an additional icon button:
 
 ```
 [kind badge] [label ↗]    [⊞ Diff]  [✏ Edit]  [✕ Delete]
@@ -352,9 +347,9 @@ For each link whose URL starts with `obsidianBaseUrl` (fetched once from `GET /a
 
 ```typescript
 // frontend/src/utils/diffUrl.ts
-export function buildDiffUrl(vaultLinkUrl: string, obsidianBaseUrl: string): string {
+export function buildDiffUrl(vaultLinkUrl: string, artifactBaseUrl: string): string {
   const linkUrl = new URL(vaultLinkUrl);
-  const baseUrl = new URL(obsidianBaseUrl);
+  const baseUrl = new URL(artifactBaseUrl);
 
   // Both have a 'path' query param
   const fullPath = decodeURIComponent(linkUrl.searchParams.get('path') ?? '');
@@ -371,7 +366,7 @@ export function buildDiffUrl(vaultLinkUrl: string, obsidianBaseUrl: string): str
 
 ### Fetching public config in CardLinks
 
-On `CardLinks` mount (or in the parent `CardDetailPanel`), fetch `GET /api/config/public` once and store `obsidianBaseUrl`. If `null`, no diff buttons are shown. This fetch can be cached in a React context or a simple module-level promise so it only runs once per session.
+On `CardLinks` mount (or in the parent `CardDetailPanel`), fetch `GET /api/config/public` once and store `artifactBaseUrl`. If `null`, no diff buttons are shown. This fetch can be cached in a React context or a simple module-level promise so it only runs once per session.
 
 ---
 
@@ -420,7 +415,7 @@ The diff viewer uses the same Tailwind CSS 4 dark theme as the rest of DevPlanne
 | `frontend/src/main.tsx` | Wrap app in `BrowserRouter` |
 | `frontend/src/App.tsx` | Add `Routes` with `/` and `/diff` routes |
 | `frontend/src/api/client.ts` | Add `vaultApi` and `publicConfigApi` |
-| `frontend/src/components/card-detail/CardLinks.tsx` | Add diff button + obsidianBaseUrl fetch |
+| `frontend/src/components/card-detail/CardLinks.tsx` | Add diff button + artifactBaseUrl fetch |
 
 ---
 
@@ -448,7 +443,7 @@ No new dependencies required. File reading uses Bun's built-in `Bun.file()` / `f
 
 ### Path traversal guard (backend)
 
-The `GET /api/vault/content` endpoint must verify the resolved absolute path is inside `OBSIDIAN_VAULT_PATH` before reading. Use `path.resolve()` and check with `startsWith`:
+The `GET /api/vault/content` endpoint must verify the resolved absolute path is inside `ARTIFACT_BASE_PATH` before reading. Use `path.resolve()` and check with `startsWith`:
 
 ```typescript
 import path from 'path';
@@ -459,7 +454,7 @@ if (!resolved.startsWith(path.resolve(vaultPath))) {
 }
 ```
 
-This prevents requests like `?path=../../etc/passwd` from escaping the vault directory.
+This prevents requests like `?path=../../etc/passwd` from escaping the artifact base directory.
 
 ---
 

@@ -1,7 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store';
 import { useDetailScroll } from '../../hooks/useDetailScroll';
 import { cn } from '../../utils/cn';
+import { buildDiffUrl } from '../../utils/diffUrl';
+import { publicConfigApi } from '../../api/client';
 import type { CardLink, CreateLinkInput, UpdateLinkInput } from '../../types';
 
 interface CardLinksProps {
@@ -180,8 +182,8 @@ function UploadLinkForm({ cardSlug, onDone }: UploadFormProps) {
       onDone();
     } catch (err: unknown) {
       const e = err as { error?: string; message?: string };
-      if (e?.error === 'OBSIDIAN_NOT_CONFIGURED') {
-        setError('Set OBSIDIAN_BASE_URL in .env to enable file uploads.');
+      if (e?.error === 'ARTIFACT_NOT_CONFIGURED') {
+        setError('Set ARTIFACT_BASE_URL in .env to enable file uploads.');
       } else {
         setError(e?.message ?? 'Failed to upload file.');
       }
@@ -264,6 +266,14 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [artifactBaseUrl, setArtifactBaseUrl] = useState<string | null>(null);
+
+  // Fetch public config once per mount to determine vault artifact links
+  useEffect(() => {
+    publicConfigApi.get().then((cfg) => setArtifactBaseUrl(cfg.artifactBaseUrl)).catch((err) => {
+      console.warn('Could not load public config (vault diff buttons will be hidden):', err);
+    });
+  }, []);
 
   const noFormOpen = !showAddForm && !showUploadForm;
 
@@ -446,6 +456,20 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                     </>
                   ) : (
                     <>
+                      {/* Diff Viewer button — only for vault artifact links */}
+                      {artifactBaseUrl && link.url.startsWith(artifactBaseUrl) && (
+                        <button
+                          onClick={() => window.open(buildDiffUrl(link.url, artifactBaseUrl), '_blank')}
+                          title="Open in Diff Viewer"
+                          className="p-1 rounded text-gray-400 hover:text-teal-300 hover:bg-gray-700 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"
+                            />
+                          </svg>
+                        </button>
+                      )}
                       {/* Edit button */}
                       <button
                         onClick={() => { setEditingId(link.id); setConfirmDeleteId(null); }}

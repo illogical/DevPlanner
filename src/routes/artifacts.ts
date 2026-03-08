@@ -17,7 +17,7 @@ const KIND_LITERALS = t.Union([
 
 function toHttpStatus(error: string): number {
   switch (error) {
-    case 'OBSIDIAN_NOT_CONFIGURED':
+    case 'ARTIFACT_NOT_CONFIGURED':
     case 'INVALID_LABEL':
       return 400;
     case 'DUPLICATE_LINK':
@@ -36,12 +36,12 @@ export const artifactRoutes = (workspacePath: string) => {
       '/api/projects/:projectSlug/cards/:cardSlug/artifacts',
       async ({ params, body, set }) => {
         const config = ConfigService.getInstance();
-        const { obsidianBaseUrl, obsidianVaultPath } = config;
-        if (!obsidianBaseUrl || !obsidianVaultPath) {
+        const { artifactBaseUrl, artifactBasePath } = config;
+        if (!artifactBaseUrl || !artifactBasePath) {
           set.status = 400;
           return {
-            error: 'OBSIDIAN_NOT_CONFIGURED',
-            message: 'Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable vault artifact creation.',
+            error: 'ARTIFACT_NOT_CONFIGURED',
+            message: 'Set ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env to enable vault artifact creation.',
           };
         }
 
@@ -54,7 +54,7 @@ export const artifactRoutes = (workspacePath: string) => {
           return { error: 'not_found', message: `Card not found: ${params.cardSlug}` };
         }
 
-        const vaultService = new VaultService(workspacePath, obsidianVaultPath, obsidianBaseUrl);
+        const vaultService = new VaultService(workspacePath, artifactBasePath, artifactBaseUrl);
 
         try {
           const { link, filePath } = await vaultService.createArtifact(

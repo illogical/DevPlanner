@@ -428,6 +428,60 @@ Enable multiple named agents and users to identify themselves as assignees. An a
 
 ---
 
+## Phase 21: Diff Viewer
+
+**Feature spec:** `docs/features/diff-viewer.md`
+
+### Backend
+
+- [x] 21.1 Add `readArtifactContent(relativePath)` to `src/services/vault.service.ts` with path traversal guard
+- [x] 21.2 Create `src/routes/vault.ts` — `GET /api/vault/content` serving raw vault file content
+- [x] 21.3 Create `src/routes/config.ts` — `GET /api/config/public` returning `{ artifactBaseUrl }`
+- [x] 21.4 Register `vaultRoute` and `configRoute` in `src/server.ts`
+
+### Frontend: Dependencies & Routing
+
+- [x] 21.5 Add `react-router-dom`, `highlight.js`, and `diff` to `frontend/package.json`
+- [x] 21.6 Wrap app in `BrowserRouter` in `frontend/src/main.tsx`
+- [x] 21.7 Add `Routes` with `/` (existing Kanban) and `/diff` (DiffViewerPage) in `frontend/src/App.tsx`
+
+### Frontend: API client
+
+- [x] 21.8 Add `vaultApi.getContent()` and `publicConfigApi.get()` to `frontend/src/api/client.ts`
+
+### Frontend: Utilities & Hooks
+
+- [x] 21.9 Create `frontend/src/utils/diffUrl.ts` — `buildDiffUrl()` helper
+- [x] 21.10 Create `frontend/src/hooks/useSyncScroll.ts` — synchronized scroll hook
+
+### Frontend: Diff Components
+
+- [x] 21.11 Create `frontend/src/components/diff/DiffHeader.tsx` — page title + back link
+- [x] 21.12 Create `frontend/src/components/diff/DiffToolbar.tsx` — language, wrap, sync controls, swap, clear
+- [x] 21.13 Create `frontend/src/components/diff/DiffLine.tsx` — individual line with highlight.js + change type color
+- [x] 21.14 Create `frontend/src/components/diff/DiffContent.tsx` — scrollable lines container with sync scroll support
+- [x] 21.15 Create `frontend/src/components/diff/DropZone.tsx` — drag-and-drop / file-picker / paste input
+- [x] 21.16 Create `frontend/src/components/diff/DiffPaneHeader.tsx` — filename, copy, file picker button
+- [x] 21.17 Create `frontend/src/components/diff/DiffPane.tsx` — single pane composing header + dropzone + content
+- [x] 21.18 Create `frontend/src/components/diff/DiffLayout.tsx` — two-pane CSS grid container
+- [x] 21.19 Create `frontend/src/pages/DiffViewerPage.tsx` — top-level page, URL param reading, diff computation
+
+### Frontend: Card Detail Integration
+
+- [x] 21.20 Update `frontend/src/components/card-detail/CardLinks.tsx` — fetch `artifactBaseUrl` from config, add "Open in Diff Viewer" button on vault artifact links
+
+### Documentation
+
+- [x] 21.21 Update `README.md` — add Diff Viewer to features list and API overview table
+- [x] 21.22 Update `frontend/README.md` — add diff components to component tree and tech stack table
+- [x] 21.23 Update `docs/SPECIFICATION.md` — add section 3.13 for new endpoints and update frontend architecture
+
+### Follow-up: Generic naming
+
+- [x] 21.24 Rename env vars `OBSIDIAN_BASE_URL`/`OBSIDIAN_VAULT_PATH` → `ARTIFACT_BASE_URL`/`ARTIFACT_BASE_PATH` across all code and docs (old names still accepted as deprecated fallback)
+
+---
+
 ## Medium Priority: Sub-task Support
 
 - [ ] Support indented markdown checkboxes (`  - [ ]` for level 2, `    - [ ]` for level 3) in `MarkdownService`

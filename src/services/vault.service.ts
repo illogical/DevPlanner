@@ -1,5 +1,5 @@
-import { mkdir } from 'fs/promises';
-import { join } from 'path';
+import { mkdir, readFile } from 'fs/promises';
+import { join, resolve } from 'path';
 import * as path from 'path';
 import { slugify } from '../utils/slug';
 import { LinkService } from './link.service';
@@ -29,6 +29,34 @@ export class VaultService {
     this.vaultPath = vaultPath;
     this.obsidianBaseUrl = obsidianBaseUrl;
     this.linkService = new LinkService(workspacePath);
+  }
+
+  /**
+   * Read raw content of a vault artifact file.
+   * relativePath must be relative to vaultPath (no leading slash, no ../ traversal).
+   * Throws structured errors for missing config, traversal attempts, or missing files.
+   */
+  async readArtifactContent(relativePath: string): Promise<string> {
+    if (!relativePath || relativePath.trim() === '') {
+      throw { error: 'INVALID_PATH', message: 'Path parameter is required and must not be empty.' };
+    }
+
+    const resolvedVault = resolve(this.vaultPath);
+    const resolvedFile = resolve(this.vaultPath, relativePath);
+
+    if (!resolvedFile.startsWith(resolvedVault + path.sep) && resolvedFile !== resolvedVault) {
+      throw { error: 'INVALID_PATH', message: 'Path traversal detected. Path must be within the vault directory.' };
+    }
+
+    try {
+      const content = await readFile(resolvedFile, 'utf-8');
+      return content;
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        throw { error: 'FILE_NOT_FOUND', message: `File not found: ${relativePath}` };
+      }
+      throw err;
+    }
   }
 
   /**

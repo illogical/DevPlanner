@@ -127,7 +127,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       // Vault Artifact Tool
       {
         name: 'create_vault_artifact',
-        description: 'Write a Markdown file to the Obsidian Vault and attach it as a link on a card. The filename is auto-generated from the label and timestamp. Requires OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env.',
+        description: 'Write a Markdown file to the artifact vault and attach it as a link on a card. The filename is auto-generated from the label and timestamp. Requires ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env.',
         inputSchema: (await import('./mcp/schemas.js')).CREATE_VAULT_ARTIFACT_SCHEMA,
       },
     ],
