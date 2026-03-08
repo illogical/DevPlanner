@@ -1,9 +1,13 @@
-import { mkdir, readFile } from 'fs/promises';
+import { mkdir, readFile, readdir, stat } from 'fs/promises';
 import { join, resolve } from 'path';
 import * as path from 'path';
 import { slugify } from '../utils/slug';
 import { LinkService } from './link.service';
 import type { CardLink } from '../types';
+
+export interface TreeFile { name: string; path: string; updatedAt: string; }
+export interface TreeFolder { name: string; path: string; parentPath: string | null; count: number; files: TreeFile[]; }
+export interface TreeError { path: string; error: string; }
 
 export interface CreateArtifactResult {
   link: CardLink;
@@ -57,6 +61,80 @@ export class VaultService {
       }
       throw err;
     }
+  }
+
+  async writeArtifactContent(relativePath: string, content: string): Promise<void> {
+    if (!relativePath || relativePath.trim() === '') {
+      throw { error: 'INVALID_PATH', message: 'Path parameter is required and must not be empty.' };
+    }
+    const resolvedVault = resolve(this.vaultPath);
+    const resolvedFile = resolve(this.vaultPath, relativePath);
+    if (!resolvedFile.startsWith(resolvedVault + path.sep) && resolvedFile !== resolvedVault) {
+      throw { error: 'INVALID_PATH', message: 'Path traversal detected. Path must be within the vault directory.' };
+    }
+    await mkdir(path.dirname(resolvedFile), { recursive: true });
+    await Bun.write(resolvedFile, content);
+  }
+
+  async listTree(): Promise<{ folders: TreeFolder[]; errors: TreeError[] }> {
+    const resolvedVault = resolve(this.vaultPath);
+    const folders: TreeFolder[] = [];
+    const errors: TreeError[] = [];
+
+    async function scanDir(dirPath: string, parentPath: string | null): Promise<void> {
+      let entries: any[];
+      try {
+        entries = await readdir(dirPath, { withFileTypes: true });
+      } catch (err: any) {
+        errors.push({ path: dirPath, error: err.message });
+        return;
+      }
+
+      const files: TreeFile[] = [];
+      const subDirs: string[] = [];
+
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        const fullPath = join(dirPath, entry.name);
+        const relPath = path.relative(resolvedVault, fullPath).replace(/\\/g, '/');
+
+        if (entry.isDirectory()) {
+          subDirs.push(fullPath);
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          try {
+            const s = await stat(fullPath);
+            files.push({ name: entry.name, path: relPath, updatedAt: s.mtime.toISOString() });
+          } catch (err: any) {
+            errors.push({ path: relPath, error: err.message });
+          }
+        }
+      }
+
+      // Sort files by updatedAt desc
+      files.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+      const relDirPath = dirPath === resolvedVault ? '' : path.relative(resolvedVault, dirPath).replace(/\\/g, '/');
+      const dirName = dirPath === resolvedVault ? '/' : path.basename(dirPath);
+
+      if (files.length > 0 || subDirs.length > 0) {
+        folders.push({
+          name: dirName,
+          path: relDirPath,
+          parentPath,
+          count: files.length,
+          files,
+        });
+      }
+
+      subDirs.sort();
+      for (const subDir of subDirs) {
+        await scanDir(subDir, relDirPath);
+      }
+    }
+
+    await scanDir(resolvedVault, null);
+    folders.sort((a, b) => a.path.localeCompare(b.path));
+    return { folders, errors };
   }
 
   /**

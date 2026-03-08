@@ -57,4 +57,60 @@ export const vaultRoutes = new Elysia()
         path: t.Optional(t.String()),
       }),
     }
+  )
+  .put(
+    '/api/vault/file',
+    async ({ body, set }) => {
+      const config = ConfigService.getInstance();
+      const { artifactBasePath } = config;
+
+      if (!artifactBasePath) {
+        set.status = 400;
+        return { error: 'ARTIFACT_NOT_CONFIGURED', message: 'Set ARTIFACT_BASE_PATH in .env to enable vault file writing.' };
+      }
+
+      const { path: relativePath, content } = body;
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+
+      try {
+        await vaultService.writeArtifactContent(relativePath, content);
+        return { ok: true, path: relativePath };
+      } catch (err: any) {
+        if (err?.error) {
+          set.status = toHttpStatus(err.error);
+          return err;
+        }
+        throw err;
+      }
+    },
+    {
+      body: t.Object({
+        path: t.String(),
+        content: t.String(),
+      }),
+    }
+  )
+  .get(
+    '/api/vault/tree',
+    async ({ set }) => {
+      const config = ConfigService.getInstance();
+      const { artifactBasePath } = config;
+
+      if (!artifactBasePath) {
+        set.status = 400;
+        return { error: 'ARTIFACT_NOT_CONFIGURED', message: 'Set ARTIFACT_BASE_PATH in .env to enable vault tree listing.' };
+      }
+
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+
+      try {
+        return await vaultService.listTree();
+      } catch (err: any) {
+        if (err?.error) {
+          set.status = toHttpStatus(err.error);
+          return err;
+        }
+        throw err;
+      }
+    }
   );
