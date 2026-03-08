@@ -49,13 +49,18 @@ export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
   }, [body]);
 
   return (
-    <div className={cn('p-8 overflow-y-auto bg-[#1A3549] flex-1', className)}>
-      {frontmatter && <FrontmatterDisplay frontmatter={frontmatter} />}
-      <div
-        className="prose-doc"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+    <div
+      className={cn('overflow-y-auto flex-1', className)}
+      style={{ background: 'linear-gradient(180deg, #152535 0%, #1A3549 30%)' }}
+    >
+      <div className="max-w-3xl mx-auto px-8 py-10">
+        {frontmatter && <FrontmatterDisplay frontmatter={frontmatter} />}
+        <div
+          className="prose-doc"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     </div>
   );
 }

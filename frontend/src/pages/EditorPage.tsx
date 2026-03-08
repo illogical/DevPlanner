@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { EditorLayout } from '../components/doc/EditorLayout';
+import { DocEmptyState } from '../components/doc/DocEmptyState';
 
 export function EditorPage() {
   const [searchParams] = useSearchParams();
@@ -55,17 +56,7 @@ export function EditorPage() {
   }, [filePath, gitRefreshInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!filePath) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#15232D] text-gray-400">
-        <p className="mb-4 text-lg">No file selected</p>
-        <button
-          onClick={openFileBrowser}
-          className="px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
-        >
-          Open File Browser
-        </button>
-      </div>
-    );
+    return <DocEmptyState onOpenFileBrowser={openFileBrowser} label="No file open" />;
   }
 
   return (

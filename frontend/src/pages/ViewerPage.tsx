@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { MarkdownPreview } from '../components/doc/MarkdownPreview';
+import { DocEmptyState } from '../components/doc/DocEmptyState';
 
 export function ViewerPage() {
   const [searchParams] = useSearchParams();
@@ -41,17 +42,7 @@ export function ViewerPage() {
   }, [filePath, gitRefreshInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!filePath) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#1A3549] text-gray-400">
-        <p className="mb-4 text-lg">No file selected</p>
-        <button
-          onClick={openFileBrowser}
-          className="px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
-        >
-          Open File Browser
-        </button>
-      </div>
-    );
+    return <DocEmptyState onOpenFileBrowser={openFileBrowser} label="No file open" />;
   }
 
   return (
@@ -76,8 +67,17 @@ export function ViewerPage() {
           <div className="absolute top-4 right-4 z-10">
             <button
               onClick={() => navigate(`/editor?path=${encodeURIComponent(filePath)}`)}
-              className="px-3 py-1 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-all"
+              style={{
+                background: 'rgba(155, 220, 254, 0.08)',
+                border: '1px solid rgba(155, 220, 254, 0.2)',
+                color: '#9cdcfe',
+              }}
             >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
               Edit
             </button>
           </div>
