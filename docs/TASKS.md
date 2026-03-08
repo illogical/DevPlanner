@@ -612,14 +612,14 @@ Merges VaultPad's Markdown viewer, editor, Git workflow, and file browser into D
 
 **Spec:** `docs/features/doc-manager/01-navigation.md`
 
-Top-level navigation bar enabling switching between Kanban, Viewer, Editor, and Diff views. Replaces the standalone `DiffHeader` with shared navigation.
+Top-level navigation bar enabling switching between Projects, View, Edit, and Compare views. Replaces the standalone `DiffHeader` with shared navigation.
 
-- [ ] 22.1.1 Create `AppNavBar` component — horizontal tab bar (Kanban | Viewer | Editor | Diff) with `NavLink` active styling
-- [ ] 22.1.2 Create `AppShell` layout component — wraps Header + AppNavBar + route content + drawer slot
-- [ ] 22.1.3 Refactor `App.tsx` routing — add `/viewer`, `/editor` routes within `AppShell`, replace standalone diff page
-- [ ] 22.1.4 Modify `Header` for multi-view support — conditional project selector, file path display, git dot, save button
-- [ ] 22.1.5 Remove `DiffHeader` component — replaced by shared `AppNavBar`
-- [ ] 22.1.6 Route-aware `useWebSocket` behavior — project subscription only on Kanban view
+- [x] 22.1.1 Create `AppNavBar` component — horizontal tab bar (Projects | View | Edit | Compare) with icons and `NavLink` active styling
+- [x] 22.1.2 Create `AppShell` layout component — wraps Header + AppNavBar + route content + drawer slot
+- [x] 22.1.3 Refactor `App.tsx` routing — add `/viewer`, `/editor` routes within `AppShell`, replace standalone diff page
+- [x] 22.1.4 Modify `Header` for multi-view support — conditional project selector, file path display, git dot, save button
+- [x] 22.1.5 Remove `DiffHeader` component — replaced by shared `AppNavBar`
+- [x] 22.1.6 Route-aware `useWebSocket` behavior — project subscription only on Kanban view
 
 ## Phase 22.2: Markdown Viewer
 
@@ -627,13 +627,13 @@ Top-level navigation bar enabling switching between Kanban, Viewer, Editor, and 
 
 Read-only Markdown viewer with rich rendering: YAML frontmatter display, color-coded headings, syntax-highlighted code blocks, key-value pair styling. Reuses `marked` and `highlight.js` (existing deps).
 
-- [ ] 22.2.1 Create `MarkdownPreview` shared component — `marked` with custom renderer for headings, code, key-value lines
-- [ ] 22.2.2 Create frontmatter parser utility — `parseFrontmatter()` in `frontend/src/utils/frontmatter.ts`
-- [ ] 22.2.3 Create `FrontmatterDisplay` component — 2-column grid with styled key/value pairs
-- [ ] 22.2.4 Create `ViewerPage` — loads file from `?path=`, renders FrontmatterDisplay + MarkdownPreview
-- [ ] 22.2.5 Add `ViewerPage` to router — `/viewer` route within `AppShell`
-- [ ] 22.2.6 Add `docSlice` to Zustand store — `docFilePath`, `docContent`, `loadDocFile()`, `clearDoc()`
-- [ ] 22.2.7 Add vault file API methods — `getFile()` returning path + content + updatedAt
+- [x] 22.2.1 Create `MarkdownPreview` shared component — `marked` with custom renderer for headings, code, key-value lines
+- [x] 22.2.2 Create frontmatter parser utility — `parseFrontmatter()` in `frontend/src/utils/frontmatter.ts`
+- [x] 22.2.3 Create `FrontmatterDisplay` component — 2-column grid with styled key/value pairs
+- [x] 22.2.4 Create `ViewerPage` — loads file from `?path=`, renders FrontmatterDisplay + MarkdownPreview
+- [x] 22.2.5 Add `ViewerPage` to router — `/viewer` route within `AppShell`
+- [x] 22.2.6 Add `docSlice` to Zustand store — `docFilePath`, `docContent`, `loadDocFile()`, `clearDoc()`
+- [x] 22.2.7 Add vault file API methods — `getFile()` returning path + content + updatedAt
 
 ## Phase 22.3: Markdown Editor
 
@@ -641,14 +641,14 @@ Read-only Markdown viewer with rich rendering: YAML frontmatter display, color-c
 
 Side-by-side Markdown editor (raw text left, live preview right) with save workflow, dirty detection, unsaved changes protection, and download.
 
-- [ ] 22.3.1 Create `EditorPane` component — monospace textarea, Tab key support, Ctrl+S intercept
-- [ ] 22.3.2 Create `EditorLayout` component — 2-column CSS grid with editor left, preview right, responsive stacking
-- [ ] 22.3.3 Create `EditorPage` — file loading, edit state, save workflow, dirty detection, `beforeunload` guard
-- [ ] 22.3.4 Add vault file save API — `PUT /api/vault/file` backend endpoint + `VaultService.writeArtifactContent()` + frontend `vaultApi.saveFile()`
-- [ ] 22.3.5 Extend `docSlice` for editor state — `docEditContent`, `docLastSavedContent`, `docIsDirty`, `docSaveState`, `saveDocFile()`
-- [ ] 22.3.6 Add `EditorPage` to router — `/editor` route within `AppShell`
-- [ ] 22.3.7 Wire save button in `Header` — save state indicator (idle/saving/saved/error), dirty indicator on tab
-- [ ] 22.3.8 Add download button — export current file as `.md` to local filesystem
+- [x] 22.3.1 Create `EditorPane` component — monospace textarea, Tab key support, Ctrl+S intercept
+- [x] 22.3.2 Create `EditorLayout` component — 2-column CSS grid with editor left, preview right, responsive stacking
+- [x] 22.3.3 Create `EditorPage` — file loading, edit state, save workflow, dirty detection, `beforeunload` guard
+- [x] 22.3.4 Add vault file save API — `PUT /api/vault/file` backend endpoint + `VaultService.writeArtifactContent()` + frontend `vaultApi.saveFile()`
+- [x] 22.3.5 Extend `docSlice` for editor state — `docEditContent`, `docLastSavedContent`, `docIsDirty`, `docSaveState`, `saveDocFile()`
+- [x] 22.3.6 Add `EditorPage` to router — `/editor` route within `AppShell`
+- [x] 22.3.7 Wire save button in `Header` — save state indicator (idle/saving/saved/error), dirty indicator on tab
+- [x] 22.3.8 Add download button — export current file as `.md` to local filesystem
 
 ## Phase 22.4: File Browser
 
@@ -656,17 +656,17 @@ Side-by-side Markdown editor (raw text left, live preview right) with save workf
 
 Bottom slide-out file browser with 3-column layout (roots → subfolders → files). Shared across viewer, editor, and diff views. Dynamic root discovery from vault directory.
 
-- [ ] 22.4.1 Create vault tree API endpoint — `GET /api/vault/tree` + `VaultService.listTree()` + frontend `vaultApi.getTree()`
-- [ ] 22.4.2 Create `fileBrowserSlice` in Zustand store — drawer state, folder tree, active path, load/navigate actions
-- [ ] 22.4.3 Create `FileBrowserDrawer` component — animated bottom slide-up panel (Framer Motion)
-- [ ] 22.4.4 Create `FileBrowserColumns` component — 3-column CSS grid with root/subfolder/file columns
-- [ ] 22.4.5 Create `FolderColumn` component — folder list with count badges and active highlighting
-- [ ] 22.4.6 Create `FileColumn` component — file list with smart name display, timestamps, git status dots
-- [ ] 22.4.7 Create `FileBreadcrumb` component — clickable path segments with truncation
-- [ ] 22.4.8 Create filename parser utility — `parseVaultFilename()` for timestamped filenames
-- [ ] 22.4.9 Integrate drawer into `AppShell` — render below routes, toggle button in nav bar
-- [ ] 22.4.10 Add file navigation behavior — context-aware navigation (viewer/editor/diff/kanban)
-- [ ] 22.4.11 Add back/forward navigation history — `docBackHistory`, `docForwardHistory`, back/forward buttons in header
+- [x] 22.4.1 Create vault tree API endpoint — `GET /api/vault/tree` + `VaultService.listTree()` + frontend `vaultApi.getTree()`
+- [x] 22.4.2 Create `fileBrowserSlice` in Zustand store — drawer state, folder tree, active path, load/navigate actions
+- [x] 22.4.3 Create `FileBrowserDrawer` component — animated bottom slide-up panel (Framer Motion)
+- [x] 22.4.4 Create `FileBrowserColumns` component — 3-column CSS grid with root/subfolder/file columns
+- [x] 22.4.5 Create `FolderColumn` component — folder list with count badges and active highlighting
+- [x] 22.4.6 Create `FileColumn` component — file list with smart name display, timestamps, git status dots
+- [x] 22.4.7 Create `FileBreadcrumb` component — clickable path segments with truncation
+- [x] 22.4.8 Create filename parser utility — `parseVaultFilename()` for timestamped filenames
+- [x] 22.4.9 Integrate drawer into `AppShell` — render below routes, toggle button in nav bar
+- [x] 22.4.10 Add file navigation behavior — context-aware navigation (viewer/editor/diff/kanban)
+- [x] 22.4.11 Add back/forward navigation history — `docBackHistory`, `docForwardHistory`, back/forward buttons in header
 
 ## Phase 22.5: Git Integration
 
@@ -675,19 +675,19 @@ Bottom slide-out file browser with 3-column layout (roots → subfolders → fil
 Single-file Git operations: stage, unstage, commit, discard. Status indicators in header and file browser. Configurable auto-refresh.
 
 ### Backend
-- [ ] 22.5.1 Create `GitService` — `git status`, `git add`, `git reset`, `git restore`, `git commit` via `execFile` with path traversal guard
-- [ ] 22.5.2 Create vault git routes — `/api/vault/git/status`, `/api/vault/git/statuses`, `/api/vault/git/stage`, `/api/vault/git/unstage`, `/api/vault/git/discard`, `/api/vault/git/commit`
-- [ ] 22.5.3 Create git diff endpoint — `GET /api/vault/git/diff?path=&mode=working|staged`
+- [x] 22.5.1 Create `GitService` — `git status`, `git add`, `git reset`, `git restore`, `git commit` via `Bun.spawnSync` with path traversal guard
+- [x] 22.5.2 Create vault git routes — `/api/vault/git/status`, `/api/vault/git/statuses`, `/api/vault/git/stage`, `/api/vault/git/unstage`, `/api/vault/git/discard`, `/api/vault/git/commit`
+- [x] 22.5.3 Create git diff endpoint — `GET /api/vault/git/diff?path=&mode=working|staged`
 
 ### Frontend
-- [ ] 22.5.4 Add `gitSlice` to Zustand store — git statuses, commit panel state, actions for stage/unstage/commit/discard
-- [ ] 22.5.5 Add git API methods to client — `gitApi.getStatus()`, `.stage()`, `.unstage()`, `.discard()`, `.commit()`, `.getDiff()`
-- [ ] 22.5.6 Create `GitStatusDot` component — colored circle with tooltip, loading spinner
-- [ ] 22.5.7 Create `GitCommitPanel` component — floating panel with commit message, context-sensitive action buttons
-- [ ] 22.5.8 Integrate git status into header — dot + click-to-open commit panel
-- [ ] 22.5.9 Integrate git status into file browser — batch-fetch statuses, per-file dots
-- [ ] 22.5.10 Auto-refresh git statuses — interval timer with Page Visibility API, post-save/post-operation refresh
-- [ ] 22.5.11 Create `GitSettingsPanel` component — refresh interval slider, localStorage persistence
+- [x] 22.5.4 Add `gitSlice` to Zustand store — git statuses, commit panel state, actions for stage/unstage/commit/discard
+- [x] 22.5.5 Add git API methods to client — `gitApi.getStatus()`, `.stage()`, `.unstage()`, `.discard()`, `.commit()`, `.getDiff()`
+- [x] 22.5.6 Create `GitStatusDot` component — colored circle with tooltip, loading spinner
+- [x] 22.5.7 Create `GitCommitPanel` component — floating panel with commit message, context-sensitive action buttons
+- [x] 22.5.8 Integrate git status into header — dot + click-to-open commit panel
+- [x] 22.5.9 Integrate git status into file browser — batch-fetch statuses, per-file dots
+- [x] 22.5.10 Auto-refresh git statuses — interval timer with Page Visibility API, post-save/post-operation refresh
+- [x] 22.5.11 Create `GitSettingsPanel` component — refresh interval slider, localStorage persistence
 
 ## Phase 22.6: Diff Viewer Enhancements
 

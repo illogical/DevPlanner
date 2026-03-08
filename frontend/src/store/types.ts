@@ -175,6 +175,84 @@ export interface WSSlice {
   wsHandleLinkDeleted?: (data: LinkDeletedData) => void;
 }
 
+// ─── Doc Slice ───────────────────────────────────────────────────────────────
+
+export type GitState =
+  | 'clean'
+  | 'modified'
+  | 'staged'
+  | 'modified-staged'
+  | 'untracked'
+  | 'ignored'
+  | 'outside-repo'
+  | 'unknown';
+
+export interface TreeFile { name: string; path: string; updatedAt: string; }
+export interface TreeFolder { name: string; path: string; parentPath: string | null; count: number; files: TreeFile[]; }
+export interface TreeError { path: string; error: string; }
+
+export interface DocSlice {
+  docFilePath: string | null;
+  docContent: string | null;
+  docIsLoading: boolean;
+  docError: string | null;
+  docEditContent: string | null;
+  docLastSavedContent: string | null;
+  docIsDirty: boolean;
+  docSaveState: 'idle' | 'saving' | 'saved' | 'error';
+  docBackHistory: string[];
+  docForwardHistory: string[];
+
+  loadDocFile: (filePath: string) => Promise<void>;
+  clearDoc: () => void;
+  setDocEditContent: (content: string) => void;
+  saveDocFile: () => Promise<void>;
+  navigateToFile: (filePath: string, mode?: 'push' | 'back' | 'forward') => void;
+  goBack: () => void;
+  goForward: () => void;
+}
+
+// ─── File Browser Slice ──────────────────────────────────────────────────────
+
+export interface FileBrowserSlice {
+  fbIsOpen: boolean;
+  fbFolders: TreeFolder[];
+  fbActiveRoot: string | null;
+  fbActivePath: string;
+  fbIsLoading: boolean;
+  fbError: string | null;
+
+  toggleFileBrowser: () => void;
+  openFileBrowser: () => void;
+  closeFileBrowser: () => void;
+  loadFileTree: () => Promise<void>;
+  setFbActiveRoot: (root: string | null) => void;
+  setFbActivePath: (path: string) => void;
+  focusCurrentFile: () => void;
+}
+
+// ─── Git Slice ───────────────────────────────────────────────────────────────
+
+export interface GitSlice {
+  gitStatuses: Record<string, GitState>;
+  gitCurrentState: GitState | null;
+  gitIsLoading: boolean;
+  gitCommitPanelOpen: boolean;
+  gitCommitMessage: string;
+  gitActionLoading: boolean;
+  gitRefreshInterval: number;
+
+  refreshGitStatus: (filePath: string) => Promise<void>;
+  refreshGitStatuses: (paths: string[]) => Promise<void>;
+  stageFile: (filePath: string) => Promise<void>;
+  unstageFile: (filePath: string) => Promise<void>;
+  discardUnstaged: (filePath: string) => Promise<void>;
+  commitFile: (filePath: string, message: string) => Promise<void>;
+  setGitCommitMessage: (msg: string) => void;
+  toggleCommitPanel: () => void;
+  setGitRefreshInterval: (seconds: number) => void;
+}
+
 // ─── Combined store type ─────────────────────────────────────────────────────
 
 export type DevPlannerStore =
@@ -183,4 +261,7 @@ export type DevPlannerStore =
   UISlice &
   HistorySlice &
   SearchSlice &
-  WSSlice;
+  WSSlice &
+  DocSlice &
+  FileBrowserSlice &
+  GitSlice;

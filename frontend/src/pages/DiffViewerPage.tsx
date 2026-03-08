@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { diffLines } from 'diff';
-import { DiffHeader } from '../components/diff/DiffHeader';
 import { DiffToolbar } from '../components/diff/DiffToolbar';
 import { DiffLayout } from '../components/diff/DiffLayout';
 import { useSyncScroll } from '../hooks/useSyncScroll';
@@ -170,8 +169,7 @@ export function DiffViewerPage() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-950 text-gray-100 overflow-hidden">
-      <DiffHeader />
+    <div className="flex-1 flex flex-col overflow-hidden">
 
       <DiffToolbar
         language={state.language}
