@@ -85,9 +85,10 @@ function tabClass(isActive: boolean) {
 
 export function AppNavBar() {
   const location = useLocation();
-  const { toggleFileBrowser, docBackHistory, docForwardHistory, goBack, goForward } = useStore();
+  const { toggleFileBrowser, docBackHistory, docForwardHistory, docFilePath, goBack, goForward } = useStore();
+
   const getTabTo = (to: string) => {
-    const currentPath = new URLSearchParams(location.search).get('path');
+    const currentPath = new URLSearchParams(location.search).get('path') || docFilePath;
     if (currentPath && (to === '/viewer' || to === '/editor')) {
       return `${to}?path=${encodeURIComponent(currentPath)}`;
     }

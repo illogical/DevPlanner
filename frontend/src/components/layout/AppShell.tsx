@@ -15,7 +15,7 @@ export function AppShell({ children }: AppShellProps) {
     <div className="h-screen flex flex-col bg-gray-950 text-gray-100 overflow-hidden">
       <Header connectionState={connectionState} />
       <AppNavBar />
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {children}
       </div>
       <FileBrowserDrawer />

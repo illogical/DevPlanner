@@ -5,7 +5,7 @@ import { MarkdownPreview } from '../components/doc/MarkdownPreview';
 import { DocEmptyState } from '../components/doc/DocEmptyState';
 
 export function ViewerPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const filePath = searchParams.get('path');
 
@@ -20,12 +20,19 @@ export function ViewerPage() {
     refreshGitStatus,
   } = useStore();
 
-  // Load file when path changes
+  // Load file when path changes (driven by URL — file browser, direct link, tab switch)
   useEffect(() => {
     if (filePath && filePath !== docFilePath) {
       navigateToFile(filePath, 'push');
     }
   }, [filePath, docFilePath, navigateToFile]);
+
+  // Sync URL to reflect store's docFilePath after back/forward navigation
+  useEffect(() => {
+    if (docFilePath && docFilePath !== filePath) {
+      setSearchParams({ path: docFilePath }, { replace: true });
+    }
+  }, [docFilePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-refresh git status
   useEffect(() => {

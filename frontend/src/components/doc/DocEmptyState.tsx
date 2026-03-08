@@ -39,7 +39,7 @@ export function DocEmptyState({ onOpenFileBrowser, label = 'No file open' }: Doc
   return (
     <div
       className="flex-1 flex flex-col items-center justify-center gap-5 select-none"
-      style={{ background: 'linear-gradient(160deg, #12253a 0%, #1A3549 60%, #0f1e2d 100%)' }}
+      style={{ background: '#162D42' }}
     >
       <DocIcon />
 
