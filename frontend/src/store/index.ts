@@ -20,6 +20,9 @@ import { createUISlice } from './slices/uiSlice';
 import { createHistorySlice } from './slices/historySlice';
 import { createSearchSlice } from './slices/searchSlice';
 import { createWSSlice } from './slices/wsSlice';
+import { createDocSlice } from './slices/docSlice';
+import { createFileBrowserSlice } from './slices/fileBrowserSlice';
+import { createGitSlice } from './slices/gitSlice';
 import type { DevPlannerStore } from './types';
 
 // Re-export types that downstream components import directly from the store
@@ -32,6 +35,9 @@ export const useStore = create<DevPlannerStore>()((...a) => ({
   ...createHistorySlice(...a),
   ...createSearchSlice(...a),
   ...createWSSlice(...a),
+  ...createDocSlice(...a),
+  ...createFileBrowserSlice(...a),
+  ...createGitSlice(...a),
 }));
 
 // ─── Periodic cleanup of expired change indicators ───────────────────────────

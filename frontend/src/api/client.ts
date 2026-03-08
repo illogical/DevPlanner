@@ -278,10 +278,73 @@ export const searchApi = {
 export { ApiClientError };
 
 // Vault content endpoint (for Diff Viewer)
+export type GitState = 'clean' | 'modified' | 'staged' | 'modified-staged' | 'untracked' | 'ignored' | 'outside-repo' | 'unknown';
+export interface TreeFile { name: string; path: string; updatedAt: string; }
+export interface TreeFolder { name: string; path: string; parentPath: string | null; count: number; files: TreeFile[]; }
+export interface TreeError { path: string; error: string; }
+
 export const vaultApi = {
   getContent: (relativePath: string): Promise<string> =>
     fetch(`/api/vault/content?path=${encodeURIComponent(relativePath)}`).then((r) => {
       if (!r.ok) throw new Error(`Failed to load file: ${r.status}`);
+      return r.text();
+    }),
+
+  getFile: async (filePath: string): Promise<{ path: string; content: string; updatedAt: string }> => {
+    const content = await fetch(`/api/vault/content?path=${encodeURIComponent(filePath)}`).then((r) => {
+      if (!r.ok) throw new Error(`Failed to load file: ${r.status}`);
+      return r.text();
+    });
+    return { path: filePath, content, updatedAt: new Date().toISOString() };
+  },
+
+  saveFile: (filePath: string, content: string): Promise<{ ok: boolean; path: string }> =>
+    fetchJSON<{ ok: boolean; path: string }>(`/api/vault/file`, {
+      method: 'PUT',
+      body: JSON.stringify({ path: filePath, content }),
+    }),
+
+  getTree: (): Promise<{ folders: TreeFolder[]; errors: TreeError[] }> =>
+    fetchJSON<{ folders: TreeFolder[]; errors: TreeError[] }>(`/api/vault/tree`),
+};
+
+export const gitApi = {
+  getStatus: (filePath: string): Promise<{ path: string; state: GitState }> =>
+    fetchJSON<{ path: string; state: GitState }>(`/api/vault/git/status?path=${encodeURIComponent(filePath)}`),
+
+  getStatuses: (paths: string[]): Promise<{ statuses: Record<string, GitState> }> =>
+    fetchJSON<{ statuses: Record<string, GitState> }>(`/api/vault/git/statuses`, {
+      method: 'POST',
+      body: JSON.stringify({ paths }),
+    }),
+
+  stage: (filePath: string): Promise<{ ok: boolean; path: string; state: GitState }> =>
+    fetchJSON<{ ok: boolean; path: string; state: GitState }>(`/api/vault/git/stage`, {
+      method: 'POST',
+      body: JSON.stringify({ path: filePath }),
+    }),
+
+  unstage: (filePath: string): Promise<{ ok: boolean; path: string; state: GitState }> =>
+    fetchJSON<{ ok: boolean; path: string; state: GitState }>(`/api/vault/git/unstage`, {
+      method: 'POST',
+      body: JSON.stringify({ path: filePath }),
+    }),
+
+  discard: (filePath: string): Promise<{ ok: boolean; path: string; state: GitState }> =>
+    fetchJSON<{ ok: boolean; path: string; state: GitState }>(`/api/vault/git/discard`, {
+      method: 'POST',
+      body: JSON.stringify({ path: filePath }),
+    }),
+
+  commit: (filePath: string, message: string): Promise<{ ok: boolean; path: string; state: GitState; output: string }> =>
+    fetchJSON<{ ok: boolean; path: string; state: GitState; output: string }>(`/api/vault/git/commit`, {
+      method: 'POST',
+      body: JSON.stringify({ path: filePath, message }),
+    }),
+
+  getDiff: (filePath: string, mode: 'working' | 'staged'): Promise<string> =>
+    fetch(`/api/vault/git/diff?path=${encodeURIComponent(filePath)}&mode=${mode}`).then((r) => {
+      if (!r.ok) throw new Error(`Failed to get diff: ${r.status}`);
       return r.text();
     }),
 };
