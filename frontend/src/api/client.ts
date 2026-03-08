@@ -286,8 +286,10 @@ export const vaultApi = {
     }),
 };
 
-// Public config endpoint
+// Public config endpoint — exposes safe server-side config values to the frontend.
+// Currently returns artifactBaseUrl so the frontend can detect vault artifact links
+// (links whose URL starts with artifactBaseUrl) and show the "Open in Diff Viewer" button.
 export const publicConfigApi = {
-  get: (): Promise<{ obsidianBaseUrl: string | null }> =>
+  get: (): Promise<{ artifactBaseUrl: string | null }> =>
     fetch('/api/config/public').then((r) => r.json()),
 };

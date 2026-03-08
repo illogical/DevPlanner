@@ -16,8 +16,8 @@ Refer to `BRAINSTORM.md` for the full context of design decisions and resolved q
 | `PORT` | No | `17103` | Port for the Elysia backend server |
 | `DEVPLANNER_BACKUP_DIR` | No | `{workspace}/_backups` | Directory for workspace backup archives |
 | `DISABLE_FILE_WATCHER` | No | `false` | When `true`, disables filesystem monitoring. All real-time updates come from API WebSocket broadcasts instead |
-| `OBSIDIAN_BASE_URL` | No | — | Base URL prefix for vault artifact links (e.g. `https://viewer.example.com/view?path=10-Projects`). Required to enable vault artifact creation. |
-| `OBSIDIAN_VAULT_PATH` | No | — | Absolute path to the Obsidian vault subfolder where artifact files are written. Required to enable vault artifact creation. |
+| `ARTIFACT_BASE_URL` | No | — | Base URL prefix for vault artifact links (e.g. `https://viewer.example.com/view?path=10-Projects`). Required to enable vault artifact creation and the Diff Viewer. |
+| `ARTIFACT_BASE_PATH` | No | — | Absolute path to the directory where artifact files are written. Required to enable vault artifact creation and the Diff Viewer. |
 
 The backend validates that `DEVPLANNER_WORKSPACE` exists and is a readable directory on startup. If missing, the server exits with a clear error message.
 
@@ -951,7 +951,7 @@ Workspace-level preferences persisted to `_preferences.json`.
 
 ### 3.10 Vault Artifact Endpoint
 
-Writes a Markdown file to the Obsidian Vault and attaches a link to the card. Requires `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in the server environment.
+Writes a Markdown file to the artifact vault directory and attaches a link to the card. Requires `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in the server environment.
 
 #### `POST /api/projects/:projectSlug/cards/:cardSlug/artifacts`
 
@@ -969,10 +969,10 @@ Writes a Markdown file to the Obsidian Vault and attaches a link to the card. Re
 - `kind` (optional, default `"doc"`) — Link kind: `doc | spec | ticket | repo | reference | other`
 
 **Behavior:**
-1. Validate `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` are configured
+1. Validate `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` are configured
 2. Generate filename: `{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`
-3. Write file to `{OBSIDIAN_VAULT_PATH}/{projectSlug}/{cardSlug}/{filename}`
-4. Construct URL: `{OBSIDIAN_BASE_URL}%2F{encoded-relative-path}`
+3. Write file to `{ARTIFACT_BASE_PATH}/{projectSlug}/{cardSlug}/{filename}`
+4. Construct URL: `{ARTIFACT_BASE_URL}%2F{encoded-relative-path}`
 5. Add link to card via `LinkService`
 6. Broadcast `link:added` WebSocket event
 
@@ -992,7 +992,7 @@ Writes a Markdown file to the Obsidian Vault and attaches a link to the card. Re
 ```
 
 **Errors:**
-- `400 OBSIDIAN_NOT_CONFIGURED` — `OBSIDIAN_BASE_URL` or `OBSIDIAN_VAULT_PATH` is not set
+- `400 ARTIFACT_NOT_CONFIGURED` — `ARTIFACT_BASE_URL` or `ARTIFACT_BASE_PATH` is not set
 - `400 INVALID_LABEL` — Label is empty or whitespace
 - `404` — Project or card not found
 - `409 DUPLICATE_LINK` — A link with this URL already exists on the card
@@ -1126,19 +1126,19 @@ Heartbeat response:
 
 #### `GET /api/vault/content`
 
-Serves raw file content from the local Obsidian vault. Used by the Diff Viewer to load vault artifact files.
+Serves raw file content from the artifact base directory. Used by the Diff Viewer to load vault artifact files for comparison.
 
 **Query parameters:**
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Relative path within `OBSIDIAN_VAULT_PATH` (URL-encoded). Example: `my-project%2Fmy-card%2Ffile.md` |
+| `path` | Yes | Relative path within `ARTIFACT_BASE_PATH` (URL-encoded). Example: `my-project%2Fmy-card%2Ffile.md` |
 
 **Behavior:**
-1. Returns `400 OBSIDIAN_NOT_CONFIGURED` if `OBSIDIAN_VAULT_PATH` is not set.
+1. Returns `400 ARTIFACT_NOT_CONFIGURED` if `ARTIFACT_BASE_PATH` is not set.
 2. Returns `400 INVALID_PATH` if `path` is empty or contains a traversal attempt (`../`).
-3. Resolves the absolute path as `path.resolve(OBSIDIAN_VAULT_PATH, decodedPath)`.
-4. Verifies the resolved path is inside `OBSIDIAN_VAULT_PATH` (path traversal guard).
+3. Resolves the absolute path as `path.resolve(ARTIFACT_BASE_PATH, decodedPath)`.
+4. Verifies the resolved path is inside `ARTIFACT_BASE_PATH` (path traversal guard).
 5. Returns `404 FILE_NOT_FOUND` if the file does not exist.
 6. Returns the raw file content with `Content-Type: text/plain; charset=utf-8`.
 
@@ -1148,7 +1148,7 @@ Serves raw file content from the local Obsidian vault. Used by the Diff Viewer t
 
 | Status | Error | Condition |
 |--------|-------|-----------|
-| `400` | `OBSIDIAN_NOT_CONFIGURED` | `OBSIDIAN_VAULT_PATH` env var not set |
+| `400` | `ARTIFACT_NOT_CONFIGURED` | `ARTIFACT_BASE_PATH` env var not set |
 | `400` | `INVALID_PATH` | Empty path or path traversal detected |
 | `404` | `FILE_NOT_FOUND` | File not found at resolved path |
 
@@ -1158,16 +1158,16 @@ Serves raw file content from the local Obsidian vault. Used by the Diff Viewer t
 
 #### `GET /api/config/public`
 
-Returns safe public configuration values for the frontend. Used by the Diff Viewer and CardLinks to determine vault artifact link detection.
+Returns safe public configuration values for the frontend. The frontend uses `artifactBaseUrl` to detect which card links are vault artifact links (those whose URL starts with `artifactBaseUrl`) and to build the `/diff?left=<path>` Diff Viewer URL. Exposing this via an API endpoint keeps configuration centralised on the backend and avoids baking server-side env vars into the frontend bundle at build time.
 
 **Response `200`:**
 ```json
 {
-  "obsidianBaseUrl": "https://vaultpad.example.com/view?path=10-Projects"
+  "artifactBaseUrl": "https://viewer.example.com/view?path=10-Projects"
 }
 ```
 
-If `OBSIDIAN_BASE_URL` is not configured, `obsidianBaseUrl` is `null`.
+If `ARTIFACT_BASE_URL` is not configured, `artifactBaseUrl` is `null`.
 
 ---
 
@@ -1313,11 +1313,11 @@ class LinkService {
 
 #### `VaultService`
 
-Writes Markdown artifact files to the Obsidian Vault and attaches them as links to cards.
+Writes Markdown artifact files to the artifact vault directory and attaches them as links to cards.
 
 ```typescript
 class VaultService {
-  constructor(workspacePath: string, vaultPath: string, obsidianBaseUrl: string);
+  constructor(workspacePath: string, vaultPath: string, artifactBaseUrl: string);
 
   createArtifact(
     projectSlug: string,
@@ -1326,10 +1326,12 @@ class VaultService {
     kind: LinkKind,
     content: string
   ): Promise<{ link: CardLink; filePath: string }>;
+
+  readArtifactContent(relativePath: string): Promise<string>;
 }
 ```
 
-Files are written to `{vaultPath}/{projectSlug}/{cardSlug}/{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`. The URL is constructed as `{obsidianBaseUrl}%2F{url-encoded-relative-path}`.
+Files are written to `{vaultPath}/{projectSlug}/{cardSlug}/{YYYY-MM-DD_HH-MM-SS}_{UPPERCASE-LABEL-SLUG}.md`. The URL is constructed as `{artifactBaseUrl}%2F{url-encoded-relative-path}`.
 
 #### `HistoryService`
 
@@ -1663,9 +1665,9 @@ The **CardLinks** section in the card detail panel includes an "Upload File" but
 - Label field (pre-filled from filename without extension, editable)
 - Kind selector (same options as the URL link form)
 
-On save, the file content is read client-side and sent to `POST /api/projects/:slug/cards/:card/artifacts`. The API writes the file to the Obsidian Vault and returns a link object that is immediately appended to `activeCard.frontmatter.links`.
+On save, the file content is read client-side and sent to `POST /api/projects/:slug/cards/:card/artifacts`. The API writes the file to the artifact vault directory and returns a link object that is immediately appended to `activeCard.frontmatter.links`.
 
-If `OBSIDIAN_BASE_URL` or `OBSIDIAN_VAULT_PATH` is not configured, a friendly error is shown: *"Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable file uploads."*
+If `ARTIFACT_BASE_URL` or `ARTIFACT_BASE_PATH` is not configured, a friendly error is shown.
 
 ---
 

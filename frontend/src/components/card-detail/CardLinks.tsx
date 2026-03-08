@@ -182,8 +182,8 @@ function UploadLinkForm({ cardSlug, onDone }: UploadFormProps) {
       onDone();
     } catch (err: unknown) {
       const e = err as { error?: string; message?: string };
-      if (e?.error === 'OBSIDIAN_NOT_CONFIGURED') {
-        setError('Set OBSIDIAN_BASE_URL in .env to enable file uploads.');
+      if (e?.error === 'ARTIFACT_NOT_CONFIGURED') {
+        setError('Set ARTIFACT_BASE_URL in .env to enable file uploads.');
       } else {
         setError(e?.message ?? 'Failed to upload file.');
       }
@@ -266,11 +266,11 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [obsidianBaseUrl, setObsidianBaseUrl] = useState<string | null>(null);
+  const [artifactBaseUrl, setArtifactBaseUrl] = useState<string | null>(null);
 
   // Fetch public config once per mount to determine vault artifact links
   useEffect(() => {
-    publicConfigApi.get().then((cfg) => setObsidianBaseUrl(cfg.obsidianBaseUrl)).catch((err) => {
+    publicConfigApi.get().then((cfg) => setArtifactBaseUrl(cfg.artifactBaseUrl)).catch((err) => {
       console.warn('Could not load public config (vault diff buttons will be hidden):', err);
     });
   }, []);
@@ -457,9 +457,9 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                   ) : (
                     <>
                       {/* Diff Viewer button — only for vault artifact links */}
-                      {obsidianBaseUrl && link.url.startsWith(obsidianBaseUrl) && (
+                      {artifactBaseUrl && link.url.startsWith(artifactBaseUrl) && (
                         <button
-                          onClick={() => window.open(buildDiffUrl(link.url, obsidianBaseUrl), '_blank')}
+                          onClick={() => window.open(buildDiffUrl(link.url, artifactBaseUrl), '_blank')}
                           title="Open in Diff Viewer"
                           className="p-1 rounded text-gray-400 hover:text-teal-300 hover:bg-gray-700 transition-colors"
                         >

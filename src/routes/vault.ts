@@ -4,7 +4,7 @@ import { VaultService } from '../services/vault.service';
 
 function toHttpStatus(error: string): number {
   switch (error) {
-    case 'OBSIDIAN_NOT_CONFIGURED':
+    case 'ARTIFACT_NOT_CONFIGURED':
     case 'INVALID_PATH':
       return 400;
     case 'FILE_NOT_FOUND':
@@ -19,13 +19,13 @@ export const vaultRoutes = new Elysia()
     '/api/vault/content',
     async ({ query, set }) => {
       const config = ConfigService.getInstance();
-      const { obsidianVaultPath } = config;
+      const { artifactBasePath } = config;
 
-      if (!obsidianVaultPath) {
+      if (!artifactBasePath) {
         set.status = 400;
         return {
-          error: 'OBSIDIAN_NOT_CONFIGURED',
-          message: 'Set OBSIDIAN_VAULT_PATH in .env to enable vault file reading.',
+          error: 'ARTIFACT_NOT_CONFIGURED',
+          message: 'Set ARTIFACT_BASE_PATH in .env to enable vault file reading.',
         };
       }
 
@@ -38,7 +38,7 @@ export const vaultRoutes = new Elysia()
         };
       }
 
-      const vaultService = new VaultService('', obsidianVaultPath, config.obsidianBaseUrl ?? '');
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
 
       try {
         const content = await vaultService.readArtifactContent(relativePath);
