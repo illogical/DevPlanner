@@ -107,7 +107,7 @@ export function FolderColumn({ folders, activePath, onSelect }: FolderColumnProp
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
             </svg>
 
-            <span className={cn("text-sm truncate font-medium", isActive && "text-amber-500/90")}>{f.name || '/'}</span>
+            <span className={cn("text-sm truncate font-medium", isActive && "text-amber-500")}>{f.name || '/'}</span>
           </div>
           {f.count > 0 && (
             <span className="text-[10px] text-gray-500 bg-gray-800/80 rounded px-1.5 py-0.5 shrink-0 ml-2 font-mono">

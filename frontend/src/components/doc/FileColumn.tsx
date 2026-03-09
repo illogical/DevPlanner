@@ -40,7 +40,7 @@ export function FileColumn({ files, currentFilePath, gitStatuses, onSelect }: Fi
           >
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
-                <div className={cn("text-sm truncate", isCurrent && "text-amber-500/90 font-medium")}>{title}</div>
+                <div className={cn("text-sm truncate", isCurrent && "text-amber-500 font-medium")}>{title}</div>
                 {stamp && (
                   <div className="text-xs text-gray-500 mt-0.5">{stamp}</div>
                 )}
