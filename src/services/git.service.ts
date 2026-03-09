@@ -118,7 +118,12 @@ export class GitService {
 
   async getFileAtRef(relativePath: string, ref: 'staged' | 'HEAD'): Promise<string> {
     this.validatePath(relativePath);
-    const gitRef = ref === 'staged' ? `:${relativePath}` : `HEAD:${relativePath}`;
+    // `git show HEAD:<path>` requires path relative to repo root, not cwd.
+    // `git rev-parse --show-prefix` returns the prefix of cwd relative to root (e.g. "10-Projects/").
+    const prefixResult = runGit(['rev-parse', '--show-prefix'], this.vaultPath);
+    const prefix = prefixResult.stdout.trim(); // trailing slash included, or "" at root
+    const gitRelPath = prefix ? `${prefix}${relativePath}` : relativePath;
+    const gitRef = ref === 'staged' ? `:${gitRelPath}` : `HEAD:${gitRelPath}`;
     const result = runGit(['show', gitRef], this.vaultPath);
     if (result.exitCode !== 0) throw { error: 'GIT_ERROR', message: result.stderr.trim() };
     return result.stdout;
