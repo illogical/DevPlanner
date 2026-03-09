@@ -87,10 +87,11 @@ export function AppNavBar() {
   const {
     docFilePath,
     lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen,
+    activeProjectSlug,
     navBackStack, navForwardStack,
     consumeNavBack, consumeNavForward,
     openCardDetail, closeCardDetail,
-    navigateToFile,
+    navigateToFile, setActiveProject,
   } = useStore();
 
   const getDocPath = () => {
@@ -104,16 +105,23 @@ export function AppNavBar() {
 
   const isKanban = !isDocView;
 
+  const restoreKanbanEntry = (entry: { type: 'kanban'; cardSlug?: string; projectSlug?: string }) => {
+    navigate('/');
+    if (entry.projectSlug && entry.projectSlug !== activeProjectSlug) {
+      setActiveProject(entry.projectSlug, true);
+    }
+    if (entry.cardSlug) {
+      openCardDetail(entry.cardSlug, true);
+    } else {
+      closeCardDetail(true);
+    }
+  };
+
   const handleNavBack = () => {
     const entry = consumeNavBack();
     if (!entry) return;
     if (entry.type === 'kanban') {
-      navigate('/');
-      if (entry.cardSlug) {
-        openCardDetail(entry.cardSlug);
-      } else {
-        closeCardDetail();
-      }
+      restoreKanbanEntry(entry);
     } else {
       navigate(`/${lastDocMode}?path=${encodeURIComponent(entry.filePath)}`);
       navigateToFile(entry.filePath, 'replace');
@@ -124,12 +132,7 @@ export function AppNavBar() {
     const entry = consumeNavForward();
     if (!entry) return;
     if (entry.type === 'kanban') {
-      navigate('/');
-      if (entry.cardSlug) {
-        openCardDetail(entry.cardSlug);
-      } else {
-        closeCardDetail();
-      }
+      restoreKanbanEntry(entry);
     } else {
       navigate(`/${lastDocMode}?path=${encodeURIComponent(entry.filePath)}`);
       navigateToFile(entry.filePath, 'replace');

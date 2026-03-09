@@ -63,7 +63,7 @@ export interface ProjectSlice {
   loadProjects: () => Promise<void>;
   createProject: (name: string, description?: string) => Promise<void>;
   archiveProject: (slug: string) => Promise<void>;
-  setActiveProject: (slug: string) => void;
+  setActiveProject: (slug: string, skipHistory?: boolean) => void;
   loadCards: () => Promise<void>;
   createCard: (title: string, lane?: string) => Promise<void>;
   archiveCard: (cardSlug: string) => Promise<void>;
@@ -78,8 +78,8 @@ export interface CardSlice {
   isDetailPanelOpen: boolean;
   isLoadingCardDetail: boolean;
 
-  openCardDetail: (cardSlug: string) => Promise<void>;
-  closeCardDetail: () => void;
+  openCardDetail: (cardSlug: string, skipHistory?: boolean) => Promise<void>;
+  closeCardDetail: (skipHistory?: boolean) => void;
   updateCard: (cardSlug: string, updates: UpdateCardInput) => Promise<void>;
   toggleTask: (cardSlug: string, taskIndex: number, checked: boolean) => Promise<void>;
   addTask: (cardSlug: string, text: string) => Promise<void>;
