@@ -9,7 +9,6 @@ export function BottomBar() {
         fbIsOpen,
         docFilePath,
         setFbActivePath,
-        setFbActiveRoot,
         toggleFileBrowser,
         navigateToFile,
         gitCurrentState,
@@ -21,11 +20,8 @@ export function BottomBar() {
     const handleBreadcrumbNavigate = (path: string) => {
         if (path) {
             setFbActivePath(path);
-            const root = path.split('/')[0];
-            setFbActiveRoot(root);
         } else {
             setFbActivePath('');
-            setFbActiveRoot(null);
         }
         if (!fbIsOpen) {
             toggleFileBrowser();
@@ -43,7 +39,21 @@ export function BottomBar() {
     const filename = docFilePath ? docFilePath.split('/').pop() : null;
 
     return (
-        <div className="h-10 border-t border-gray-800 bg-gray-900 flex items-center px-4 shrink-0 relative">
+        <div
+            className="h-10 border-t border-gray-800 bg-gray-900 flex items-center px-4 shrink-0 relative cursor-pointer"
+            onClick={() => {
+                if (docFilePath) {
+                    const parts = docFilePath.split('/');
+                    if (parts.length > 1) {
+                        setFbActivePath(parts.slice(0, -1).join('/'));
+                    } else {
+                        setFbActivePath('');
+                    }
+                }
+                if (!fbIsOpen) toggleFileBrowser();
+                else toggleFileBrowser(); // just toggle
+            }}
+        >
             <div className="flex-1 flex items-center relative z-10 w-full h-full">
                 <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                     <FileBreadcrumb
@@ -67,24 +77,6 @@ export function BottomBar() {
                         }
                     />
                 </div>
-
-                <button
-                    className="flex-1 h-full cursor-pointer opacity-0"
-                    onClick={() => {
-                        if (docFilePath) {
-                            const parts = docFilePath.split('/');
-                            if (parts.length > 1) {
-                                setFbActivePath(parts.slice(0, -1).join('/'));
-                                setFbActiveRoot(parts[0]);
-                            } else {
-                                setFbActivePath('');
-                                setFbActiveRoot(null);
-                            }
-                        }
-                        if (!fbIsOpen) toggleFileBrowser();
-                    }}
-                    aria-label="Toggle file browser"
-                />
             </div>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <svg

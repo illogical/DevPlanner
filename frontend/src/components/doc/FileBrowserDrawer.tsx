@@ -34,10 +34,7 @@ export function FileBrowserDrawer() {
           transition={{ duration: 0.2, ease: 'easeInOut' }}
           className="border-t-2 border-amber-500 bg-gray-900 overflow-hidden shrink-0"
         >
-          <div
-            className="flex items-center justify-between px-4 py-2 border-b border-gray-800 cursor-pointer hover:bg-gray-800/50 transition-colors"
-            onClick={closeFileBrowser}
-          >
+          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800">
             <span className="text-sm font-medium text-gray-300">File Browser</span>
 
             <div className="flex items-center gap-2">

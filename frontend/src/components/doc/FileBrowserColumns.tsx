@@ -10,41 +10,28 @@ export function FileBrowserColumns() {
 
   const {
     fbFolders,
-    fbActiveRoot,
     fbActivePath,
     docFilePath,
     gitStatuses,
-    setFbActiveRoot,
     setFbActivePath,
   } = useStore();
 
-  // Determine navigate target based on current route
   const getNavTarget = (filePath: string) => {
     if (location.pathname.startsWith('/editor')) return `/editor?path=${encodeURIComponent(filePath)}`;
     if (location.pathname.startsWith('/diff')) return `/diff?left=${encodeURIComponent(filePath)}`;
     return `/viewer?path=${encodeURIComponent(filePath)}`;
   };
 
-  // Top-level folders (no parent)
-  const rootFolders = fbFolders.filter((f) => f.parentPath === null || f.parentPath === '');
+  const isRootLevel = !fbActivePath || !fbActivePath.includes('/');
 
-  // Subfolders of active root
-  const subFolders = fbActiveRoot
-    ? fbFolders.filter(
-      (f) =>
-        (f.parentPath === fbActiveRoot || f.parentPath?.startsWith(fbActiveRoot + '/')) &&
-        f.parentPath === fbActiveRoot
-    )
-    : [];
+  const displayFolderPath = isRootLevel
+    ? (fbActivePath || fbFolders[0]?.path || '')
+    : fbActivePath.split('/').slice(0, -1).join('/');
 
-  // Files in active path folder
+  const subFolders = fbFolders.filter(f => f.parentPath === displayFolderPath);
+
   const activeFolderData = fbFolders.find((f) => f.path === fbActivePath);
   const files = activeFolderData?.files ?? [];
-
-  const handleRootSelect = (folder: TreeFolder) => {
-    setFbActiveRoot(folder.path);
-    setFbActivePath(folder.path);
-  };
 
   const handleSubFolderSelect = (folder: TreeFolder) => {
     setFbActivePath(folder.path);
@@ -52,36 +39,19 @@ export function FileBrowserColumns() {
 
   const handleFileSelect = (filePath: string) => {
     navigate(getNavTarget(filePath));
-    // Specifically leaving closeFileBrowser() out as per requirements
   };
-
-
 
   return (
     <div className="flex flex-col h-full">
+      <div className="flex-1 grid grid-cols-2 overflow-hidden border-t border-gray-800">
 
-      <div className="flex-1 grid grid-cols-3 overflow-hidden border-t border-gray-800">
-        {/* Column 1: Root folders */}
-        <div className="border-r border-gray-800 overflow-hidden">
-          <FolderColumn
-            folders={rootFolders}
-            activePath={fbActiveRoot ?? ''}
-            onSelect={handleRootSelect}
-          />
-        </div>
-
-        {/* Column 2: Subfolders */}
+        {/* Column 1: Subfolders */}
         <div className="border-r border-gray-800 overflow-hidden flex flex-col">
-          {fbActiveRoot && (
+          {displayFolderPath && (
             <div className="px-3 py-2 border-b border-gray-800 flex items-center gap-2 shrink-0 bg-gray-800/20">
               <button
-                onClick={() => {
-                  if (fbActivePath && fbActivePath !== fbActiveRoot) {
-                    const parent = fbActivePath.split('/').slice(0, -1).join('/');
-                    setFbActivePath(parent);
-                  }
-                }}
-                disabled={!fbActivePath || fbActivePath === fbActiveRoot}
+                onClick={() => setFbActivePath(displayFolderPath)}
+                disabled={fbActivePath === displayFolderPath}
                 className="text-gray-400 hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-0.5 rounded shrink-0"
                 title="Go up one folder"
                 aria-label="Go up one folder"
@@ -92,9 +62,9 @@ export function FileBrowserColumns() {
               </button>
               <div
                 className="text-sm font-medium text-gray-300 truncate"
-                title={fbActivePath || fbActiveRoot}
+                title={displayFolderPath}
               >
-                {fbActivePath || fbActiveRoot}
+                {displayFolderPath.split('/').pop()}
               </div>
             </div>
           )}
@@ -107,7 +77,7 @@ export function FileBrowserColumns() {
           </div>
         </div>
 
-        {/* Column 3: Files */}
+        {/* Column 2: Files */}
         <div className="overflow-hidden">
           <FileColumn
             files={files}
