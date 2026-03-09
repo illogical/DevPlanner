@@ -207,6 +207,43 @@ Update the `refLabel` helper in `DiffViewerPage` to use the active mode's labels
 
 ---
 
+---
+
+## BottomBar Quick-Access Diff Buttons
+
+A second, lower-friction entry point to the diff viewer. Compact buttons appear directly in the **BottomBar** to the left of the `GitStatusDot` pill, visible whenever a file with git changes is open. One click navigates straight to the appropriate diff view — no panel required.
+
+### Component
+
+**File:** `frontend/src/components/diff/DiffQuickButtons.tsx`
+
+Props: `filePath: string`, `gitState: GitState | null | undefined`
+
+Renders nothing for `clean`, `untracked`, `ignored`, `outside-repo`, and `unknown` states.
+
+### Button visibility by state
+
+| State | Buttons shown |
+|---|---|
+| `modified` | **All changes** (HEAD → working) |
+| `staged` | **Staged diff** (HEAD → staged) |
+| `modified-staged` | **All changes** · **Staged diff** · **Unstaged** |
+| `clean` / `untracked` / others | *(none)* |
+
+**Rationale for `staged` state:** When nothing is left unstaged, working tree == index, so `HEAD→working` and `HEAD→staged` produce identical diffs. Showing only **Staged diff** avoids presenting a duplicate button under a different label.
+
+**Rationale for `modified-staged` state:** All three comparisons are distinct and meaningful — the full picture (`HEAD→working`), exactly what will be committed (`HEAD→staged`), and what will be left out (`staged→working`).
+
+### Integration
+
+`DiffQuickButtons` is imported and rendered in `BottomBar.tsx` inside the right-side stop-propagation div, immediately before the `GitStatusDot`. Clicking a button calls `navigate()` — no store mutation required.
+
+### Interaction with GitCommitPanel
+
+The diff navigation buttons in the Git Actions panel (GitCommitPanel) are preserved. The BottomBar buttons are an additional shortcut — the panel buttons remain for users who already have it open to perform git operations.
+
+---
+
 ## File Changes
 
 | File | Change |
@@ -214,6 +251,8 @@ Update the `refLabel` helper in `DiffViewerPage` to use the active mode's labels
 | `frontend/src/components/diff/DiffGitModeBar.tsx` | **New** — tab strip for git comparison modes |
 | `frontend/src/pages/DiffViewerPage.tsx` | Add git status fetch, `getAvailableModes()`, active mode derivation, `DiffGitModeBar` integration, pane label update |
 | `frontend/src/api/client.ts` | Already has `gitApi.getStatus()` and `gitApi.show()` — no changes needed |
+| `frontend/src/components/diff/DiffQuickButtons.tsx` | **New** — compact diff jump buttons for BottomBar |
+| `frontend/src/components/layout/BottomBar.tsx` | Import and render `DiffQuickButtons` left of `GitStatusDot` |
 
 ---
 

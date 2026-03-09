@@ -136,9 +136,22 @@ Click the status pill to open the Git Actions panel, which shows context-sensiti
 
 > **Partial staged state**: When both staged and unstaged changes exist, an amber warning is shown. Only the staged portion will be committed — unstaged changes remain in the working tree.
 
-### Diff views
+### Diff views — BottomBar quick-access buttons
 
-Diff buttons appear in the Git Actions panel based on the current state:
+Compact diff jump buttons appear directly in the **BottomBar** to the left of the status pill whenever a file with git changes is open. One click navigates straight to the correct diff view — no panel required.
+
+| State | Buttons |
+|---|---|
+| `modified` | **All changes** (HEAD → working) |
+| `staged` | **Staged diff** (HEAD → staged) |
+| `modified-staged` | **All changes** · **Staged diff** · **Unstaged** |
+| `clean` / `untracked` / others | *(none)* |
+
+Implemented in `components/diff/DiffQuickButtons.tsx`, rendered by `BottomBar.tsx`.
+
+### Diff views — Git Actions panel
+
+The Git Actions panel (opened by clicking the status pill) also includes context-sensitive diff navigation buttons:
 
 | State | Button | What it shows |
 |---|---|---|
