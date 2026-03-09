@@ -52,30 +52,29 @@ export function GitStatusDot({ state, loading, onClick, className, showLabel }: 
   const label = state ? STATE_LABELS[state] : 'No git status';
   const shortLabel = state ? STATE_SHORT_LABELS[state] : '';
 
-  const dot = (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={cn(
-        'w-2 h-2 rounded-full inline-block shrink-0',
-        colorClass,
-        onClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default',
-        className
-      )}
-    />
-  );
-
   if (!showLabel || !state) {
-    return dot;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={label}
+        aria-label={label}
+        className={cn(
+          'w-2 h-2 rounded-full inline-block shrink-0',
+          colorClass,
+          onClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default',
+          className
+        )}
+      />
+    );
   }
 
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        "flex items-center gap-2 px-2 py-1 rounded-full border border-transparent transition-colors",
-        onClick ? "cursor-pointer hover:bg-gray-800 hover:border-gray-700" : ""
+        "flex items-center gap-2 pl-2.5 pr-2 py-1 rounded-full border transition-colors outline-none",
+        onClick ? "cursor-pointer bg-gray-800/80 border-gray-700/60 hover:bg-gray-700 hover:border-gray-600/80" : "border-transparent bg-transparent"
       )}
       onClick={onClick}
       title={label}
@@ -83,7 +82,14 @@ export function GitStatusDot({ state, loading, onClick, className, showLabel }: 
       <span className="text-xs text-gray-400 select-none">
         {shortLabel}
       </span>
-      {dot}
-    </div>
+      <span
+        aria-label={label}
+        className={cn(
+          'w-2 h-2 rounded-full inline-block shrink-0',
+          colorClass,
+          className
+        )}
+      />
+    </button>
   );
 }
