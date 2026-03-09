@@ -4,7 +4,7 @@ import { diffLines } from 'diff';
 import { DiffToolbar } from '../components/diff/DiffToolbar';
 import { DiffLayout } from '../components/diff/DiffLayout';
 import { useSyncScroll } from '../hooks/useSyncScroll';
-import { vaultApi } from '../api/client';
+import { vaultApi, gitApi } from '../api/client';
 import type { DiffLineData } from '../components/diff/DiffContent';
 import type { LineType } from '../components/diff/DiffLine';
 
@@ -111,6 +111,36 @@ export function DiffViewerPage() {
           error: err.message || 'Failed to load left pane file.',
         }));
       });
+  }, [searchParams]);
+
+  // Load both panes from git refs (?gitPath=, ?leftRef=, ?rightRef=)
+  useEffect(() => {
+    const gitPath = searchParams.get('gitPath');
+    const leftRef = searchParams.get('leftRef') as 'staged' | 'HEAD' | 'working' | null;
+    const rightRef = searchParams.get('rightRef') as 'staged' | 'HEAD' | 'working' | null;
+    if (!gitPath || !leftRef || !rightRef) return;
+
+    const filename = gitPath.split('/').pop() ?? gitPath;
+    setState((s) => ({ ...s, loading: true, error: null }));
+
+    const loadSide = (ref: 'staged' | 'HEAD' | 'working'): Promise<string> =>
+      ref === 'working' ? vaultApi.getContent(gitPath) : gitApi.show(gitPath, ref);
+
+    const refLabel = (ref: string) =>
+      ref === 'HEAD' ? `${filename} (last commit)` : ref === 'staged' ? `${filename} (staged)` : filename;
+
+    Promise.all([loadSide(leftRef), loadSide(rightRef)])
+      .then(([left, right]) => {
+        setState((s) => ({
+          ...s,
+          leftContent: left,
+          leftFilename: refLabel(leftRef),
+          rightContent: right,
+          rightFilename: refLabel(rightRef),
+          loading: false,
+        }));
+      })
+      .catch((err: Error) => setState((s) => ({ ...s, loading: false, error: err.message })));
   }, [searchParams]);
 
   // Load right pane from optional ?right= URL param on mount

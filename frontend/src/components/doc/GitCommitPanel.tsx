@@ -62,40 +62,36 @@ export function GitCommitPanel() {
 
   const navigate = useNavigate();
 
+  const navigateDiff = (leftRef: string, rightRef: string) => {
+    toggleCommitPanel();
+    navigate(`/diff?gitPath=${encodeURIComponent(docFilePath)}&leftRef=${leftRef}&rightRef=${rightRef}`);
+  };
+
   return (
     <div className="absolute right-0 bottom-full mb-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-gray-200">Git Actions</span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => {
-              toggleCommitPanel();
-              navigate(`/diff?left=${encodeURIComponent(docFilePath)}`);
-            }}
-            className="text-gray-400 hover:text-gray-200 p-0.5 rounded"
-            title="Compare with Last Commit"
-            aria-label="Compare"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-          </button>
-          <button
-            onClick={toggleCommitPanel}
-            className="text-gray-400 hover:text-gray-200 p-0.5 rounded"
-            aria-label="Close"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <button
+          onClick={toggleCommitPanel}
+          className="text-gray-400 hover:text-gray-200 p-0.5 rounded"
+          aria-label="Close"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       {state === 'clean' ? (
         <p className="text-sm text-gray-400">All changes committed.</p>
       ) : (
         <>
+          {state === 'modified-staged' && (
+            <p className="text-xs text-amber-400 bg-amber-900/30 border border-amber-800 rounded px-2 py-1.5 mb-3">
+              Only staged changes will be committed. Unstaged changes will remain in your working tree.
+            </p>
+          )}
+
           <div className="flex flex-wrap gap-2 mb-3">
             {canDiscard && (
               <button
@@ -123,6 +119,42 @@ export function GitCommitPanel() {
               >
                 Unstage
               </button>
+            )}
+          </div>
+
+          {/* Diff navigation — context-sensitive by state */}
+          <div className="flex flex-col gap-1 mb-3">
+            {state === 'modified' && (
+              <button
+                onClick={() => navigateDiff('HEAD', 'working')}
+                className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+              >
+                View changes (HEAD → working)
+              </button>
+            )}
+            {state === 'staged' && (
+              <button
+                onClick={() => navigateDiff('HEAD', 'staged')}
+                className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+              >
+                View staged diff (HEAD → staged)
+              </button>
+            )}
+            {state === 'modified-staged' && (
+              <>
+                <button
+                  onClick={() => navigateDiff('staged', 'working')}
+                  className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+                >
+                  View unstaged changes (staged → working)
+                </button>
+                <button
+                  onClick={() => navigateDiff('HEAD', 'working')}
+                  className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+                >
+                  View all changes (HEAD → working)
+                </button>
+              </>
             )}
           </div>
 

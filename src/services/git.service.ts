@@ -115,4 +115,12 @@ export class GitService {
     const result = runGit(args, this.vaultPath);
     return result.stdout;
   }
+
+  async getFileAtRef(relativePath: string, ref: 'staged' | 'HEAD'): Promise<string> {
+    this.validatePath(relativePath);
+    const gitRef = ref === 'staged' ? `:${relativePath}` : `HEAD:${relativePath}`;
+    const result = runGit(['show', gitRef], this.vaultPath);
+    if (result.exitCode !== 0) throw { error: 'GIT_ERROR', message: result.stderr.trim() };
+    return result.stdout;
+  }
 }

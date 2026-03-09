@@ -11,9 +11,9 @@ interface GitStatusDotProps {
 
 const STATE_COLORS: Record<GitState, string> = {
   clean: 'bg-emerald-500',
-  modified: 'bg-orange-500',
+  modified: 'bg-red-500',
   staged: 'bg-blue-500',
-  'modified-staged': 'bg-yellow-500',
+  'modified-staged': 'bg-yellow-500', // used only for small single-dot (FileColumn)
   untracked: 'bg-red-500',
   ignored: 'bg-gray-500',
   'outside-repo': 'bg-gray-500',
@@ -21,24 +21,24 @@ const STATE_COLORS: Record<GitState, string> = {
 };
 
 const STATE_LABELS: Record<GitState, string> = {
-  clean: 'Clean',
-  modified: 'Modified (unstaged)',
-  staged: 'Staged',
-  'modified-staged': 'Modified & staged',
-  untracked: 'Untracked',
-  ignored: 'Ignored',
-  'outside-repo': 'Outside git repo',
-  unknown: 'Unknown status',
+  clean: 'Clean — all changes committed',
+  modified: 'Modified — unstaged changes',
+  staged: 'Staged — ready to commit',
+  'modified-staged': 'Staged + unstaged changes',
+  untracked: 'Untracked — not yet added to git',
+  ignored: 'Ignored by .gitignore',
+  'outside-repo': 'Not inside a git repository',
+  unknown: 'Git status unknown',
 };
 
 const STATE_SHORT_LABELS: Record<GitState, string> = {
   clean: 'Clean',
-  modified: 'Modified',
+  modified: 'Unstaged',
   staged: 'Staged',
-  'modified-staged': 'Staged*',
+  'modified-staged': 'Partial staged',
   untracked: 'Untracked',
   ignored: 'Ignored',
-  'outside-repo': 'Outside',
+  'outside-repo': 'Outside repo',
   unknown: 'Unknown',
 };
 
@@ -69,6 +69,19 @@ export function GitStatusDot({ state, loading, onClick, className, showLabel }: 
     );
   }
 
+  // For the pill, modified-staged shows two dots (blue=staged, red=unstaged) instead of one
+  const dots = state === 'modified-staged' ? (
+    <span className="flex items-center gap-0.5">
+      <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
+      <span className="w-2 h-2 rounded-full bg-red-500 inline-block shrink-0" />
+    </span>
+  ) : (
+    <span
+      aria-label={label}
+      className={cn('w-2 h-2 rounded-full inline-block shrink-0', colorClass, className)}
+    />
+  );
+
   return (
     <button
       type="button"
@@ -82,14 +95,7 @@ export function GitStatusDot({ state, loading, onClick, className, showLabel }: 
       <span className="text-xs text-gray-400 select-none">
         {shortLabel}
       </span>
-      <span
-        aria-label={label}
-        className={cn(
-          'w-2 h-2 rounded-full inline-block shrink-0',
-          colorClass,
-          className
-        )}
-      />
+      {dots}
     </button>
   );
 }

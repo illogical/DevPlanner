@@ -347,6 +347,12 @@ export const gitApi = {
       if (!r.ok) throw new Error(`Failed to get diff: ${r.status}`);
       return r.text();
     }),
+
+  show: (filePath: string, ref: 'staged' | 'HEAD'): Promise<string> =>
+    fetch(`/api/vault/git/show?path=${encodeURIComponent(filePath)}&ref=${ref}`).then((r) => {
+      if (!r.ok) throw new Error(`Failed to get file at ref: ${r.status}`);
+      return r.text();
+    }),
 };
 
 // Public config endpoint — exposes safe server-side config values to the frontend.

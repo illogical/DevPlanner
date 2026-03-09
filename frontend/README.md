@@ -110,6 +110,45 @@ The Vite dev server proxies all `/api` requests to the backend at `http://localh
 - **Framer Motion transitions**: The card detail panel and activity panel use spring animations for slide-in/slide-out. Cards animate on reorder.
 - **Optimistic updates**: Task toggles and card moves update the store immediately, then sync with the server. On failure, the store rolls back.
 
+## Git Integration
+
+The editor and file browser include a full single-file Git workflow. Each open file shows a status pill in the bottom bar that refreshes immediately after save and on file selection (no polling delay for these events).
+
+### Status colors
+
+| Color | State | Meaning |
+|---|---|---|
+| Emerald | Clean | All changes committed |
+| Red | Untracked | New file, not yet added to git |
+| Red | Unstaged | Tracked file with working-tree changes, nothing staged |
+| Blue | Staged | All changes staged, ready to commit |
+| Blue + Red (two dots) | Partial staged | Staged changes AND additional unstaged changes exist |
+| Gray | Ignored / Outside repo / Unknown | Git not applicable |
+
+### Git Actions panel
+
+Click the status pill to open the Git Actions panel, which shows context-sensitive buttons:
+
+- **Stage** — add working-tree changes to the index (`git add`)
+- **Unstage** — remove staged changes from the index (`git reset HEAD`)
+- **Discard** — revert unstaged working-tree changes to the staged/committed version (`git restore --worktree`)
+- **Commit** — commit staged changes with a message (Enter to submit, Shift+Enter for newline)
+
+> **Partial staged state**: When both staged and unstaged changes exist, an amber warning is shown. Only the staged portion will be committed — unstaged changes remain in the working tree.
+
+### Diff views
+
+Diff buttons appear in the Git Actions panel based on the current state:
+
+| State | Button | What it shows |
+|---|---|---|
+| `modified` (unstaged) | View changes | Last commit (HEAD) vs current working tree |
+| `staged` | View staged diff | Last commit (HEAD) vs staged index — exactly what will be committed |
+| `modified-staged` | View unstaged changes | Staged index vs working tree — what will NOT be in the next commit |
+| `modified-staged` | View all changes | Last commit (HEAD) vs current working tree |
+
+The Diff Viewer is opened pre-loaded via URL params: `/diff?gitPath=<path>&leftRef=HEAD|staged&rightRef=working|staged`.
+
 ## Tech stack
 
 | Concern | Library |

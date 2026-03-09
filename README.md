@@ -307,6 +307,14 @@ All endpoints are under `/api` and return JSON.
 | `PATCH` | `/api/preferences` | Update preferences (incl. `digestAnchor`) |
 | `POST` | `/api/backup` | Create workspace backup (zip) |
 | `GET` | `/api/vault/content?path=` | Read raw vault artifact file content (requires `ARTIFACT_BASE_PATH`) |
+| `GET` | `/api/vault/git/status?path=` | Single-file git status |
+| `POST` | `/api/vault/git/statuses` | Batch git status for multiple files |
+| `POST` | `/api/vault/git/stage` | Stage a file (`git add`) |
+| `POST` | `/api/vault/git/unstage` | Unstage a file (`git reset HEAD`) |
+| `POST` | `/api/vault/git/discard` | Discard unstaged changes (`git restore --worktree`) |
+| `POST` | `/api/vault/git/commit` | Commit staged changes with a message |
+| `GET` | `/api/vault/git/diff?path=&mode=working\|staged` | Raw unified diff output |
+| `GET` | `/api/vault/git/show?path=&ref=staged\|HEAD` | File content at a git ref (index or last commit) |
 | `GET` | `/api/config/public` | Public server configuration (`artifactBaseUrl`) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
@@ -315,7 +323,8 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 ## Features
 
 ### Current
-- ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting; opens vault artifact files directly from card links
+- ✅ **Git Integration** — Per-file git status tracking with color-coded pill (clean/untracked/unstaged/staged/partial-staged); stage, unstage, discard, commit, and inline diff viewing from the editor bottom bar; status refreshes immediately on save and file selection
+- ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting; opens vault artifact files directly from card links; supports git-ref loading (HEAD, staged index, working tree)
 - ✅ **Kanban Board UI** - Drag-and-drop cards between lanes with collapsible lanes
 - ✅ **Card Management** - Create, edit, archive cards with Markdown content; description, `blockedReason` field, inline title/metadata editing
 - ✅ **Card IDs** - Unique identifiers (e.g., `DEV-42`) with project-configurable prefix

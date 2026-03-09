@@ -122,4 +122,20 @@ export const vaultGitRoutes = new Elysia()
       }
     },
     { query: t.Object({ path: t.String(), mode: t.Union([t.Literal('working'), t.Literal('staged')]) }) }
+  )
+  .get(
+    '/api/vault/git/show',
+    async ({ query, set }) => {
+      try {
+        const vaultPath = requireVaultPath();
+        const svc = new GitService(vaultPath);
+        const content = await svc.getFileAtRef(query.path, query.ref);
+        set.headers['Content-Type'] = 'text/plain; charset=utf-8';
+        return content;
+      } catch (err: any) {
+        set.status = toStatus(err);
+        return err;
+      }
+    },
+    { query: t.Object({ path: t.String(), ref: t.Union([t.Literal('staged'), t.Literal('HEAD')]) }) }
   );
