@@ -84,7 +84,7 @@ export function FolderColumn({ folders, activePath, onSelect }: FolderColumnProp
           onClick={() => onSelect(f)}
           className={cn(
             'w-full text-left py-1.5 flex items-center cursor-pointer transition-colors border-l-2',
-            isActive ? 'bg-amber-950/20 text-gray-100 border-amber-500/50' : 'text-gray-300 hover:bg-gray-800/50 border-transparent'
+            isActive ? 'bg-gray-800/80 text-gray-100 border-amber-500' : 'text-gray-300 hover:bg-gray-800/50 border-transparent'
           )}
           style={{ paddingLeft: `${depth * 12 + 8}px`, paddingRight: '12px' }}
         >

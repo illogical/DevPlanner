@@ -34,13 +34,13 @@ export function FileColumn({ files, currentFilePath, gitStatuses, onSelect }: Fi
             className={cn(
               'w-full text-left px-3 py-2 cursor-pointer transition-colors border-l-2',
               isCurrent
-                ? 'border border-amber-500/50 bg-amber-950/20 text-gray-100'
-                : 'border-transparent text-gray-300 hover:bg-gray-800'
+                ? 'bg-gray-800/80 border-amber-500 text-gray-100'
+                : 'border-transparent text-gray-300 hover:bg-gray-800/50'
             )}
           >
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
-                <div className="text-sm truncate">{title}</div>
+                <div className={cn("text-sm truncate", isCurrent && "text-amber-500/90 font-medium")}>{title}</div>
                 {stamp && (
                   <div className="text-xs text-gray-500 mt-0.5">{stamp}</div>
                 )}
