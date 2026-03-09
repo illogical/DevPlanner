@@ -324,7 +324,7 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 
 ### Current
 - ✅ **Git Integration** — Per-file git status tracking with color-coded pill (clean/untracked/unstaged/staged/partial-staged); stage, unstage, discard, commit, and inline diff viewing from the editor bottom bar; status refreshes immediately on save and file selection
-- ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting; opens vault artifact files directly from card links; supports git-ref loading (HEAD, staged index, working tree)
+- ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting; left pane = older version, right pane = newer version; git-aware mode switcher shows available comparisons (All changes / Staged diff / Unstaged changes) based on file's git state; opens vault artifact files directly from card links; manual mode supports drag-and-drop, paste, and file picker
 - ✅ **Kanban Board UI** - Drag-and-drop cards between lanes with collapsible lanes
 - ✅ **Card Management** - Create, edit, archive cards with Markdown content; description, `blockedReason` field, inline title/metadata editing
 - ✅ **Card IDs** - Unique identifiers (e.g., `DEV-42`) with project-configurable prefix

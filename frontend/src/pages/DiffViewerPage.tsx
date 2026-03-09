@@ -3,8 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { diffLines } from 'diff';
 import { DiffToolbar } from '../components/diff/DiffToolbar';
 import { DiffLayout } from '../components/diff/DiffLayout';
+import { DiffGitModeBar, getAvailableModes, getModeFromRefs } from '../components/diff/DiffGitModeBar';
+import type { DiffMode } from '../components/diff/DiffGitModeBar';
 import { useSyncScroll } from '../hooks/useSyncScroll';
 import { vaultApi, gitApi } from '../api/client';
+import type { GitState } from '../api/client';
 import type { DiffLineData } from '../components/diff/DiffContent';
 import type { LineType } from '../components/diff/DiffLine';
 
@@ -82,8 +85,9 @@ function computePaneLines(
 }
 
 export function DiffViewerPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [state, setState] = useState<DiffViewerState>(INITIAL_STATE);
+  const [gitFileState, setGitFileState] = useState<GitState | null>(null);
 
   const { leftRef, rightRef, onScroll } = useSyncScroll(state.syncScroll);
 
@@ -113,6 +117,13 @@ export function DiffViewerPage() {
       });
   }, [searchParams]);
 
+  // Fetch git status when gitPath is present (drives available mode tabs)
+  useEffect(() => {
+    const gitPath = searchParams.get('gitPath');
+    if (!gitPath) { setGitFileState(null); return; }
+    gitApi.getStatus(gitPath).then((r) => setGitFileState(r.state)).catch(() => setGitFileState(null));
+  }, [searchParams]);
+
   // Load both panes from git refs (?gitPath=, ?leftRef=, ?rightRef=)
   useEffect(() => {
     const gitPath = searchParams.get('gitPath');
@@ -120,23 +131,25 @@ export function DiffViewerPage() {
     const rightRef = searchParams.get('rightRef') as 'staged' | 'HEAD' | 'working' | null;
     if (!gitPath || !leftRef || !rightRef) return;
 
-    const filename = gitPath.split('/').pop() ?? gitPath;
     setState((s) => ({ ...s, loading: true, error: null }));
 
     const loadSide = (ref: 'staged' | 'HEAD' | 'working'): Promise<string> =>
       ref === 'working' ? vaultApi.getContent(gitPath) : gitApi.show(gitPath, ref);
 
-    const refLabel = (ref: string) =>
-      ref === 'HEAD' ? `${filename} (last commit)` : ref === 'staged' ? `${filename} (staged)` : filename;
+    // Use mode labels for pane headers (old on left, new on right)
+    const activeMode = getModeFromRefs(leftRef, rightRef);
+    const filename = gitPath.split('/').pop() ?? gitPath;
+    const leftLabel = activeMode?.leftLabel ?? `${filename} (${leftRef})`;
+    const rightLabel = activeMode?.rightLabel ?? `${filename} (${rightRef})`;
 
     Promise.all([loadSide(leftRef), loadSide(rightRef)])
       .then(([left, right]) => {
         setState((s) => ({
           ...s,
           leftContent: left,
-          leftFilename: refLabel(leftRef),
+          leftFilename: leftLabel,
           rightContent: right,
-          rightFilename: refLabel(rightRef),
+          rightFilename: rightLabel,
           loading: false,
         }));
       })
@@ -198,6 +211,18 @@ export function DiffViewerPage() {
     }));
   }, []);
 
+  // Switch git comparison mode by updating URL params (old on left, new on right is enforced by mode definitions)
+  const handleModeSelect = useCallback((mode: DiffMode) => {
+    const gitPath = searchParams.get('gitPath');
+    if (!gitPath) return;
+    setSearchParams({ gitPath, leftRef: mode.leftRef, rightRef: mode.rightRef });
+  }, [searchParams, setSearchParams]);
+
+  // Derived git mode state
+  const gitPath = searchParams.get('gitPath');
+  const availableModes = getAvailableModes(gitFileState);
+  const activeMode = getModeFromRefs(searchParams.get('leftRef'), searchParams.get('rightRef'));
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
 
@@ -211,6 +236,17 @@ export function DiffViewerPage() {
         onSwap={handleSwap}
         onClear={handleClear}
       />
+
+      {/* Git mode switcher — only shown when a git file is loaded with available comparisons */}
+      {gitPath && gitFileState && availableModes.length > 0 && (
+        <DiffGitModeBar
+          filename={gitPath.split('/').pop() ?? gitPath}
+          gitState={gitFileState}
+          modes={availableModes}
+          activeMode={activeMode}
+          onSelect={handleModeSelect}
+        />
+      )}
 
       {/* Error banner */}
       {state.error && (

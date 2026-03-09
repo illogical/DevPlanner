@@ -149,6 +149,46 @@ Diff buttons appear in the Git Actions panel based on the current state:
 
 The Diff Viewer is opened pre-loaded via URL params: `/diff?gitPath=<path>&leftRef=HEAD|staged&rightRef=working|staged`.
 
+## Diff Viewer (Compare tab)
+
+The Diff Viewer at `/diff` is a two-pane, side-by-side file comparison tool. The **left pane always shows the older version** and the **right pane always shows the newer version**.
+
+### Modes
+
+**Manual mode** — load any two files by drag-and-drop, paste, URL params `?left=&right=`, or the file picker button in each pane header.
+
+**Git mode** — when opened with `?gitPath=`, the viewer fetches file content from git and shows a mode switcher bar below the toolbar. Available tabs depend on the file's current git status:
+
+| Tab | Left pane | Right pane | Available when |
+|---|---|---|---|
+| All changes | Last commit (HEAD) | Working tree | `modified`, `staged`, `modified-staged` |
+| Staged diff | Last commit (HEAD) | Staged (index) | `staged`, `modified-staged` |
+| Unstaged changes | Staged (index) | Working tree | `modified-staged` only |
+
+Clicking a tab reloads both panes instantly without navigating away. The URL updates to reflect the active mode (`leftRef` / `rightRef` params), so the view is shareable and survives a page refresh.
+
+### Toolbar controls
+
+| Control | Description |
+|---|---|
+| Language | Syntax highlighting language (auto-detected by default) |
+| Wrap | Toggle long-line wrapping |
+| Sync Scroll | Lock both panes to scroll together |
+| Swap | Swap left and right pane contents |
+| Clear | Reset both panes |
+
+### URL scheme
+
+```
+# Manual mode
+/diff?left=<vaultPath>&right=<vaultPath>
+
+# Git mode — old on left, new on right
+/diff?gitPath=<path>&leftRef=HEAD&rightRef=working    # All changes
+/diff?gitPath=<path>&leftRef=HEAD&rightRef=staged     # Staged diff
+/diff?gitPath=<path>&leftRef=staged&rightRef=working  # Unstaged changes
+```
+
 ## Tech stack
 
 | Concern | Library |
