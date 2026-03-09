@@ -63,7 +63,7 @@ export function GitCommitPanel() {
   const navigate = useNavigate();
 
   return (
-    <div className="absolute left-0 bottom-full mb-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
+    <div className="absolute right-0 bottom-full mb-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-gray-200">Git Actions</span>
         <div className="flex items-center gap-1">

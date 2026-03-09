@@ -24,6 +24,7 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
         docIsDirty: false,
         docSaveState: 'idle',
       });
+      get().refreshGitStatus(filePath);
     } catch (err: any) {
       set({ docError: err.message ?? 'Failed to load file', docIsLoading: false });
     }
@@ -58,6 +59,7 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
         docIsDirty: false,
         docSaveState: 'saved',
       });
+      get().refreshGitStatus(docFilePath);
       setTimeout(() => {
         if (get().docSaveState === 'saved') set({ docSaveState: 'idle' });
       }, 2000);

@@ -66,7 +66,7 @@ export function BottomBar() {
 
                 {/* Right side: Git Status */}
                 {filename && (
-                    <div className="absolute right-0 top-0 bottom-0 flex items-center pr-1">
+                    <div className="absolute right-0 top-0 bottom-0 flex items-center pr-1" onClick={(e) => e.stopPropagation()}>
                         <div className="relative flex items-center shrink-0">
                             <GitStatusDot
                                 state={gitCurrentState ?? undefined}
