@@ -66,20 +66,7 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
     }
   },
 
-  navigateToFile: (filePath: string, mode: 'push' | 'replace' = 'push') => {
-    if (mode === 'push') {
-      const { docFilePath, activeCard, activeProjectSlug } = get();
-      if (docFilePath) {
-        get().pushNavEntry({ type: 'file', filePath: docFilePath });
-      } else {
-        get().pushNavEntry({
-          type: 'kanban',
-          cardSlug: activeCard?.slug,
-          projectSlug: activeProjectSlug ?? undefined,
-        });
-      }
-      get().clearNavForward();
-    }
+  navigateToFile: (filePath: string, _mode: 'push' | 'replace' = 'push') => {
     get().loadDocFile(filePath);
   },
 });

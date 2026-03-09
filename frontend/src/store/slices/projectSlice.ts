@@ -58,20 +58,9 @@ export const createProjectSlice: StateCreator<
     }));
   },
 
-  setActiveProject: (slug, skipHistory = false) => {
+  setActiveProject: (slug, _skipHistory = false) => {
     const project = get().projects.find((p) => p.slug === slug);
     if (project) {
-      if (!skipHistory) {
-        const { activeProjectSlug, activeCard } = get();
-        if (activeProjectSlug && activeProjectSlug !== slug) {
-          get().pushNavEntry({
-            type: 'kanban',
-            projectSlug: activeProjectSlug,
-            cardSlug: activeCard?.slug,
-          });
-          get().clearNavForward();
-        }
-      }
       set({ activeProjectSlug: slug });
       get().clearSearch();
       preferencesApi.update({ lastSelectedProject: slug }).catch(error => {

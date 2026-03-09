@@ -17,16 +17,6 @@ export const createCardSlice: StateCreator<
     const { activeProjectSlug, activeCard } = get();
     if (!activeProjectSlug) return;
 
-    if (!skipHistory) {
-      // Push current kanban state to nav history before opening the card
-      get().pushNavEntry({
-        type: 'kanban',
-        cardSlug: activeCard?.slug,
-        projectSlug: activeProjectSlug,
-      });
-      get().clearNavForward();
-    }
-
     console.log(`[openCardDetail] CALLED for ${cardSlug}, current activeCard:`, get().activeCard?.slug);
     set({ isLoadingCardDetail: true, isDetailPanelOpen: true });
     try {
@@ -40,18 +30,7 @@ export const createCardSlice: StateCreator<
     }
   },
 
-  closeCardDetail: (skipHistory = false) => {
-    if (!skipHistory) {
-      const { activeCard, activeProjectSlug } = get();
-      if (activeCard) {
-        get().pushNavEntry({
-          type: 'kanban',
-          cardSlug: activeCard.slug,
-          projectSlug: activeProjectSlug ?? undefined,
-        });
-        get().clearNavForward();
-      }
-    }
+  closeCardDetail: (_skipHistory = false) => {
     set({ isDetailPanelOpen: false, activeCard: null });
   },
 

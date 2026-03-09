@@ -252,22 +252,6 @@ export interface GitSlice {
   setGitRefreshInterval: (seconds: number) => void;
 }
 
-// ─── Nav Slice ───────────────────────────────────────────────────────────────
-
-export type NavEntry =
-  | { type: 'kanban'; cardSlug?: string; projectSlug?: string }
-  | { type: 'file'; filePath: string };
-
-export interface NavSlice {
-  navBackStack: NavEntry[];
-  navForwardStack: NavEntry[];
-
-  pushNavEntry: (entry: NavEntry) => void;
-  clearNavForward: () => void;
-  consumeNavBack: () => NavEntry | undefined;
-  consumeNavForward: () => NavEntry | undefined;
-}
-
 // ─── Combined store type ─────────────────────────────────────────────────────
 
 export type DevPlannerStore =
@@ -279,5 +263,4 @@ export type DevPlannerStore =
   WSSlice &
   DocSlice &
   FileBrowserSlice &
-  GitSlice &
-  NavSlice;
+  GitSlice;
