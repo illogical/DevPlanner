@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
 
@@ -48,20 +48,18 @@ function CompareIcon() {
   );
 }
 
-
-
-function ArrowLeftIcon() {
+function ChevronLeftIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
     </svg>
   );
 }
 
-function ArrowRightIcon() {
+function ChevronRightIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
     </svg>
   );
 }
@@ -85,9 +83,14 @@ function tabClass(isActive: boolean) {
 
 export function AppNavBar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const {
-    docBackHistory, docForwardHistory, docFilePath, goBack, goForward,
-    lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen
+    docFilePath,
+    lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen,
+    navBackStack, navForwardStack,
+    consumeNavBack, consumeNavForward,
+    openCardDetail, closeCardDetail,
+    navigateToFile,
   } = useStore();
 
   const getDocPath = () => {
@@ -99,13 +102,65 @@ export function AppNavBar() {
     location.pathname.startsWith('/editor') ||
     location.pathname.startsWith('/diff');
 
-  const isKanban =
-    !location.pathname.startsWith('/viewer') &&
-    !location.pathname.startsWith('/editor') &&
-    !location.pathname.startsWith('/diff');
+  const isKanban = !isDocView;
+
+  const handleNavBack = () => {
+    const entry = consumeNavBack();
+    if (!entry) return;
+    if (entry.type === 'kanban') {
+      navigate('/');
+      if (entry.cardSlug) {
+        openCardDetail(entry.cardSlug);
+      } else {
+        closeCardDetail();
+      }
+    } else {
+      navigate(`/${lastDocMode}?path=${encodeURIComponent(entry.filePath)}`);
+      navigateToFile(entry.filePath, 'replace');
+    }
+  };
+
+  const handleNavForward = () => {
+    const entry = consumeNavForward();
+    if (!entry) return;
+    if (entry.type === 'kanban') {
+      navigate('/');
+      if (entry.cardSlug) {
+        openCardDetail(entry.cardSlug);
+      } else {
+        closeCardDetail();
+      }
+    } else {
+      navigate(`/${lastDocMode}?path=${encodeURIComponent(entry.filePath)}`);
+      navigateToFile(entry.filePath, 'replace');
+    }
+  };
 
   return (
     <nav className="bg-gray-900 border-b border-gray-700 flex items-center px-2">
+      {/* Universal back/forward pill — always visible, left of all tabs */}
+      <div className="flex items-center rounded-full border border-gray-700 overflow-hidden mr-3 my-1.5">
+        <button
+          onClick={handleNavBack}
+          disabled={navBackStack.length === 0}
+          title="Go back"
+          aria-label="Go back"
+          className="px-2.5 py-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeftIcon />
+        </button>
+        <div className="w-px h-4 bg-gray-700" />
+        <button
+          onClick={handleNavForward}
+          disabled={navForwardStack.length === 0}
+          title="Go forward"
+          aria-label="Go forward"
+          className="px-2.5 py-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronRightIcon />
+        </button>
+      </div>
+
       {/* Navigation tabs */}
       <div className="flex items-center">
         {NAV_TABS_BASE.map(({ label, to, icon, exact, isDocToggle }) => {
@@ -153,9 +208,6 @@ export function AppNavBar() {
           // Dynamic icon for "Document" and "Projects"
           let displayIcon = icon;
           if (label === 'Projects') {
-            // Adjust Projects icon based on open/close state if active?
-            // User requested: "Move the Project sidebar collapse button toggle to be an appropriate icon and incorporate it into the Projects tab"
-            // Let's replace the fixed ProjectsIcon with a dynamic angle bracket / drawer icon
             displayIcon = (
               <svg
                 className={cn('w-4 h-4 transition-transform duration-200', !isSidebarOpen && isActive && 'rotate-180')}
@@ -163,7 +215,6 @@ export function AppNavBar() {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                {/* A sidebar icon SVG */}
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V5" />
               </svg>
@@ -190,30 +241,6 @@ export function AppNavBar() {
           );
         })}
       </div>
-
-      {/* Doc view: back/forward buttons */}
-      {isDocView && (
-        <div className="flex items-center gap-1 ml-2">
-          <button
-            onClick={goBack}
-            disabled={docBackHistory.length === 0}
-            title="Go back"
-            aria-label="Go back"
-            className="p-1.5 rounded text-gray-400 hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ArrowLeftIcon />
-          </button>
-          <button
-            onClick={goForward}
-            disabled={docForwardHistory.length === 0}
-            title="Go forward"
-            aria-label="Go forward"
-            className="p-1.5 rounded text-gray-400 hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ArrowRightIcon />
-          </button>
-        </div>
-      )}
 
       {/* Spacer */}
       <div className="flex-1" />

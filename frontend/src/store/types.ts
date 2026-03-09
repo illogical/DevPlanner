@@ -202,16 +202,13 @@ export interface DocSlice {
   docLastSavedContent: string | null;
   docIsDirty: boolean;
   docSaveState: 'idle' | 'saving' | 'saved' | 'error';
-  docBackHistory: string[];
-  docForwardHistory: string[];
 
   loadDocFile: (filePath: string) => Promise<void>;
   clearDoc: () => void;
   setDocEditContent: (content: string) => void;
   saveDocFile: () => Promise<void>;
-  navigateToFile: (filePath: string, mode?: 'push' | 'back' | 'forward') => void;
-  goBack: () => void;
-  goForward: () => void;
+  /** mode='push' records history via navSlice; mode='replace' skips history (used by back/forward) */
+  navigateToFile: (filePath: string, mode?: 'push' | 'replace') => void;
 }
 
 // ─── File Browser Slice ──────────────────────────────────────────────────────
@@ -255,6 +252,22 @@ export interface GitSlice {
   setGitRefreshInterval: (seconds: number) => void;
 }
 
+// ─── Nav Slice ───────────────────────────────────────────────────────────────
+
+export type NavEntry =
+  | { type: 'kanban'; cardSlug?: string; projectSlug?: string }
+  | { type: 'file'; filePath: string };
+
+export interface NavSlice {
+  navBackStack: NavEntry[];
+  navForwardStack: NavEntry[];
+
+  pushNavEntry: (entry: NavEntry) => void;
+  clearNavForward: () => void;
+  consumeNavBack: () => NavEntry | undefined;
+  consumeNavForward: () => NavEntry | undefined;
+}
+
 // ─── Combined store type ─────────────────────────────────────────────────────
 
 export type DevPlannerStore =
@@ -266,4 +279,5 @@ export type DevPlannerStore =
   WSSlice &
   DocSlice &
   FileBrowserSlice &
-  GitSlice;
+  GitSlice &
+  NavSlice;

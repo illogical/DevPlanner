@@ -14,8 +14,16 @@ export const createCardSlice: StateCreator<
   isLoadingCardDetail: false,
 
   openCardDetail: async (cardSlug) => {
-    const { activeProjectSlug } = get();
+    const { activeProjectSlug, activeCard } = get();
     if (!activeProjectSlug) return;
+
+    // Push current kanban state to nav history before opening the card
+    get().pushNavEntry({
+      type: 'kanban',
+      cardSlug: activeCard?.slug,
+      projectSlug: activeProjectSlug,
+    });
+    get().clearNavForward();
 
     console.log(`[openCardDetail] CALLED for ${cardSlug}, current activeCard:`, get().activeCard?.slug);
     set({ isLoadingCardDetail: true, isDetailPanelOpen: true });

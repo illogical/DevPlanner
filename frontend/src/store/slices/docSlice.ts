@@ -11,8 +11,6 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
   docLastSavedContent: null,
   docIsDirty: false,
   docSaveState: 'idle',
-  docBackHistory: [],
-  docForwardHistory: [],
 
   loadDocFile: async (filePath: string) => {
     set({ docIsLoading: true, docError: null, docFilePath: filePath });
@@ -68,32 +66,20 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
     }
   },
 
-  navigateToFile: (filePath: string, mode: 'push' | 'back' | 'forward' = 'push') => {
-    const { docFilePath, docBackHistory } = get();
+  navigateToFile: (filePath: string, mode: 'push' | 'replace' = 'push') => {
     if (mode === 'push') {
-      const newBack = docFilePath ? [...docBackHistory, docFilePath] : docBackHistory;
-      set({ docBackHistory: newBack, docForwardHistory: [] });
+      const { docFilePath, activeCard, activeProjectSlug } = get();
+      if (docFilePath) {
+        get().pushNavEntry({ type: 'file', filePath: docFilePath });
+      } else {
+        get().pushNavEntry({
+          type: 'kanban',
+          cardSlug: activeCard?.slug,
+          projectSlug: activeProjectSlug ?? undefined,
+        });
+      }
+      get().clearNavForward();
     }
     get().loadDocFile(filePath);
-  },
-
-  goBack: () => {
-    const { docBackHistory, docFilePath, docForwardHistory } = get();
-    if (docBackHistory.length === 0) return;
-    const prev = docBackHistory[docBackHistory.length - 1];
-    const newBack = docBackHistory.slice(0, -1);
-    const newForward = docFilePath ? [docFilePath, ...docForwardHistory] : docForwardHistory;
-    set({ docBackHistory: newBack, docForwardHistory: newForward });
-    get().loadDocFile(prev);
-  },
-
-  goForward: () => {
-    const { docForwardHistory, docFilePath, docBackHistory } = get();
-    if (docForwardHistory.length === 0) return;
-    const next = docForwardHistory[0];
-    const newForward = docForwardHistory.slice(1);
-    const newBack = docFilePath ? [...docBackHistory, docFilePath] : docBackHistory;
-    set({ docBackHistory: newBack, docForwardHistory: newForward });
-    get().loadDocFile(next);
   },
 });

@@ -23,6 +23,7 @@ import { createWSSlice } from './slices/wsSlice';
 import { createDocSlice } from './slices/docSlice';
 import { createFileBrowserSlice } from './slices/fileBrowserSlice';
 import { createGitSlice } from './slices/gitSlice';
+import { createNavSlice } from './slices/navSlice';
 import type { DevPlannerStore } from './types';
 
 // Re-export types that downstream components import directly from the store
@@ -38,6 +39,7 @@ export const useStore = create<DevPlannerStore>()((...a) => ({
   ...createDocSlice(...a),
   ...createFileBrowserSlice(...a),
   ...createGitSlice(...a),
+  ...createNavSlice(...a),
 }));
 
 // ─── Periodic cleanup of expired change indicators ───────────────────────────
