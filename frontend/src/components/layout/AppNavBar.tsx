@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
@@ -49,21 +48,6 @@ function CompareIcon() {
   );
 }
 
-function ChevronLeftIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}
 
 interface NavTab { label: string; to?: string; icon: React.ReactNode; exact?: boolean; isDocToggle?: boolean; }
 
@@ -90,19 +74,6 @@ export function AppNavBar() {
     lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen,
   } = useStore();
 
-  // Track the max history index we've ever been at in this session.
-  // React Router (BrowserRouter) stores { idx } in window.history.state.
-  // currentIdx > 0 → back is available; currentIdx < maxIdx → forward is available.
-  const currentIdx: number = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-  const [maxIdx, setMaxIdx] = useState(currentIdx);
-
-  useEffect(() => {
-    setMaxIdx((prev) => Math.max(prev, currentIdx));
-  }, [location]); // runs on every navigation
-
-  const canGoBack = currentIdx > 0;
-  const canGoForward = currentIdx < maxIdx;
-
   const getDocPath = () => {
     return new URLSearchParams(location.search).get('path') || docFilePath;
   };
@@ -116,29 +87,6 @@ export function AppNavBar() {
 
   return (
     <nav className="bg-gray-900 border-b border-gray-700 flex items-center px-2">
-      {/* Universal back/forward pill — always visible, left of all tabs */}
-      <div className="flex items-center rounded-full border border-gray-700 overflow-hidden mr-3 my-1.5">
-        <button
-          onClick={() => navigate(-1)}
-          disabled={!canGoBack}
-          title="Go back"
-          aria-label="Go back"
-          className="px-2.5 py-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-        >
-          <ChevronLeftIcon />
-        </button>
-        <div className="w-px h-4 bg-gray-700" />
-        <button
-          onClick={() => navigate(1)}
-          disabled={!canGoForward}
-          title="Go forward"
-          aria-label="Go forward"
-          className="px-2.5 py-1.5 text-gray-400 hover:text-gray-200 hover:bg-gray-800 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-        >
-          <ChevronRightIcon />
-        </button>
-      </div>
-
       {/* Navigation tabs */}
       <div className="flex items-center">
         {NAV_TABS_BASE.map(({ label, to, icon, exact, isDocToggle }) => {
