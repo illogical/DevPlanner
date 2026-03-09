@@ -133,7 +133,6 @@ export const vaultGitRoutes = new Elysia()
         set.headers['Content-Type'] = 'text/plain; charset=utf-8';
         return content;
       } catch (err: any) {
-        console.error('[vault-git/show] error:', JSON.stringify(err), 'path:', query.path, 'ref:', query.ref);
         set.status = toStatus(err);
         return err;
       }
