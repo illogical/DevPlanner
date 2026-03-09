@@ -61,22 +61,27 @@ export function BottomBar() {
                         onNavigate={handleBreadcrumbNavigate}
                         filename={filename}
                         onFilenameClick={handleFilenameClick}
-                        gitNode={
-                            filename ? (
-                                <div className="relative flex items-center ml-1.5 mr-1">
-                                    <GitStatusDot
-                                        state={gitCurrentState ?? undefined}
-                                        loading={gitIsLoading}
-                                        onClick={toggleCommitPanel}
-                                    />
-                                    {gitCommitPanelOpen && (
-                                        <GitCommitPanel />
-                                    )}
-                                </div>
-                            ) : undefined
-                        }
                     />
                 </div>
+
+                {/* Right side: Git Status */}
+                {filename && (
+                    <div className="absolute right-0 top-0 bottom-0 flex items-center pr-4">
+                        <div className="relative flex items-center shrink-0">
+                            <GitStatusDot
+                                state={gitCurrentState ?? undefined}
+                                loading={gitIsLoading}
+                                onClick={toggleCommitPanel}
+                                showLabel={true}
+                            />
+                            {gitCommitPanelOpen && (
+                                <div className="absolute bottom-full right-0 mb-2">
+                                    <GitCommitPanel />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <svg

@@ -6,6 +6,7 @@ interface GitStatusDotProps {
   loading?: boolean;
   onClick?: () => void;
   className?: string;
+  showLabel?: boolean;
 }
 
 const STATE_COLORS: Record<GitState, string> = {
@@ -30,7 +31,18 @@ const STATE_LABELS: Record<GitState, string> = {
   unknown: 'Unknown status',
 };
 
-export function GitStatusDot({ state, loading, onClick, className }: GitStatusDotProps) {
+const STATE_SHORT_LABELS: Record<GitState, string> = {
+  clean: 'Clean',
+  modified: 'Modified',
+  staged: 'Staged',
+  'modified-staged': 'Staged*',
+  untracked: 'Untracked',
+  ignored: 'Ignored',
+  'outside-repo': 'Outside',
+  unknown: 'Unknown',
+};
+
+export function GitStatusDot({ state, loading, onClick, className, showLabel }: GitStatusDotProps) {
   const colorClass = loading
     ? 'animate-pulse bg-gray-600'
     : state
@@ -38,8 +50,9 @@ export function GitStatusDot({ state, loading, onClick, className }: GitStatusDo
       : 'bg-gray-600';
 
   const label = state ? STATE_LABELS[state] : 'No git status';
+  const shortLabel = state ? STATE_SHORT_LABELS[state] : '';
 
-  return (
+  const dot = (
     <button
       type="button"
       onClick={onClick}
@@ -52,5 +65,24 @@ export function GitStatusDot({ state, loading, onClick, className }: GitStatusDo
         className
       )}
     />
+  );
+
+  if (!showLabel || !state) {
+    return dot;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5" title={label}>
+      {dot}
+      <span
+        onClick={onClick}
+        className={cn(
+          "text-xs font-medium text-gray-400 select-none",
+          onClick ? 'cursor-pointer hover:text-gray-300' : 'cursor-default'
+        )}
+      >
+        {shortLabel}
+      </span>
+    </div>
   );
 }

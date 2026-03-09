@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../../store';
 import { FolderColumn } from './FolderColumn';
@@ -14,6 +15,7 @@ export function FileBrowserColumns() {
     docFilePath,
     gitStatuses,
     setFbActivePath,
+    refreshGitStatuses,
   } = useStore();
 
   const getNavTarget = (filePath: string) => {
@@ -24,6 +26,17 @@ export function FileBrowserColumns() {
 
   const activeFolderData = fbFolders.find((f) => f.path === fbActivePath);
   const files = activeFolderData?.files ?? [];
+
+  useEffect(() => {
+    if (files.length > 0) {
+      const filePaths = files.map((f) => f.path);
+      // Find paths that haven't been fetched yet (not in gitStatuses)
+      const pathsToFetch = filePaths.filter((p) => !(p in gitStatuses));
+      if (pathsToFetch.length > 0) {
+        refreshGitStatuses(pathsToFetch);
+      }
+    }
+  }, [files, gitStatuses, refreshGitStatuses]);
 
   const handleSubFolderSelect = (folder: TreeFolder) => {
     setFbActivePath(folder.path);
