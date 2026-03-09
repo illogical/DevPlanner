@@ -53,19 +53,16 @@ export function GitStatusDot({ state, loading, onClick, className, showLabel }: 
   const shortLabel = state ? STATE_SHORT_LABELS[state] : '';
 
   if (!showLabel || !state) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        title={label}
-        aria-label={label}
-        className={cn(
-          'w-2 h-2 rounded-full inline-block shrink-0',
-          colorClass,
-          onClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default',
-          className
-        )}
-      />
+    const dotCls = cn(
+      'w-2 h-2 rounded-full inline-block shrink-0',
+      colorClass,
+      onClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default',
+      className
+    );
+    return onClick ? (
+      <button type="button" onClick={onClick} title={label} aria-label={label} className={dotCls} />
+    ) : (
+      <span title={label} aria-label={label} className={dotCls} />
     );
   }
 

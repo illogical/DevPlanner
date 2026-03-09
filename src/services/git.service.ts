@@ -124,8 +124,12 @@ export class GitService {
     const prefix = prefixResult.stdout.trim(); // trailing slash included, or "" at root
     const gitRelPath = prefix ? `${prefix}${relativePath}` : relativePath;
     const gitRef = ref === 'staged' ? `:${gitRelPath}` : `HEAD:${gitRelPath}`;
+    console.error('[GitService.getFileAtRef] vaultPath:', this.vaultPath, 'prefix:', JSON.stringify(prefix), 'gitRef:', gitRef);
     const result = runGit(['show', gitRef], this.vaultPath);
-    if (result.exitCode !== 0) throw { error: 'GIT_ERROR', message: result.stderr.trim() };
+    if (result.exitCode !== 0) {
+      console.error('[GitService.getFileAtRef] git show failed:', result.stderr.trim());
+      throw { error: 'GIT_ERROR', message: result.stderr.trim() };
+    }
     return result.stdout;
   }
 }
