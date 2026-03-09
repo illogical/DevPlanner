@@ -72,17 +72,18 @@ export function GitStatusDot({ state, loading, onClick, className, showLabel }: 
   }
 
   return (
-    <div className="flex items-center gap-1.5" title={label}>
-      {dot}
-      <span
-        onClick={onClick}
-        className={cn(
-          "text-xs font-medium text-gray-400 select-none",
-          onClick ? 'cursor-pointer hover:text-gray-300' : 'cursor-default'
-        )}
-      >
+    <div
+      className={cn(
+        "flex items-center gap-2 px-2 py-1 rounded-full border border-transparent transition-colors",
+        onClick ? "cursor-pointer hover:bg-gray-800 hover:border-gray-700" : ""
+      )}
+      onClick={onClick}
+      title={label}
+    >
+      <span className="text-xs text-gray-400 select-none">
         {shortLabel}
       </span>
+      {dot}
     </div>
   );
 }
