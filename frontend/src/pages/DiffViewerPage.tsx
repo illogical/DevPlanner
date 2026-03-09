@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { diffLines } from 'diff';
+import { diffLines, diffWords } from 'diff';
 import { DiffToolbar } from '../components/diff/DiffToolbar';
 import { DiffLayout } from '../components/diff/DiffLayout';
 import { DiffGitModeBar, getAvailableModes, getModeFromRefs } from '../components/diff/DiffGitModeBar';
@@ -36,9 +36,64 @@ const INITIAL_STATE: DiffViewerState = {
 };
 
 /**
+ * Split a diff `value` string into individual lines, dropping the trailing
+ * empty entry that results when the value ends with '\n'.
+ */
+function splitDiffValue(value: string): string[] {
+  const lines = value.split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
+/**
+ * Compute character-range highlights for a single line pair using word diff.
+ * Returns undefined for both sides when the entire content changed (no shared
+ * words) to avoid redundant highlighting on a full-replacement line.
+ */
+function computeWordHighlights(
+  removedText: string,
+  addedText: string
+): {
+  removedHighlights: Array<{ start: number; end: number }>;
+  addedHighlights: Array<{ start: number; end: number }>;
+} | null {
+  const wordDiff = diffWords(removedText, addedText);
+  const removedHighlights: Array<{ start: number; end: number }> = [];
+  const addedHighlights: Array<{ start: number; end: number }> = [];
+  let rPos = 0;
+  let aPos = 0;
+
+  for (const wp of wordDiff) {
+    if (wp.removed) {
+      removedHighlights.push({ start: rPos, end: rPos + wp.value.length });
+      rPos += wp.value.length;
+    } else if (wp.added) {
+      addedHighlights.push({ start: aPos, end: aPos + wp.value.length });
+      aPos += wp.value.length;
+    } else {
+      rPos += wp.value.length;
+      aPos += wp.value.length;
+    }
+  }
+
+  // If the entire removed text is one big highlight, the line is a full
+  // replacement — inline highlights add no information, so skip them.
+  const isFullReplacement =
+    removedHighlights.length === 1 &&
+    removedHighlights[0].start === 0 &&
+    removedHighlights[0].end === removedText.length;
+
+  if (isFullReplacement) return null;
+  return { removedHighlights, addedHighlights };
+}
+
+/**
  * Compute per-pane line arrays from a diff result.
- * Left pane omits 'added' lines (they only appear on the right).
- * Right pane omits 'removed' lines (they only appear on the left).
+ *
+ * Consecutive removed+added parts are treated as a "replacement" and their
+ * lines are paired row-for-row so they appear side-by-side in the viewer.
+ * For 1:1 line pairs a word-level diff is computed to highlight the exact
+ * words that changed, not just the whole line.
  */
 function computePaneLines(
   leftContent: string,
@@ -49,34 +104,63 @@ function computePaneLines(
   }
 
   const changes = diffLines(leftContent, rightContent, { newlineIsToken: false });
-
   const leftLines: DiffLineData[] = [];
   const rightLines: DiffLineData[] = [];
   let leftNum = 1;
   let rightNum = 1;
 
-  for (const part of changes) {
-    // Split text into lines; trim the trailing empty string that results from
-    // a value ending with '\n'.
-    const rawLines = part.value.split('\n');
-    if (rawLines[rawLines.length - 1] === '') rawLines.pop();
+  for (let i = 0; i < changes.length; i++) {
+    const part = changes[i];
+    const next = changes[i + 1];
 
-    if (part.added) {
-      for (const text of rawLines) {
-        rightLines.push({ lineNumber: rightNum++, text, type: 'added' as LineType });
-        // Left pane gets a blank placeholder to keep visual alignment
-        leftLines.push({ lineNumber: null, text: '', type: 'unchanged' as LineType });
+    if (part.removed && next?.added) {
+      // Replacement block: pair removed ↔ added lines for horizontal alignment
+      const removedLines = splitDiffValue(part.value);
+      const addedLines = splitDiffValue(next.value);
+      const maxLen = Math.max(removedLines.length, addedLines.length);
+
+      for (let j = 0; j < maxLen; j++) {
+        const removedText = j < removedLines.length ? removedLines[j] : null;
+        const addedText = j < addedLines.length ? addedLines[j] : null;
+
+        // Compute inline word highlights for 1:1 line pairs
+        let removedHighlights: Array<{ start: number; end: number }> | undefined;
+        let addedHighlights: Array<{ start: number; end: number }> | undefined;
+        if (removedText !== null && addedText !== null) {
+          const hl = computeWordHighlights(removedText, addedText);
+          if (hl) {
+            removedHighlights = hl.removedHighlights;
+            addedHighlights = hl.addedHighlights;
+          }
+        }
+
+        if (removedText !== null) {
+          leftLines.push({ lineNumber: leftNum++, text: removedText, type: 'removed', highlights: removedHighlights });
+        } else {
+          leftLines.push({ lineNumber: null, text: '', type: 'unchanged' });
+        }
+
+        if (addedText !== null) {
+          rightLines.push({ lineNumber: rightNum++, text: addedText, type: 'added', highlights: addedHighlights });
+        } else {
+          rightLines.push({ lineNumber: null, text: '', type: 'unchanged' });
+        }
+      }
+      i++; // consumed next (added) part
+    } else if (part.added) {
+      for (const text of splitDiffValue(part.value)) {
+        rightLines.push({ lineNumber: rightNum++, text, type: 'added' });
+        leftLines.push({ lineNumber: null, text: '', type: 'unchanged' });
       }
     } else if (part.removed) {
-      for (const text of rawLines) {
-        leftLines.push({ lineNumber: leftNum++, text, type: 'removed' as LineType });
-        // Right pane gets a blank placeholder
-        rightLines.push({ lineNumber: null, text: '', type: 'unchanged' as LineType });
+      for (const text of splitDiffValue(part.value)) {
+        leftLines.push({ lineNumber: leftNum++, text, type: 'removed' });
+        rightLines.push({ lineNumber: null, text: '', type: 'unchanged' });
       }
     } else {
-      for (const text of rawLines) {
-        leftLines.push({ lineNumber: leftNum++, text, type: 'unchanged' as LineType });
-        rightLines.push({ lineNumber: rightNum++, text, type: 'unchanged' as LineType });
+      for (const text of splitDiffValue(part.value)) {
+        leftLines.push({ lineNumber: leftNum++, text, type: 'unchanged' });
+        rightLines.push({ lineNumber: rightNum++, text, type: 'unchanged' });
       }
     }
   }

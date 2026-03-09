@@ -66,13 +66,7 @@ export function GitStatusDot({ state, loading, onClick, className, showLabel }: 
     );
   }
 
-  // For the pill, modified-staged shows two dots (blue=staged, red=unstaged) instead of one
-  const dots = state === 'modified-staged' ? (
-    <span className="flex items-center gap-0.5">
-      <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shrink-0" />
-      <span className="w-2 h-2 rounded-full bg-red-500 inline-block shrink-0" />
-    </span>
-  ) : (
+  const dots = (
     <span
       aria-label={label}
       className={cn('w-2 h-2 rounded-full inline-block shrink-0', colorClass, className)}

@@ -5,6 +5,8 @@ export interface DiffLineData {
   lineNumber: number | null;
   text: string;
   type: LineType;
+  /** Character ranges within `text` to highlight as inline changed spans. */
+  highlights?: Array<{ start: number; end: number }>;
 }
 
 interface DiffContentProps {
@@ -32,6 +34,7 @@ export const DiffContent = forwardRef<HTMLDivElement, DiffContentProps>(
                 type={line.type}
                 language={language}
                 wrap={wrap}
+                highlights={line.highlights}
               />
             ))}
           </div>
