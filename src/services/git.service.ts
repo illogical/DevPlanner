@@ -57,7 +57,11 @@ export class GitService {
       if (result.stderr.includes('not a git repository')) return 'outside-repo';
       return 'unknown';
     }
-    const line = result.stdout.trim();
+    // Use trimEnd() (not trim()) to preserve the leading XY status characters.
+    // Git porcelain format is "XY <file>" where X=index and Y=worktree.
+    // A leading space means the index is unchanged; trim() would strip it and
+    // misidentify a working-tree modification as a staged change.
+    const line = result.stdout.trimEnd();
     if (!line) return 'clean';
     return parsePorcelainStatus(line);
   }
@@ -83,11 +87,34 @@ export class GitService {
 
   async unstage(relativePath: string): Promise<GitState> {
     this.validatePath(relativePath);
-    const result = runGit(['reset', 'HEAD', '--', relativePath], this.vaultPath);
+    // Prefer `git restore --staged` (git 2.23+); fall back to `git reset HEAD` for
+    // older git. Both handle the common case of unstaging from a repo that has commits.
+    // For a brand-new repo with no commits yet, `git reset HEAD` fails because HEAD
+    // does not resolve; `git restore --staged` handles that case correctly.
+    let result = runGit(['restore', '--staged', '--', relativePath], this.vaultPath);
     if (result.exitCode !== 0) {
-      throw { error: 'GIT_ERROR', message: result.stderr.trim() || 'git reset failed' };
+      result = runGit(['reset', 'HEAD', '--', relativePath], this.vaultPath);
+      if (result.exitCode !== 0) {
+        throw { error: 'GIT_ERROR', message: result.stderr.trim() || 'git unstage failed' };
+      }
     }
     return this.getStatus(relativePath);
+  }
+
+  async getFileAtRef(relativePath: string, ref: string): Promise<string> {
+    this.validatePath(relativePath);
+    // Validate ref to prevent command injection via unexpected values.
+    // Allowed: 'HEAD', stage indices ':0'–':3', and 40-char commit SHAs.
+    if (!/^(HEAD|:[0-3]|[0-9a-f]{40})$/.test(ref)) {
+      throw { error: 'INVALID_REF', message: `Invalid git ref: ${ref}` };
+    }
+    // ref can be 'HEAD' (last commit) or ':0' (staging area / index)
+    const gitPath = `${ref}:${relativePath}`;
+    const result = runGit(['show', gitPath], this.vaultPath);
+    if (result.exitCode !== 0) {
+      throw { error: 'GIT_NOT_FOUND', message: result.stderr.trim() || `No content at ref ${ref}` };
+    }
+    return result.stdout;
   }
 
   async discardUnstaged(relativePath: string): Promise<GitState> {

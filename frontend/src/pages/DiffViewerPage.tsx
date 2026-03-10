@@ -4,15 +4,26 @@ import { diffLines } from 'diff';
 import { DiffToolbar } from '../components/diff/DiffToolbar';
 import { DiffLayout } from '../components/diff/DiffLayout';
 import { useSyncScroll } from '../hooks/useSyncScroll';
-import { vaultApi } from '../api/client';
+import { vaultApi, gitApi } from '../api/client';
 import type { DiffLineData } from '../components/diff/DiffContent';
 import type { LineType } from '../components/diff/DiffLine';
+
+/**
+ * Git-aware diff modes.
+ * - `manual`:            Load files via drop/paste/URL params (?left= / ?right=)
+ * - `working-committed`: Left = HEAD (last commit), Right = working tree
+ * - `staged-committed`:  Left = HEAD (last commit), Right = staged (index)
+ * - `working-staged`:    Left = staged (index),     Right = working tree
+ */
+type DiffMode = 'manual' | 'working-committed' | 'staged-committed' | 'working-staged';
 
 interface DiffViewerState {
   leftContent: string;
   leftFilename: string;
+  leftLabel?: string;
   rightContent: string;
   rightFilename: string;
+  rightLabel?: string;
   language: string;
   wrap: boolean;
   syncScroll: boolean;
@@ -23,13 +34,22 @@ interface DiffViewerState {
 const INITIAL_STATE: DiffViewerState = {
   leftContent: '',
   leftFilename: '',
+  leftLabel: undefined,
   rightContent: '',
   rightFilename: '',
+  rightLabel: undefined,
   language: 'auto',
   wrap: false,
   syncScroll: true,
   loading: false,
   error: null,
+};
+
+/** Labels shown in pane headers for each git diff mode. */
+const MODE_LABELS: Record<Exclude<DiffMode, 'manual'>, { left: string; right: string }> = {
+  'working-committed': { left: 'HEAD (committed)', right: 'Working tree' },
+  'staged-committed':  { left: 'HEAD (committed)', right: 'Staged (index)' },
+  'working-staged':    { left: 'Staged (index)',   right: 'Working tree' },
 };
 
 /**
@@ -87,10 +107,71 @@ export function DiffViewerPage() {
 
   const { leftRef, rightRef, onScroll } = useSyncScroll(state.syncScroll);
 
-  // Load left pane from ?left= URL param on mount
+  // Detect git diff mode from URL params.
+  // ?path=<file>&mode=<git-mode>  →  git-aware comparison
+  // ?left=<file>&right=<file>     →  manual mode (legacy / vault links)
+  const gitPathRaw = searchParams.get('path');
+  const modeParam = searchParams.get('mode') as DiffMode | null;
+  // Basic frontend guard: reject paths with traversal sequences before sending to the backend.
+  const gitPath = gitPathRaw && !gitPathRaw.includes('..') ? gitPathRaw : null;
+  const isGitMode = !!gitPath && !!modeParam && modeParam !== 'manual';
+  const diffMode: DiffMode = isGitMode ? (modeParam as DiffMode) : 'manual';
+
+  // Load git-aware content when ?path= and ?mode= are both provided.
+  useEffect(() => {
+    if (!isGitMode || !gitPath) return;
+
+    const filename = gitPath.split('/').pop() ?? gitPath;
+    const labels = MODE_LABELS[diffMode as Exclude<DiffMode, 'manual'>];
+
+    setState((s) => ({ ...s, loading: true, error: null }));
+
+    const loadLeft = (): Promise<string> => {
+      if (diffMode === 'working-staged') {
+        // Left = staged (index)
+        return gitApi.getFileAtRef(gitPath, ':0');
+      }
+      // Left = HEAD (committed) for both working-committed and staged-committed
+      return gitApi.getFileAtRef(gitPath, 'HEAD');
+    };
+
+    const loadRight = (): Promise<string> => {
+      if (diffMode === 'staged-committed') {
+        // Right = staged (index)
+        return gitApi.getFileAtRef(gitPath, ':0');
+      }
+      // Right = working tree for working-committed and working-staged
+      return vaultApi.getContent(gitPath);
+    };
+
+    Promise.all([loadLeft(), loadRight()])
+      .then(([leftContent, rightContent]) => {
+        setState((s) => ({
+          ...s,
+          leftContent,
+          leftFilename: filename,
+          leftLabel: labels.left,
+          rightContent,
+          rightFilename: filename,
+          rightLabel: labels.right,
+          loading: false,
+          error: null,
+        }));
+      })
+      .catch((err: Error) => {
+        setState((s) => ({
+          ...s,
+          loading: false,
+          error: err.message || 'Failed to load git diff.',
+        }));
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gitPath, diffMode, isGitMode]);
+
+  // Load left pane from ?left= URL param (manual mode)
   useEffect(() => {
     const leftPath = searchParams.get('left');
-    if (!leftPath) return;
+    if (!leftPath || isGitMode) return;
 
     setState((s) => ({ ...s, loading: true, error: null }));
     vaultApi
@@ -101,6 +182,7 @@ export function DiffViewerPage() {
           ...s,
           leftContent: content,
           leftFilename: filename,
+          leftLabel: undefined,
           loading: false,
         }));
       })
@@ -111,12 +193,12 @@ export function DiffViewerPage() {
           error: err.message || 'Failed to load left pane file.',
         }));
       });
-  }, [searchParams]);
+  }, [searchParams, isGitMode]);
 
-  // Load right pane from optional ?right= URL param on mount
+  // Load right pane from optional ?right= URL param (manual mode)
   useEffect(() => {
     const rightPath = searchParams.get('right');
-    if (!rightPath) return;
+    if (!rightPath || isGitMode) return;
 
     vaultApi
       .getContent(rightPath)
@@ -126,12 +208,13 @@ export function DiffViewerPage() {
           ...s,
           rightContent: content,
           rightFilename: filename,
+          rightLabel: undefined,
         }));
       })
       .catch(() => {
         // Right pane is optional; silently ignore load failures
       });
-  }, [searchParams]);
+  }, [searchParams, isGitMode]);
 
   // Compute diff lines whenever content changes
   const { leftLines, rightLines } = useMemo(
@@ -140,11 +223,11 @@ export function DiffViewerPage() {
   );
 
   const handleLeftFileLoad = useCallback((content: string, filename: string) => {
-    setState((s) => ({ ...s, leftContent: content, leftFilename: filename }));
+    setState((s) => ({ ...s, leftContent: content, leftFilename: filename, leftLabel: undefined }));
   }, []);
 
   const handleRightFileLoad = useCallback((content: string, filename: string) => {
-    setState((s) => ({ ...s, rightContent: content, rightFilename: filename }));
+    setState((s) => ({ ...s, rightContent: content, rightFilename: filename, rightLabel: undefined }));
   }, []);
 
   const handleSwap = useCallback(() => {
@@ -152,8 +235,10 @@ export function DiffViewerPage() {
       ...s,
       leftContent: s.rightContent,
       leftFilename: s.rightFilename,
+      leftLabel: s.rightLabel,
       rightContent: s.leftContent,
       rightFilename: s.leftFilename,
+      rightLabel: s.leftLabel,
     }));
   }, []);
 
@@ -162,8 +247,10 @@ export function DiffViewerPage() {
       ...s,
       leftContent: '',
       leftFilename: '',
+      leftLabel: undefined,
       rightContent: '',
       rightFilename: '',
+      rightLabel: undefined,
       error: null,
     }));
   }, []);
@@ -199,9 +286,11 @@ export function DiffViewerPage() {
       <DiffLayout
         leftContent={state.leftContent}
         leftFilename={state.leftFilename}
+        leftLabel={state.leftLabel}
         leftLines={leftLines}
         rightContent={state.rightContent}
         rightFilename={state.rightFilename}
+        rightLabel={state.rightLabel}
         rightLines={rightLines}
         language={state.language}
         wrap={state.wrap}
