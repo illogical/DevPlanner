@@ -234,6 +234,60 @@ Add `staged-new` to the Git States table:
 2. Verify Green "Clean" dot; `gitStatus()` API returns `'clean'`
    (State = clean is the authoritative proof the commit was persisted to the git repo)
 
+### Test 13 — Panel-open forces fresh git status (stale state regression)
+Reproduces: staged-new file modified externally; UI shows stale "New file" state because no refresh was triggered on panel open.
+1. Save + stage a file (staged-new); navigate to editor — UI shows staged-new
+2. Modify the file externally (via API, without going through the editor save)
+3. Open the Git Actions panel
+4. Verify state has updated to `modified-staged` (Yellow "Partial staged" dot)
+5. Verify amber "only staged changes will be committed" banner
+6. Verify "View staged diff (HEAD → staged)" button is present (Bug 5 fix)
+
+### Test 14 — Unsaved editor changes: panel shows yellow warning
+Prevents users from committing without realizing their in-editor changes aren't staged.
+1. Commit a file (clean state); navigate to editor
+2. Type in the textarea (creates `docIsDirty=true` without saving)
+3. Open the Git Actions panel
+4. Verify yellow "unsaved editor changes" warning banner is visible
+
+---
+
+## Bugs Fixed (Phase 22.10 additions)
+
+### Bug 5 — Panel shows stale git state and no warning for unsaved edits
+
+**File:** `frontend/src/components/doc/GitCommitPanel.tsx`
+
+**Root cause A (stale state):** `toggleCommitPanel()` only flips a boolean — it never triggers `refreshGitStatus`. The panel renders whatever state the last save or 30-second poll produced.
+
+**Root cause B (unsaved changes invisible):** When the user types in the editor without saving, `docIsDirty=true` but the file on disk hasn't changed, so git correctly reports the old state. No warning was shown.
+
+**Root cause C (missing HEAD→staged for modified-staged):** The `modified-staged` diff block showed "View unstaged changes" and "View all changes" but not "View staged diff (HEAD → staged)". Users couldn't see exactly what would be committed.
+
+**Fixes applied:**
+```typescript
+// On mount: force a fresh git status fetch
+useEffect(() => {
+  if (docFilePath) refreshGitStatus(docFilePath);
+}, []);
+
+// Unsaved changes warning (when docIsDirty)
+{docIsDirty && (
+  <p className="text-xs text-yellow-400 ...">
+    You have unsaved editor changes. Save the file before staging to include them.
+  </p>
+)}
+
+// HEAD→staged diff button for modified-staged
+{state === 'modified-staged' && (
+  <>
+    <button onClick={() => navigateDiff('HEAD', 'staged')}>View staged diff (HEAD → staged)</button>
+    <button onClick={() => navigateDiff('staged', 'working')}>View unstaged changes (staged → working)</button>
+    <button onClick={() => navigateDiff('HEAD', 'working')}>View all changes (HEAD → working)</button>
+  </>
+)}
+```
+
 ---
 
 ## File Changelist
@@ -241,14 +295,14 @@ Add `staged-new` to the Git States table:
 | File | Change | Priority |
 |------|--------|----------|
 | `frontend/src/components/doc/FileBrowserColumns.tsx` | Bug 1: URL-aware `currentFilePath` | High |
-| `frontend/src/components/doc/GitCommitPanel.tsx` | Bug 2 + Bug 4: staged-new support, panel stays open after stage | High |
+| `frontend/src/components/doc/GitCommitPanel.tsx` | Bug 2 + Bug 4 + Bug 5: staged-new support, panel stays open, refresh on open, dirty warning, HEAD→staged | High |
 | `frontend/README.md` | Add staged-new, workflow state machine, git add clarification | High |
 | `frontend/src/pages/DiffViewerPage.tsx` | Bug 3: `hasHead` detection + no-HEAD banner | Medium |
 | `frontend/src/components/diff/DiffGitModeBar.tsx` | Bug 3: `hasHead` prop, filter HEAD-based modes | Medium |
 | `docs/features/doc-manager/05-git-integration.md` | Add `staged-new` to state table | Low |
 | `src/routes/vault.ts` | Add `DELETE /api/vault/file` for test cleanup | Done |
 | `tests/e2e/helpers.ts` | Fixed API endpoints; added `gitUnstage` helper | Done |
-| `tests/e2e/git-workflow.spec.ts` | Full 12-test E2E suite covering all states + bug regressions | Done |
+| `tests/e2e/git-workflow.spec.ts` | 14-test E2E suite covering all states + bug regressions | Done |
 
 ---
 
@@ -261,4 +315,6 @@ Add `staged-new` to the Git States table:
 5. Stage a file → Git Actions panel stays open (Bug 4) — **Test 3**
 6. Unstage a new staged file → returns to untracked — **Test 2**
 7. Discard unstaged changes → file returns to clean or staged — **Tests 4 & 5**
-8. Run `bun run test:e2e` → all 12 tests pass
+8. Open panel on a staged-new file that was externally modified → panel shows modified-staged (Bug 5 stale fix) — **Test 13**
+9. Type in editor without saving → open panel → yellow unsaved-changes warning appears (Bug 5 dirty warning) — **Test 14**
+10. Run `bun run test:e2e` → all 14 tests pass

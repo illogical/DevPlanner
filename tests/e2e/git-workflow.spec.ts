@@ -288,9 +288,9 @@ test('full edit→stage→edit→commit cycle: correct states and diff shortcuts
     await expect(page.getByRole('button', { name: /^discard$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^stage$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^commit$/i })).toBeVisible();
-    // Three diff mode links must be present
+    // All three diff buttons must be present (including HEAD→staged for what will be committed)
+    await expect(page.getByText(/view staged diff/i).first()).toBeVisible();
     await expect(page.getByText(/all changes/i).first()).toBeVisible();
-    await expect(page.getByText(/staged diff/i).first()).toBeVisible();
     await expect(page.getByText(/unstaged changes/i).first()).toBeVisible();
 
     // Step 4: Stage all and commit
@@ -530,6 +530,80 @@ test('commit is persisted: git status is clean and commit message is verifiable 
     //  is the authoritative confirmation that all changes have been committed.)
   } finally {
     await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 13 — Panel-open forces git status refresh (stale state regression)
+//
+// Reproduces: staged-new file modified externally; UI was stale-showing
+// "staged" without any indication of unstaged changes. Opening the panel
+// must now trigger a fresh status fetch.
+// ---------------------------------------------------------------------------
+
+test('opening Git Actions panel fetches fresh state: staged-new + modify → shows modified-staged', async ({ page }) => {
+  const filePath = '_playwright-tests/test-panel-refresh.md';
+
+  // Stage a new file (staged-new)
+  await saveVaultFile(filePath, '# Panel Refresh\n\nOriginal staged content.\n');
+  await gitStage(filePath);
+
+  try {
+    // Navigate to editor — UI will show staged-new on load
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'staged-new');
+
+    // Modify the file externally (simulates save without going through the editor)
+    await saveVaultFile(filePath, '# Panel Refresh\n\nOriginal staged content.\n\nAdded after staging.\n');
+
+    // Open the panel — mount effect must refresh git status
+    await page.locator('[aria-label*="New file" i]').first().click();
+    await page.waitForTimeout(800); // allow refresh to complete
+
+    // State should now be modified-staged (not staged-new)
+    await waitForGitState(page, 'modified-staged');
+
+    // Amber warning: "only staged changes will be committed"
+    await expect(page.getByText(/only staged changes will be committed/i)).toBeVisible();
+
+    // HEAD→staged diff button must be visible (new Bug 3 fix for modified-staged)
+    await expect(page.getByText(/view staged diff/i)).toBeVisible();
+  } finally {
+    await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 14 — Unsaved editor changes: panel warns before staging/committing
+// ---------------------------------------------------------------------------
+
+test('unsaved editor changes: Git Actions panel shows yellow warning', async ({ page }) => {
+  const filePath = '_playwright-tests/test-dirty-warning.md';
+  await saveVaultFile(filePath, '# Dirty Warning\n\nClean content.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Initial commit');
+
+  try {
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'clean');
+
+    // Type in the editor (creates unsaved changes — docIsDirty=true)
+    const textarea = page.locator('textarea').first();
+    await textarea.click();
+    await textarea.fill('# Dirty Warning\n\nClean content.\n\nUnsaved line added.\n');
+    await page.waitForTimeout(200);
+
+    // Open the git panel (state is still "clean" from git's perspective — file on disk unchanged)
+    await page.locator('[aria-label*="Clean" i]').first().click();
+    await page.waitForTimeout(500);
+
+    // Yellow unsaved-changes warning must appear
+    await expect(page.getByText(/unsaved editor changes/i)).toBeVisible();
+  } finally {
     await deleteVaultFile(filePath).catch(() => {});
   }
 });

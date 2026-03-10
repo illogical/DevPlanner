@@ -9,6 +9,7 @@ import { useSyncScroll } from '../hooks/useSyncScroll';
 import { vaultApi, gitApi } from '../api/client';
 import type { GitState } from '../api/client';
 import type { DiffLineData } from '../components/diff/DiffContent';
+import { useStore } from '../store';
 
 interface DiffViewerState {
   leftContent: string;
@@ -174,6 +175,7 @@ export function DiffViewerPage() {
   const [hasHead, setHasHead] = useState<boolean>(true);
 
   const { leftRef, rightRef, onScroll } = useSyncScroll(state.syncScroll);
+  const { refreshGitStatus } = useStore();
 
   // Load left pane from ?left= URL param on mount
   useEffect(() => {
@@ -205,7 +207,10 @@ export function DiffViewerPage() {
   useEffect(() => {
     const gitPath = searchParams.get('gitPath');
     if (!gitPath) { setGitFileState(null); setHasHead(true); return; }
-    gitApi.getStatus(gitPath).then((r) => setGitFileState(r.state)).catch(() => setGitFileState(null));
+    gitApi.getStatus(gitPath).then((r) => {
+      setGitFileState(r.state);
+      refreshGitStatus(gitPath); // sync into Zustand store so BottomBar + GitCommitPanel see fresh state
+    }).catch(() => setGitFileState(null));
     // Probe whether a HEAD version exists — false for files never committed (staged-new origin)
     gitApi.show(gitPath, 'HEAD').then((content) => setHasHead(content.length > 0)).catch(() => setHasHead(false));
   }, [searchParams]);

@@ -9,20 +9,30 @@ export function GitCommitPanel() {
     gitCommitMessage,
     gitActionLoading,
     docFilePath,
+    docIsDirty,
     setGitCommitMessage,
     stageFile,
     unstageFile,
     discardUnstaged,
     commitFile,
     toggleCommitPanel,
+    refreshGitStatus,
   } = useStore();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [refreshed, setRefreshed] = useState(false);
 
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  // Fetch current git state before rendering panel content — avoids showing
+  // stale state from the last poll/save (especially when opened from diff viewer).
+  useEffect(() => {
+    if (!docFilePath) { setRefreshed(true); return; }
+    refreshGitStatus(docFilePath).then(() => setRefreshed(true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -34,7 +44,7 @@ export function GitCommitPanel() {
 
   if (!docFilePath) return null;
 
-  const state = gitCurrentState as GitState | null;
+  const state = refreshed ? (gitCurrentState as GitState | null) : null;
 
   const handleCommit = async () => {
     if (!gitCommitMessage.trim()) {
@@ -82,7 +92,9 @@ export function GitCommitPanel() {
         </button>
       </div>
 
-      {state === 'clean' ? (
+      {!refreshed ? (
+        <p className="text-sm text-gray-500">Checking status…</p>
+      ) : state === 'clean' ? (
         <p className="text-sm text-gray-400">All changes committed.</p>
       ) : (
         <>
@@ -124,6 +136,11 @@ export function GitCommitPanel() {
 
           {/* Diff navigation — context-sensitive by state */}
           <div className="flex flex-col gap-1 mb-3">
+            {docIsDirty && (
+              <p className="text-xs text-yellow-400 bg-yellow-900/30 border border-yellow-800 rounded px-2 py-1.5">
+                You have unsaved editor changes. Save the file before staging to include them.
+              </p>
+            )}
             {state === 'staged-new' && (
               <p className="text-xs text-gray-500 italic">New file — no previous commit to compare.</p>
             )}
@@ -145,6 +162,12 @@ export function GitCommitPanel() {
             )}
             {state === 'modified-staged' && (
               <>
+                <button
+                  onClick={() => navigateDiff('HEAD', 'staged')}
+                  className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+                >
+                  View staged diff (HEAD → staged)
+                </button>
                 <button
                   onClick={() => navigateDiff('staged', 'working')}
                   className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
