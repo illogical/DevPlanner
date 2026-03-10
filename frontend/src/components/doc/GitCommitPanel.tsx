@@ -95,7 +95,7 @@ export function GitCommitPanel() {
           <div className="flex flex-wrap gap-2 mb-3">
             {canDiscard && (
               <button
-                onClick={() => discardUnstaged(docFilePath)}
+                onClick={() => { discardUnstaged(docFilePath); toggleCommitPanel(); }}
                 disabled={gitActionLoading}
                 className="px-2 py-1 text-xs rounded bg-red-900/50 text-red-300 hover:bg-red-900 border border-red-800 disabled:opacity-50"
               >
@@ -104,7 +104,7 @@ export function GitCommitPanel() {
             )}
             {canStage && (
               <button
-                onClick={() => stageFile(docFilePath)}
+                onClick={() => { stageFile(docFilePath); toggleCommitPanel(); }}
                 disabled={gitActionLoading}
                 className="px-2 py-1 text-xs rounded bg-blue-900/50 text-blue-300 hover:bg-blue-900 border border-blue-800 disabled:opacity-50"
               >
@@ -113,7 +113,7 @@ export function GitCommitPanel() {
             )}
             {canUnstage && (
               <button
-                onClick={() => unstageFile(docFilePath)}
+                onClick={() => { unstageFile(docFilePath); toggleCommitPanel(); }}
                 disabled={gitActionLoading}
                 className="px-2 py-1 text-xs rounded bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 disabled:opacity-50"
               >
