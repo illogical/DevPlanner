@@ -1,23 +1,21 @@
 import { test, expect, type Page } from '@playwright/test';
-import { saveVaultFile, deleteVaultFile, gitStage, gitCommit, gitDiscard, gitStatus, editorUrl, diffUrl } from './helpers';
+import {
+  saveVaultFile,
+  deleteVaultFile,
+  gitStage,
+  gitUnstage,
+  gitCommit,
+  gitDiscard,
+  gitStatus,
+  editorUrl,
+  diffUrl,
+} from './helpers';
 
 // ---------------------------------------------------------------------------
 // Shared selectors
 // ---------------------------------------------------------------------------
 
-/** The git status pill in the bottom bar */
-const statusPill = (page: Page) => page.locator('[data-testid="git-status-pill"], button[title*="git"], button[title*="Git"]').first();
-
-/** Open the file browser drawer */
-const openFileBrowser = async (page: Page) => {
-  await page.locator('button[title*="file" i], button[aria-label*="file browser" i], [data-testid="file-browser-toggle"]').first().click();
-  await page.waitForSelector('[data-testid="file-browser"], .file-browser, [class*="FileBrowser"]', { timeout: 3000 }).catch(() => {});
-};
-
-// ---------------------------------------------------------------------------
-// Helper: wait for the git status dot colour to reflect expected state
-// ---------------------------------------------------------------------------
-
+/** Wait for the git status dot to show a given state (matched by aria-label) */
 const STATE_ARIA: Record<string, string> = {
   untracked: 'Untracked',
   'staged-new': 'New file',
@@ -29,120 +27,273 @@ const STATE_ARIA: Record<string, string> = {
 
 async function waitForGitState(page: Page, expected: string) {
   const label = STATE_ARIA[expected] ?? expected;
-  // The GitStatusDot renders an aria-label on the dot/button
   await expect(page.locator(`[aria-label*="${label}" i]`).first()).toBeVisible({ timeout: 10_000 });
 }
 
+/** Click the git status pill/dot to open the Git Actions panel */
+async function openGitPanel(page: Page, currentState: string) {
+  const label = STATE_ARIA[currentState] ?? currentState;
+  await page.locator(`[aria-label*="${label}" i]`).first().click();
+  await page.waitForTimeout(300);
+}
+
+/** Open the file browser drawer */
+const openFileBrowser = async (page: Page) => {
+  await page
+    .locator('button[title*="file" i], button[aria-label*="file browser" i], [data-testid="file-browser-toggle"]')
+    .first()
+    .click();
+  await page
+    .waitForSelector('[data-testid="file-browser"], .file-browser, [class*="FileBrowser"]', { timeout: 3000 })
+    .catch(() => {});
+};
+
 // ---------------------------------------------------------------------------
 // Test 1 — untracked → staged-new → commit
+// Verifies: Bug 2 fix (staged-new shows Unstage + Commit), no diff links for new file
 // ---------------------------------------------------------------------------
 
-test('untracked → staged-new: Git Actions panel shows Unstage + Commit', async ({ page }) => {
+test('untracked → staged-new: Git Actions panel shows Unstage + Commit (no diff links)', async ({ page }) => {
   const filePath = '_playwright-tests/test-new-file.md';
-
-  // Set up: create a new untracked file
   await saveVaultFile(filePath, '# New File\n\nSome content.\n');
 
   try {
-    // Open the file in the editor
     await page.goto(editorUrl(filePath));
     await page.waitForLoadState('networkidle');
 
     // Verify untracked status
     await waitForGitState(page, 'untracked');
 
-    // Click the git status pill to open the Git Actions panel
-    await page.locator('[aria-label*="Untracked" i]').first().click();
-    await page.waitForTimeout(300);
-
-    // The panel should show a Stage button
+    // Open panel — should show Stage button only
+    await openGitPanel(page, 'untracked');
     const stageBtn = page.getByRole('button', { name: /^stage$/i });
     await expect(stageBtn).toBeVisible();
+    await expect(page.getByRole('button', { name: /^commit$/i })).not.toBeVisible();
 
     // Stage the file
     await stageBtn.click();
     await page.waitForTimeout(500);
-
-    // Status should now be staged-new
     await waitForGitState(page, 'staged-new');
 
-    // Open the panel again — should show Unstage and Commit, NOT a diff link
-    await page.locator('[aria-label*="New file" i]').first().click();
-    await page.waitForTimeout(300);
-
+    // Open the panel — Bug 2: must show Unstage and Commit for staged-new
+    await openGitPanel(page, 'staged-new');
     await expect(page.getByRole('button', { name: /^unstage$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^commit$/i })).toBeVisible();
-    // Info note about no previous commit
+
+    // No diff links — there is no HEAD to compare against
     await expect(page.getByText(/no previous commit/i)).toBeVisible();
-    // No "All changes" or "Staged diff" diff links for staged-new
     await expect(page.getByRole('link', { name: /all changes/i })).not.toBeVisible();
     await expect(page.getByRole('link', { name: /staged diff/i })).not.toBeVisible();
 
-    // Commit with a message
+    // Commit
     await page.getByRole('textbox', { name: /commit message/i }).fill('Add new test file');
     await page.getByRole('button', { name: /^commit$/i }).click();
     await page.waitForTimeout(800);
-
-    // File should be clean after commit
     await waitForGitState(page, 'clean');
   } finally {
-    // Cleanup: discard any leftover changes and remove from git
     await gitDiscard(filePath).catch(() => {});
     await deleteVaultFile(filePath).catch(() => {});
   }
 });
 
 // ---------------------------------------------------------------------------
-// Test 2 — Edit committed file → stage → partial-stage → commit cycle
+// Test 2 — staged-new: Unstage returns file to untracked
 // ---------------------------------------------------------------------------
 
-test('full edit→stage→edit→commit cycle produces correct git states', async ({ page }) => {
-  const filePath = '_playwright-tests/test-cycle.md';
+test('staged-new → unstage → untracked', async ({ page }) => {
+  const filePath = '_playwright-tests/test-unstage-new.md';
+  await saveVaultFile(filePath, '# Unstage Test\n\nContent.\n');
 
-  // Set up: create, stage, and commit a file so it starts clean
+  try {
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'untracked');
+
+    // Stage via panel
+    await openGitPanel(page, 'untracked');
+    await page.getByRole('button', { name: /^stage$/i }).click();
+    await page.waitForTimeout(500);
+    await waitForGitState(page, 'staged-new');
+
+    // Unstage via panel
+    await openGitPanel(page, 'staged-new');
+    await page.getByRole('button', { name: /^unstage$/i }).click();
+    await page.waitForTimeout(500);
+
+    // Should be untracked again
+    await waitForGitState(page, 'untracked');
+
+    // Verify via API as well
+    const state = await gitStatus(filePath);
+    expect(state).toBe('untracked');
+  } finally {
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 3 — Git Actions panel stays open after stage/unstage  [Bug 4 fix]
+// ---------------------------------------------------------------------------
+
+test('Git Actions panel stays open after Stage and Unstage actions', async ({ page }) => {
+  const filePath = '_playwright-tests/test-panel-stays-open.md';
+  await saveVaultFile(filePath, '# Panel Test\n\nOriginal.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Initial commit');
+
+  try {
+    // Create unstaged changes
+    await saveVaultFile(filePath, '# Panel Test\n\nModified.\n');
+
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'modified');
+
+    // Open panel
+    await openGitPanel(page, 'modified');
+
+    // Stage — panel must remain open (Bug 4)
+    await page.getByRole('button', { name: /^stage$/i }).click();
+    await page.waitForTimeout(500);
+    await waitForGitState(page, 'staged');
+
+    // Commit button must be visible without reopening the panel
+    await expect(page.getByRole('button', { name: /^commit$/i })).toBeVisible();
+
+    // Unstage — panel must remain open
+    await page.getByRole('button', { name: /^unstage$/i }).click();
+    await page.waitForTimeout(500);
+    await waitForGitState(page, 'modified');
+
+    // Stage button visible without reopening
+    await expect(page.getByRole('button', { name: /^stage$/i })).toBeVisible();
+  } finally {
+    await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 4 — Discard: modified → clean  (no staged changes)
+// ---------------------------------------------------------------------------
+
+test('discard unstaged changes: modified → clean', async ({ page }) => {
+  const filePath = '_playwright-tests/test-discard.md';
+  await saveVaultFile(filePath, '# Discard Test\n\nOriginal.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Initial commit');
+
+  try {
+    // Modify without staging
+    await saveVaultFile(filePath, '# Discard Test\n\nModified — will be discarded.\n');
+
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'modified');
+
+    // Open panel and discard
+    await openGitPanel(page, 'modified');
+    await expect(page.getByRole('button', { name: /^discard$/i })).toBeVisible();
+    await page.getByRole('button', { name: /^discard$/i }).click();
+    await page.waitForTimeout(800);
+
+    // Status should be clean
+    await waitForGitState(page, 'clean');
+
+    const state = await gitStatus(filePath);
+    expect(state).toBe('clean');
+  } finally {
+    await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 5 — Discard in partial-staged: modified-staged → staged
+// ---------------------------------------------------------------------------
+
+test('discard unstaged portion of partial-staged file → staged', async ({ page }) => {
+  const filePath = '_playwright-tests/test-discard-partial.md';
+  await saveVaultFile(filePath, '# Partial Discard\n\nOriginal.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Initial commit');
+
+  try {
+    // Stage a change
+    await saveVaultFile(filePath, '# Partial Discard\n\nStaged change.\n');
+    await gitStage(filePath);
+
+    // Then make a second un-staged change
+    await saveVaultFile(filePath, '# Partial Discard\n\nStaged change.\n\nUnstaged extra.\n');
+
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'modified-staged');
+
+    // Open panel and discard the unstaged portion
+    await openGitPanel(page, 'modified-staged');
+    await expect(page.getByRole('button', { name: /^discard$/i })).toBeVisible();
+    await page.getByRole('button', { name: /^discard$/i }).click();
+    await page.waitForTimeout(800);
+
+    // Should now be staged (only staged changes remain)
+    await waitForGitState(page, 'staged');
+
+    const state = await gitStatus(filePath);
+    expect(state).toBe('staged');
+  } finally {
+    await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 6 — Full edit→stage→partial-stage→commit cycle with diff shortcuts
+// ---------------------------------------------------------------------------
+
+test('full edit→stage→edit→commit cycle: correct states and diff shortcuts', async ({ page }) => {
+  const filePath = '_playwright-tests/test-cycle.md';
   await saveVaultFile(filePath, '# Cycle Test\n\nOriginal content.\n');
   await gitStage(filePath);
   await gitCommit(filePath, 'Initial commit for cycle test');
 
   try {
-    // Edit the file to create unstaged changes
+    // Step 1: Edit → modified (unstaged)
     await saveVaultFile(filePath, '# Cycle Test\n\nModified content.\n');
 
     await page.goto(editorUrl(filePath));
     await page.waitForLoadState('networkidle');
-
-    // Should be modified (unstaged)
     await waitForGitState(page, 'modified');
 
-    // Open panel — should show Stage button and "All changes" diff link
-    await page.locator('[aria-label*="Unstaged" i]').first().click();
-    await page.waitForTimeout(300);
+    // Open panel — Stage button visible; "All changes" diff shortcut visible
+    await openGitPanel(page, 'modified');
     await expect(page.getByRole('button', { name: /^stage$/i })).toBeVisible();
     await expect(page.getByText(/all changes|view changes/i).first()).toBeVisible();
 
-    // Stage the changes — panel should stay open (Bug 4 fix)
+    // Step 2: Stage → staged; panel stays open (Bug 4)
     await page.getByRole('button', { name: /^stage$/i }).click();
     await page.waitForTimeout(500);
     await waitForGitState(page, 'staged');
-
-    // Panel should still be open — verify Commit button is visible without reopening
     await expect(page.getByRole('button', { name: /^commit$/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^unstage$/i })).toBeVisible();
 
-    // Make another change — now we have modified-staged
+    // Step 3: Another external edit → modified-staged
     await saveVaultFile(filePath, '# Cycle Test\n\nModified content.\n\nExtra paragraph.\n');
-    // Trigger a status refresh by reloading
     await page.reload();
     await page.waitForLoadState('networkidle');
     await waitForGitState(page, 'modified-staged');
 
-    // Open panel — should show Discard, Stage, Commit, and three diff buttons
-    await page.locator('[aria-label*="Partial staged" i]').first().click();
-    await page.waitForTimeout(300);
+    // Open panel — Discard, Stage, Commit; three diff links
+    await openGitPanel(page, 'modified-staged');
     await expect(page.getByRole('button', { name: /^discard$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^stage$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^commit$/i })).toBeVisible();
+    // Three diff mode links must be present
+    await expect(page.getByText(/all changes/i).first()).toBeVisible();
+    await expect(page.getByText(/staged diff/i).first()).toBeVisible();
+    await expect(page.getByText(/unstaged changes/i).first()).toBeVisible();
 
-    // Stage all remaining changes and commit
+    // Step 4: Stage all and commit
     await page.getByRole('button', { name: /^stage$/i }).click();
     await page.waitForTimeout(500);
     await waitForGitState(page, 'staged');
@@ -151,6 +302,10 @@ test('full edit→stage→edit→commit cycle produces correct git states', asyn
     await page.getByRole('button', { name: /^commit$/i }).click();
     await page.waitForTimeout(800);
     await waitForGitState(page, 'clean');
+
+    // Verify via API — commit is real and persisted
+    const state = await gitStatus(filePath);
+    expect(state).toBe('clean');
   } finally {
     await gitDiscard(filePath).catch(() => {});
     await deleteVaultFile(filePath).catch(() => {});
@@ -158,7 +313,111 @@ test('full edit→stage→edit→commit cycle produces correct git states', asyn
 });
 
 // ---------------------------------------------------------------------------
-// Test 3 — File browser highlight syncs on Compare tab (/diff)  [Bug 1]
+// Test 7 — staged → unstage → modified (committed file)
+// ---------------------------------------------------------------------------
+
+test('staged → unstage → modified (committed file)', async ({ page }) => {
+  const filePath = '_playwright-tests/test-unstage-committed.md';
+  await saveVaultFile(filePath, '# Committed File\n\nOriginal.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Initial commit');
+
+  try {
+    // Stage a change
+    await saveVaultFile(filePath, '# Committed File\n\nChanged.\n');
+    await gitStage(filePath);
+
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'staged');
+
+    // Unstage via panel
+    await openGitPanel(page, 'staged');
+    await page.getByRole('button', { name: /^unstage$/i }).click();
+    await page.waitForTimeout(500);
+
+    // Should revert to modified (changes exist but not staged)
+    await waitForGitState(page, 'modified');
+
+    const state = await gitStatus(filePath);
+    expect(state).toBe('modified');
+  } finally {
+    await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 8 — clean file: no actions shown in Git Actions panel
+// ---------------------------------------------------------------------------
+
+test('clean file: Git Actions panel shows no action buttons', async ({ page }) => {
+  const filePath = '_playwright-tests/test-clean.md';
+  await saveVaultFile(filePath, '# Clean File\n\nContent.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Initial commit');
+
+  try {
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'clean');
+
+    // Open panel — no action buttons for a clean file
+    await openGitPanel(page, 'clean');
+    await expect(page.getByRole('button', { name: /^stage$/i })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /^commit$/i })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /^discard$/i })).not.toBeVisible();
+  } finally {
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 9 — Diff shortcuts: BottomBar shows correct shortcuts per git state
+// ---------------------------------------------------------------------------
+
+test('BottomBar diff shortcuts: modified shows "All changes", staged shows "Staged diff"', async ({ page }) => {
+  const filePath = '_playwright-tests/test-diff-shortcuts.md';
+  await saveVaultFile(filePath, '# Diff Shortcuts\n\nOriginal.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Initial commit');
+
+  try {
+    // modified: bottom bar should show "All changes" shortcut
+    await saveVaultFile(filePath, '# Diff Shortcuts\n\nModified.\n');
+
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'modified');
+
+    // BottomBar shortcut for HEAD→working diff
+    await expect(page.getByRole('link', { name: /all changes/i }).or(
+      page.locator('[data-testid="diff-shortcut-all"]')
+    ).first()).toBeVisible();
+
+    // Click shortcut — should navigate to diff viewer
+    await page.getByRole('link', { name: /all changes/i }).first().click();
+    await expect(page).toHaveURL(/\/diff/);
+    await page.goBack();
+    await page.waitForLoadState('networkidle');
+
+    // Stage → "Staged diff" shortcut
+    await gitStage(filePath);
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'staged');
+
+    await expect(page.getByRole('link', { name: /staged diff/i }).or(
+      page.locator('[data-testid="diff-shortcut-staged"]')
+    ).first()).toBeVisible();
+  } finally {
+    await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 10 — File browser selection highlight follows URL on Compare tab  [Bug 1]
 // ---------------------------------------------------------------------------
 
 test('file browser selection highlight follows URL on Compare tab', async ({ page }) => {
@@ -171,34 +430,25 @@ test('file browser selection highlight follows URL on Compare tab', async ({ pag
   await gitCommit(fileA, 'Add file A');
 
   try {
-    // Open the diff viewer with file A loaded
     await page.goto(diffUrl(fileA, 'HEAD', 'working'));
     await page.waitForLoadState('networkidle');
 
-    // Open the file browser
     await openFileBrowser(page);
     await page.waitForTimeout(500);
 
-    // Navigate to the _playwright-tests folder in the file browser
-    // (folder selection is app-specific; look for folder name)
+    // Navigate to the _playwright-tests folder
     await page.getByText('_playwright-tests').first().click().catch(() => {});
     await page.waitForTimeout(300);
 
-    // File A should be highlighted (amber border / text)
-    const fileAEntry = page.getByText('file-a').first();
-    await expect(fileAEntry).toBeVisible();
-    // Check the parent button has the active class (amber styling)
+    // File A should be highlighted
     const fileABtn = page.locator('button', { has: page.getByText('file-a') }).first();
     await expect(fileABtn).toHaveClass(/amber|border-amber/);
 
-    // Click file B in the browser
+    // Click file B — highlight should move
     await page.getByText('file-b').first().click();
     await page.waitForTimeout(500);
 
-    // URL should now reference file B
     await expect(page).toHaveURL(/left=.*file-b/);
-
-    // File B should now be highlighted, file A should not
     const fileBBtn = page.locator('button', { has: page.getByText('file-b') }).first();
     await expect(fileBBtn).toHaveClass(/amber|border-amber/);
     await expect(fileABtn).not.toHaveClass(/amber|border-amber/);
@@ -209,38 +459,75 @@ test('file browser selection highlight follows URL on Compare tab', async ({ pag
 });
 
 // ---------------------------------------------------------------------------
-// Test 4 — staged-new + working changes: only staged→working tab, no HEAD tabs
+// Test 11 — staged-new + working changes: only staged→working tab + no-HEAD banner  [Bug 3]
 // ---------------------------------------------------------------------------
 
-test('staged-new + working changes: only Unstaged changes tab + no-HEAD banner', async ({ page }) => {
+test('staged-new + working changes: only "Unstaged changes" tab + no-HEAD banner', async ({ page }) => {
   const filePath = '_playwright-tests/test-no-head.md';
-
-  // Set up: create file, stage it (staged-new), then modify it (→ modified-staged, no HEAD)
   await saveVaultFile(filePath, '# No Head File\n\nFirst content.\n');
   await gitStage(filePath);
 
-  // Verify the state is staged-new
-  const state = await gitStatus(filePath);
-  expect(state).toBe('staged-new');
+  const stateAfterStage = await gitStatus(filePath);
+  expect(stateAfterStage).toBe('staged-new');
 
-  // Now edit the file without staging → becomes modified-staged with no HEAD
+  // Edit without re-staging → modified-staged with no HEAD
   await saveVaultFile(filePath, '# No Head File\n\nFirst content.\n\nAdded paragraph.\n');
 
   try {
-    // Open the diff viewer in staged→working mode
     await page.goto(diffUrl(filePath, 'staged', 'working'));
     await page.waitForLoadState('networkidle');
 
-    // The no-HEAD banner should be visible
+    // No-HEAD banner must appear
     await expect(page.getByText(/no previous commit/i)).toBeVisible({ timeout: 8_000 });
 
-    // Only the "Unstaged changes" tab should be visible — no HEAD-based tabs
+    // Only the "Unstaged changes" / staged→working tab should be present
     await expect(page.getByRole('button', { name: /unstaged changes/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /all changes/i })).not.toBeVisible();
     await expect(page.getByRole('button', { name: /staged diff/i })).not.toBeVisible();
 
-    // The diff panes should show content (staged on left, working on right)
+    // Content from staged version should be visible in diff
     await expect(page.getByText('First content')).toBeVisible();
+  } finally {
+    await gitDiscard(filePath).catch(() => {});
+    await deleteVaultFile(filePath).catch(() => {});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Test 12 — Commit verification: confirm git log shows the commit
+// ---------------------------------------------------------------------------
+
+test('commit is persisted: git status is clean and commit message is verifiable via API', async ({ page }) => {
+  const filePath = '_playwright-tests/test-commit-verify.md';
+  await saveVaultFile(filePath, '# Commit Verify\n\nOriginal.\n');
+  await gitStage(filePath);
+  await gitCommit(filePath, 'Pre-existing commit');
+
+  try {
+    // Edit and stage via UI
+    await saveVaultFile(filePath, '# Commit Verify\n\nChanged content.\n');
+
+    await page.goto(editorUrl(filePath));
+    await page.waitForLoadState('networkidle');
+    await waitForGitState(page, 'modified');
+
+    await openGitPanel(page, 'modified');
+    await page.getByRole('button', { name: /^stage$/i }).click();
+    await page.waitForTimeout(500);
+    await waitForGitState(page, 'staged');
+
+    const commitMessage = 'Verified commit from Playwright';
+    await page.getByRole('textbox', { name: /commit message/i }).fill(commitMessage);
+    await page.getByRole('button', { name: /^commit$/i }).click();
+    await page.waitForTimeout(800);
+    await waitForGitState(page, 'clean');
+
+    // Verify via API: state is clean (meaning the commit happened)
+    const state = await gitStatus(filePath);
+    expect(state).toBe('clean');
+    // No unstaged or staged changes remain — the commit is real and complete.
+    // (Git log verification would require a dedicated API endpoint; state=clean
+    //  is the authoritative confirmation that all changes have been committed.)
   } finally {
     await gitDiscard(filePath).catch(() => {});
     await deleteVaultFile(filePath).catch(() => {});

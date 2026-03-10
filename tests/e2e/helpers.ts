@@ -6,8 +6,8 @@
 const API = 'http://localhost:17103/api/vault';
 
 export async function saveVaultFile(relativePath: string, content: string) {
-  const res = await fetch(`${API}/save`, {
-    method: 'POST',
+  const res = await fetch(`${API}/file`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: relativePath, content }),
   });
@@ -16,8 +16,8 @@ export async function saveVaultFile(relativePath: string, content: string) {
 }
 
 export async function deleteVaultFile(relativePath: string) {
-  const res = await fetch(`${API}/delete`, {
-    method: 'POST',
+  const res = await fetch(`${API}/file`, {
+    method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: relativePath }),
   });
@@ -32,6 +32,16 @@ export async function gitStatus(relativePath: string): Promise<string> {
   if (!res.ok) throw new Error(`gitStatus failed: ${await res.text()}`);
   const data = await res.json() as { state: string };
   return data.state;
+}
+
+export async function gitUnstage(relativePath: string) {
+  const res = await fetch(`${API}/git/unstage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: relativePath }),
+  });
+  if (!res.ok) throw new Error(`gitUnstage failed: ${await res.text()}`);
+  return res.json();
 }
 
 export async function gitStage(relativePath: string) {

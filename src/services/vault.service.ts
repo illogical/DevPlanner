@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, stat } from 'fs/promises';
+import { mkdir, readFile, readdir, stat, unlink } from 'fs/promises';
 import { join, resolve } from 'path';
 import * as path from 'path';
 import { slugify } from '../utils/slug';
@@ -55,6 +55,25 @@ export class VaultService {
     try {
       const content = await readFile(resolvedFile, 'utf-8');
       return content;
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        throw { error: 'FILE_NOT_FOUND', message: `File not found: ${relativePath}` };
+      }
+      throw err;
+    }
+  }
+
+  async deleteArtifactFile(relativePath: string): Promise<void> {
+    if (!relativePath || relativePath.trim() === '') {
+      throw { error: 'INVALID_PATH', message: 'Path parameter is required and must not be empty.' };
+    }
+    const resolvedVault = resolve(this.vaultPath);
+    const resolvedFile = resolve(this.vaultPath, relativePath);
+    if (!resolvedFile.startsWith(resolvedVault + path.sep) && resolvedFile !== resolvedVault) {
+      throw { error: 'INVALID_PATH', message: 'Path traversal detected. Path must be within the vault directory.' };
+    }
+    try {
+      await unlink(resolvedFile);
     } catch (err: any) {
       if (err?.code === 'ENOENT') {
         throw { error: 'FILE_NOT_FOUND', message: `File not found: ${relativePath}` };

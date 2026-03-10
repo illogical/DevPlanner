@@ -90,6 +90,35 @@ export const vaultRoutes = new Elysia()
       }),
     }
   )
+  .delete(
+    '/api/vault/file',
+    async ({ body, set }) => {
+      const config = ConfigService.getInstance();
+      const { artifactBasePath } = config;
+
+      if (!artifactBasePath) {
+        set.status = 400;
+        return { error: 'ARTIFACT_NOT_CONFIGURED', message: 'Set ARTIFACT_BASE_PATH in .env to enable vault file deletion.' };
+      }
+
+      const { path: relativePath } = body;
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+
+      try {
+        await vaultService.deleteArtifactFile(relativePath);
+        return { ok: true, path: relativePath };
+      } catch (err: any) {
+        if (err?.error) {
+          set.status = toHttpStatus(err.error);
+          return err;
+        }
+        throw err;
+      }
+    },
+    {
+      body: t.Object({ path: t.String() }),
+    }
+  )
   .get(
     '/api/vault/tree',
     async ({ set }) => {

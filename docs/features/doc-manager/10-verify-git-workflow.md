@@ -152,35 +152,87 @@ Add `staged-new` to the Git States table:
 
 ## Playwright E2E Tests
 
-**New file:** `tests/git-workflow.spec.ts`
+**File:** `tests/e2e/git-workflow.spec.ts`
 
-Fixture: `beforeAll` initializes a temp directory as a git repo, sets it as `ARTIFACT_BASE_PATH`, and starts the dev server pointing at it.
+**Infrastructure:** `global-setup.ts` creates a fresh temp git repo, writes `.env.test` pointing the backend at it, and tears it down afterward. Tests run sequentially (no parallelism — git state is shared). The backend and Vite dev server are started automatically by `playwright.config.ts`.
 
-### Test 1 — untracked → staged-new → commit
-1. Create a new file in the vault
-2. Open it in the editor → verify Red status dot with "Untracked" label
-3. Click Stage in Git Actions panel → verify Blue dot with "New file" label
-4. Open Git Actions panel → verify Unstage and Commit buttons are visible; no diff links; info note shown
-5. Enter commit message → Commit → verify Emerald dot (Clean)
+**Run:** `bun run test:e2e`
 
-### Test 2 — edit committed file → stage → partial stage → commit
-1. Edit the committed file → verify Red dot (Unstaged)
-2. Click the "All changes" diff quick button in BottomBar → verify diff viewer loads HEAD vs working
-3. Return to editor → Stage → verify Blue dot (Staged)
-4. Edit file again → verify Yellow dot (Partial staged)
-5. Open Git Actions panel → verify Discard, Stage, Commit buttons; three diff links visible
-6. Commit → verify Emerald dot (Clean)
+### Infrastructure helpers (`tests/e2e/helpers.ts`)
 
-### Test 3 — file browser highlight sync on Compare tab
-1. Navigate to `/diff` with a git file loaded (`?gitPath=...`)
-2. Open file browser → verify current file is highlighted (amber border)
-3. Click a different file → verify highlight moves to the new file immediately
+| Helper | API endpoint | Purpose |
+|--------|-------------|---------|
+| `saveVaultFile(path, content)` | `PUT /api/vault/file` | Create or overwrite a vault file |
+| `deleteVaultFile(path)` | `DELETE /api/vault/file` | Remove a vault file (cleanup) |
+| `gitStatus(path)` | `GET /api/vault/git/status` | Read current `GitState` via API |
+| `gitStage(path)` | `POST /api/vault/git/stage` | Stage a file (test setup shortcut) |
+| `gitUnstage(path)` | `POST /api/vault/git/unstage` | Unstage a file (test setup shortcut) |
+| `gitDiscard(path)` | `POST /api/vault/git/discard` | Discard unstaged changes (cleanup) |
+| `gitCommit(path, msg)` | `POST /api/vault/git/commit` | Commit a file (test setup shortcut) |
+| `editorUrl(path)` | — | Build `/editor?path=...` URL |
+| `diffUrl(path, left, right)` | — | Build `/diff?gitPath=...&leftRef=...&rightRef=...` URL |
 
-### Test 4 — staged-new + working changes (no HEAD)
-1. Create and stage a new file
-2. Edit the file without staging → state becomes `modified-staged`
-3. Navigate to diff → verify only "Unstaged changes" tab appears (no "All changes" or "Staged diff" tabs)
-4. Verify "New file — no previous commit exists" banner is visible
+> **Note on commit verification:** The test repo is a real isolated git repo created fresh per run. Commits are real and permanent within the session. Verification is done by asserting `gitStatus()` returns `clean` after commit — this is the authoritative signal that all changes were committed. No undo is needed; the entire temp repo is deleted by teardown.
+
+### Test 1 — untracked → staged-new → commit (Bug 2)
+1. Create new file → verify Red "Untracked" dot
+2. Open panel → verify only Stage button visible (no Commit)
+3. Click Stage → verify Blue "New file" dot
+4. Reopen panel → verify Unstage + Commit visible; "no previous commit" info note; no diff links
+
+### Test 2 — staged-new → unstage → untracked
+1. Create and stage a new file → Blue "New file" dot
+2. Open panel → click Unstage
+3. Verify Red "Untracked" dot; API confirms `state === 'untracked'`
+
+### Test 3 — Git Actions panel stays open after Stage and Unstage (Bug 4)
+1. Commit a file, then edit it → "modified" state
+2. Open panel → click Stage → verify Commit button visible without reopening the panel
+3. Click Unstage → verify Stage button visible without reopening the panel
+
+### Test 4 — Discard: modified → clean
+1. Commit a file, then edit without staging → "modified"
+2. Open panel → click Discard
+3. Verify Emerald "Clean" dot; API confirms `state === 'clean'`
+
+### Test 5 — Discard unstaged portion of partial-staged: modified-staged → staged
+1. Commit, stage a change, add another unstaged edit → "modified-staged"
+2. Open panel → click Discard
+3. Verify Blue "Staged" dot; API confirms `state === 'staged'`
+
+### Test 6 — Full edit→stage→partial-stage→commit cycle with diff shortcuts
+1. Edit committed file → "modified" → verify "All changes" diff shortcut visible in panel
+2. Stage → "staged" → panel stays open; verify Commit + Unstage visible
+3. Make another external edit → "modified-staged" → verify Discard, Stage, Commit; three diff links (All changes, Staged diff, Unstaged changes)
+4. Stage all → Commit → verify "Clean"; API confirms `state === 'clean'`
+
+### Test 7 — staged → unstage → modified (committed file)
+1. Commit a file, stage a change via API shortcut
+2. Open panel → click Unstage
+3. Verify Red "Unstaged" dot; API confirms `state === 'modified'`
+
+### Test 8 — Clean file: Git Actions panel shows no action buttons
+1. Open editor on a clean file → verify Emerald dot
+2. Open panel → verify Stage, Commit, Discard are all absent
+
+### Test 9 — BottomBar diff shortcuts per git state
+1. Modified file → verify "All changes" link visible; click it → navigates to `/diff`
+2. Stage → verify "Staged diff" link visible in BottomBar
+
+### Test 10 — File browser highlight follows URL on Compare tab (Bug 1)
+1. Open `/diff` with file A loaded → open file browser → verify file A has amber border
+2. Click file B → verify URL updates to `left=...file-b`; file B gets amber border; file A loses it
+
+### Test 11 — staged-new + working changes: only staged→working tab + no-HEAD banner (Bug 3)
+1. Create and stage a new file → `staged-new`
+2. Edit without re-staging → `modified-staged` (no HEAD)
+3. Open diff viewer → verify "New file — no previous commit" banner visible
+4. Verify only "Unstaged changes" tab present; "All changes" and "Staged diff" absent
+
+### Test 12 — Commit verification
+1. Commit a pre-existing file, edit it, stage and commit via UI
+2. Verify Green "Clean" dot; `gitStatus()` API returns `'clean'`
+   (State = clean is the authoritative proof the commit was persisted to the git repo)
 
 ---
 
@@ -194,15 +246,19 @@ Fixture: `beforeAll` initializes a temp directory as a git repo, sets it as `ART
 | `frontend/src/pages/DiffViewerPage.tsx` | Bug 3: `hasHead` detection + no-HEAD banner | Medium |
 | `frontend/src/components/diff/DiffGitModeBar.tsx` | Bug 3: `hasHead` prop, filter HEAD-based modes | Medium |
 | `docs/features/doc-manager/05-git-integration.md` | Add `staged-new` to state table | Low |
-| `tests/git-workflow.spec.ts` | New Playwright E2E test suite | After bugs fixed |
+| `src/routes/vault.ts` | Add `DELETE /api/vault/file` for test cleanup | Done |
+| `tests/e2e/helpers.ts` | Fixed API endpoints; added `gitUnstage` helper | Done |
+| `tests/e2e/git-workflow.spec.ts` | Full 12-test E2E suite covering all states + bug regressions | Done |
 
 ---
 
 ## Verification
 
-1. New file → `git add` → Blue "New file" status → Git Actions panel shows Unstage + Commit (Bug 2)
-2. First commit → edit → stage → edit again → Yellow status → three diff mode tabs visible (workflow)
-3. Navigate to `/diff` → open file browser → click different file → highlight moves (Bug 1)
-4. New file → stage → edit → open diff → only `staged→working` tab shown + no-HEAD banner (Bug 3)
-5. Stage a file → Git Actions panel stays open (Bug 4)
-6. Run `npx playwright test tests/git-workflow.spec.ts` → all 4 test scenarios pass
+1. New file → `git add` → Blue "New file" status → Git Actions panel shows Unstage + Commit (Bug 2) — **Test 1**
+2. First commit → edit → stage → edit again → Yellow status → three diff mode tabs visible (workflow) — **Test 6**
+3. Navigate to `/diff` → open file browser → click different file → highlight moves (Bug 1) — **Test 10**
+4. New file → stage → edit → open diff → only `staged→working` tab shown + no-HEAD banner (Bug 3) — **Test 11**
+5. Stage a file → Git Actions panel stays open (Bug 4) — **Test 3**
+6. Unstage a new staged file → returns to untracked — **Test 2**
+7. Discard unstaged changes → file returns to clean or staged — **Tests 4 & 5**
+8. Run `bun run test:e2e` → all 12 tests pass
