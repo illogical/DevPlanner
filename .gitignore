@@ -145,3 +145,9 @@ workspace/
 .github/skills/*
 .claude/settings.local.json
 .claude/skills/agent-skill-creator/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright-vault-path
+.env.test

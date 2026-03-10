@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useStore } from '../../store';
 import { FolderColumn } from './FolderColumn';
 import { FileColumn } from './FileColumn';
@@ -8,6 +8,7 @@ import type { TreeFolder } from '../../store/types';
 export function FileBrowserColumns() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const {
     fbFolders,
@@ -17,6 +18,11 @@ export function FileBrowserColumns() {
     setFbActivePath,
     refreshGitStatuses,
   } = useStore();
+
+  // On the Compare tab (/diff), the selected file comes from URL params, not docFilePath
+  const currentFilePath = location.pathname.startsWith('/diff')
+    ? (searchParams.get('left') ?? searchParams.get('gitPath') ?? docFilePath)
+    : docFilePath;
 
   const getNavTarget = (filePath: string) => {
     if (location.pathname.startsWith('/editor')) return `/editor?path=${encodeURIComponent(filePath)}`;
@@ -65,7 +71,7 @@ export function FileBrowserColumns() {
         <div className="overflow-hidden bg-gray-900/40">
           <FileColumn
             files={files}
-            currentFilePath={docFilePath}
+            currentFilePath={currentFilePath}
             gitStatuses={gitStatuses}
             onSelect={handleFileSelect}
           />

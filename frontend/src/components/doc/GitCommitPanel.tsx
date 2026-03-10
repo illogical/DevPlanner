@@ -55,9 +55,9 @@ export function GitCommitPanel() {
     }
   };
 
-  const canCommit = state === 'staged' || state === 'modified-staged';
+  const canCommit = state === 'staged' || state === 'staged-new' || state === 'modified-staged';
   const canStage = state === 'modified' || state === 'untracked' || state === 'modified-staged';
-  const canUnstage = state === 'staged' || state === 'modified-staged';
+  const canUnstage = state === 'staged' || state === 'staged-new' || state === 'modified-staged';
   const canDiscard = state === 'modified' || state === 'modified-staged';
 
   const navigate = useNavigate();
@@ -104,7 +104,7 @@ export function GitCommitPanel() {
             )}
             {canStage && (
               <button
-                onClick={() => { stageFile(docFilePath); toggleCommitPanel(); }}
+                onClick={() => stageFile(docFilePath)}
                 disabled={gitActionLoading}
                 className="px-2 py-1 text-xs rounded bg-blue-900/50 text-blue-300 hover:bg-blue-900 border border-blue-800 disabled:opacity-50"
               >
@@ -113,7 +113,7 @@ export function GitCommitPanel() {
             )}
             {canUnstage && (
               <button
-                onClick={() => { unstageFile(docFilePath); toggleCommitPanel(); }}
+                onClick={() => unstageFile(docFilePath)}
                 disabled={gitActionLoading}
                 className="px-2 py-1 text-xs rounded bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 disabled:opacity-50"
               >
@@ -124,6 +124,9 @@ export function GitCommitPanel() {
 
           {/* Diff navigation — context-sensitive by state */}
           <div className="flex flex-col gap-1 mb-3">
+            {state === 'staged-new' && (
+              <p className="text-xs text-gray-500 italic">New file — no previous commit to compare.</p>
+            )}
             {state === 'modified' && (
               <button
                 onClick={() => navigateDiff('HEAD', 'working')}

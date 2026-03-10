@@ -114,16 +114,35 @@ The Vite dev server proxies all `/api` requests to the backend at `http://localh
 
 The editor and file browser include a full single-file Git workflow. Each open file shows a status pill in the bottom bar that refreshes immediately after save and on file selection (no polling delay for these events).
 
+### Git workflow state machine
+
+> **Key fact:** `git add` is the staging command. For new files it both begins tracking AND stages simultaneously — there is no separate "track" step.
+
+| Step | GitState | Status color | Available diffs | Available actions |
+|------|----------|--------------|-----------------|-------------------|
+| New file, not staged | `untracked` | Red | None | Stage |
+| `git add` (tracks + stages) | `staged-new` | Blue | None (no HEAD) | Unstage, Commit |
+| Edit a staged-new file | `modified-staged` | Yellow | `staged→working` only | Discard, Stage, Commit |
+| Stage again | `staged-new` | Blue | None | Unstage, Commit |
+| First commit | `clean` | Emerald | None | None |
+| Edit a committed file | `modified` | Red | `HEAD→working` | Stage |
+| Stage changes | `staged` | Blue | `HEAD→staged` | Unstage, Commit |
+| Edit again (partially staged) | `modified-staged` | Yellow | `staged→working`, `HEAD→staged`, `HEAD→working` | Discard, Stage, Commit |
+| Stage all changes | `staged` | Blue | `HEAD→staged` | Unstage, Commit |
+
+> **Note on `staged-new` + working changes:** If you edit a `staged-new` file before committing it, the state becomes `modified-staged`. Because there is no HEAD version yet, only the `staged→working` diff mode is available. HEAD-based modes are suppressed and a banner is shown in the Diff Viewer.
+
 ### Status colors
 
-| Color | State | Meaning |
+| Color (Tailwind) | State(s) | Short label |
 |---|---|---|
-| Emerald | Clean | All changes committed |
-| Red | Untracked | New file, not yet added to git |
-| Red | Unstaged | Tracked file with working-tree changes, nothing staged |
-| Blue | Staged | All changes staged, ready to commit |
-| Blue + Red (two dots) | Partial staged | Staged changes AND additional unstaged changes exist |
-| Gray | Ignored / Outside repo / Unknown | Git not applicable |
+| `bg-emerald-500` | `clean` | Clean |
+| `bg-red-500` | `modified` | Unstaged |
+| `bg-red-500` | `untracked` | Untracked |
+| `bg-blue-500` | `staged` | Staged |
+| `bg-blue-500` | `staged-new` | New file |
+| `bg-yellow-500` | `modified-staged` | Partial staged |
+| `bg-gray-500` | `ignored`, `outside-repo`, `unknown` | Ignored / Outside repo / Unknown |
 
 ### Git Actions panel
 
@@ -134,7 +153,20 @@ Click the status pill to open the Git Actions panel, which shows context-sensiti
 - **Discard** — revert unstaged working-tree changes to the staged/committed version (`git restore --worktree`)
 - **Commit** — commit staged changes with a message (Enter to submit, Shift+Enter for newline)
 
+> **Panel stays open after Stage/Unstage** so you can immediately commit or review without reopening it. The panel only closes automatically after Discard and Commit.
+
 > **Partial staged state**: When both staged and unstaged changes exist, an amber warning is shown. Only the staged portion will be committed — unstaged changes remain in the working tree.
+
+Available actions per state:
+
+| State | Actions |
+|---|---|
+| `untracked` | Stage |
+| `staged-new` | Unstage, Commit |
+| `modified` | Stage |
+| `staged` | Unstage, Commit |
+| `modified-staged` | Discard, Stage, Commit |
+| `clean` | *(none — all changes committed)* |
 
 ### Diff views — BottomBar quick-access buttons
 
@@ -145,6 +177,7 @@ Compact diff jump buttons appear directly in the **BottomBar** to the left of th
 | `modified` | **All changes** (HEAD → working) |
 | `staged` | **Staged diff** (HEAD → staged) |
 | `modified-staged` | **All changes** · **Staged diff** · **Unstaged** |
+| `staged-new` | *(none — no HEAD to compare against)* |
 | `clean` / `untracked` / others | *(none)* |
 
 Implemented in `components/diff/DiffQuickButtons.tsx`, rendered by `BottomBar.tsx`.
@@ -174,9 +207,11 @@ The Diff Viewer at `/diff` is a two-pane, side-by-side file comparison tool. The
 
 | Tab | Left pane | Right pane | Available when |
 |---|---|---|---|
-| All changes | Last commit (HEAD) | Working tree | `modified`, `staged`, `modified-staged` |
-| Staged diff | Last commit (HEAD) | Staged (index) | `staged`, `modified-staged` |
-| Unstaged changes | Staged (index) | Working tree | `modified-staged` only |
+| All changes | Last commit (HEAD) | Working tree | `modified`, `staged`, `modified-staged` (with HEAD) |
+| Staged diff | Last commit (HEAD) | Staged (index) | `staged`, `modified-staged` (with HEAD) |
+| Unstaged changes | Staged (index) | Working tree | `modified-staged` (always, including no-HEAD files) |
+
+> When a `modified-staged` file has never been committed, HEAD-based tabs are hidden and a blue banner notes the file is new. Only "Unstaged changes" is available.
 
 Clicking a tab reloads both panes instantly without navigating away. The URL updates to reflect the active mode (`leftRef` / `rightRef` params), so the view is shareable and survives a page refresh.
 

@@ -172,6 +172,7 @@ export function DiffViewerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [state, setState] = useState<DiffViewerState>(INITIAL_STATE);
   const [gitFileState, setGitFileState] = useState<GitState | null>(null);
+  const [hasHead, setHasHead] = useState<boolean>(true);
 
   const { leftRef, rightRef, onScroll } = useSyncScroll(state.syncScroll);
 
@@ -204,8 +205,10 @@ export function DiffViewerPage() {
   // Fetch git status when gitPath is present (drives available mode tabs)
   useEffect(() => {
     const gitPath = searchParams.get('gitPath');
-    if (!gitPath) { setGitFileState(null); return; }
+    if (!gitPath) { setGitFileState(null); setHasHead(true); return; }
     gitApi.getStatus(gitPath).then((r) => setGitFileState(r.state)).catch(() => setGitFileState(null));
+    // Probe whether a HEAD version exists — false for files never committed (staged-new origin)
+    gitApi.show(gitPath, 'HEAD').then((content) => setHasHead(content.length > 0)).catch(() => setHasHead(false));
   }, [searchParams]);
 
   // Load both panes from git refs (?gitPath=, ?leftRef=, ?rightRef=)
@@ -304,8 +307,9 @@ export function DiffViewerPage() {
 
   // Derived git mode state
   const gitPath = searchParams.get('gitPath');
-  const availableModes = getAvailableModes(gitFileState);
+  const availableModes = getAvailableModes(gitFileState, hasHead);
   const activeMode = getModeFromRefs(searchParams.get('leftRef'), searchParams.get('rightRef'));
+  const showNoHeadBanner = !!gitPath && !hasHead && gitFileState !== null;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -330,6 +334,13 @@ export function DiffViewerPage() {
           activeMode={activeMode}
           onSelect={handleModeSelect}
         />
+      )}
+
+      {/* No-HEAD banner — shown when a git file has never been committed */}
+      {showNoHeadBanner && (
+        <div className="px-4 py-2 bg-blue-900/20 border-b border-blue-800/50 text-xs text-blue-300">
+          New file — no previous commit exists. Showing staged vs working tree only.
+        </div>
       )}
 
       {/* Error banner */}

@@ -42,11 +42,20 @@ export const ALL_DIFF_MODES: DiffMode[] = [
   },
 ];
 
-export function getAvailableModes(state: GitState | null): DiffMode[] {
-  if (state === 'modified') return [ALL_DIFF_MODES[0]];
-  if (state === 'staged') return [ALL_DIFF_MODES[0], ALL_DIFF_MODES[1]];
-  if (state === 'modified-staged') return ALL_DIFF_MODES;
-  // staged-new: no HEAD version exists — no HEAD-based comparisons available
+/**
+ * Returns the diff mode tabs available for a given git state.
+ * @param state - Current git state of the file
+ * @param hasHead - Whether the file has a committed HEAD version. False for files
+ *   that have never been committed (staged-new origin). When false, HEAD-based
+ *   modes are suppressed even if the state would normally permit them.
+ */
+export function getAvailableModes(state: GitState | null, hasHead = true): DiffMode[] {
+  if (state === 'modified') return hasHead ? [ALL_DIFF_MODES[0]] : [];
+  if (state === 'staged') return hasHead ? [ALL_DIFF_MODES[0], ALL_DIFF_MODES[1]] : [];
+  if (state === 'modified-staged') {
+    return hasHead ? ALL_DIFF_MODES : [ALL_DIFF_MODES[2]]; // staged-working only when no HEAD
+  }
+  // staged-new, clean, untracked, etc.: no meaningful diff
   return [];
 }
 
