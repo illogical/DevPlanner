@@ -16,6 +16,7 @@ export function BottomBar() {
         gitIsLoading,
         gitCommitPanelOpen,
         toggleCommitPanel,
+        stageFile,
     } = useStore();
 
     const handleBreadcrumbNavigate = (path: string) => {
@@ -73,7 +74,11 @@ export function BottomBar() {
                             <GitStatusDot
                                 state={gitCurrentState ?? undefined}
                                 loading={gitIsLoading}
-                                onClick={toggleCommitPanel}
+                                onClick={
+                                    gitCurrentState === 'untracked'
+                                        ? () => stageFile(docFilePath)
+                                        : toggleCommitPanel
+                                }
                                 showLabel={true}
                             />
                             {gitCommitPanelOpen && (

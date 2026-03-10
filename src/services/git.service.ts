@@ -5,6 +5,7 @@ export type GitState =
   | 'clean'
   | 'modified'
   | 'staged'
+  | 'staged-new'       // new file staged for the first time (no HEAD version exists)
   | 'modified-staged'
   | 'untracked'
   | 'ignored'
@@ -30,7 +31,7 @@ function parsePorcelainStatus(line: string): GitState {
   const staged = x !== ' ' && x !== '?';
   const modified = y !== ' ' && y !== '?';
   if (staged && modified) return 'modified-staged';
-  if (staged) return 'staged';
+  if (staged) return x === 'A' ? 'staged-new' : 'staged';
   if (modified) return 'modified';
   return 'clean';
 }

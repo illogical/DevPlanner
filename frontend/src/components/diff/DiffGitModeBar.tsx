@@ -46,6 +46,7 @@ export function getAvailableModes(state: GitState | null): DiffMode[] {
   if (state === 'modified') return [ALL_DIFF_MODES[0]];
   if (state === 'staged') return [ALL_DIFF_MODES[0], ALL_DIFF_MODES[1]];
   if (state === 'modified-staged') return ALL_DIFF_MODES;
+  // staged-new: no HEAD version exists — no HEAD-based comparisons available
   return [];
 }
 
@@ -68,6 +69,7 @@ export function DiffGitModeBar({ filename, gitState, modes, activeMode, onSelect
   const stateColors: Partial<Record<GitState, string>> = {
     modified: 'bg-red-500',
     staged: 'bg-blue-500',
+    'staged-new': 'bg-blue-500',
     'modified-staged': 'bg-yellow-500',
   };
   const dotColor = stateColors[gitState] ?? 'bg-gray-500';

@@ -20,6 +20,7 @@ export function DiffQuickButtons({ filePath, gitState }: Props) {
   const navigate = useNavigate();
 
   if (!filePath || !gitState) return null;
+  // staged-new = new file with no HEAD version; no meaningful diff to show
   if (!['modified', 'staged', 'modified-staged'].includes(gitState)) return null;
 
   const go = (leftRef: string, rightRef: string) =>
