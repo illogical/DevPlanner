@@ -15,7 +15,7 @@ function KanbanApp() {
   const {
     isActivityPanelOpen, setActivityPanelOpen,
     isPaletteOpen, openPalette, closePalette,
-    activeProjectSlug, activeCard, isDetailPanelOpen, projects,
+    activeProjectSlug, activeCard, isDetailPanelOpen,
     setActiveProject, openCardDetail, closeCardDetail,
   } = useStore();
 

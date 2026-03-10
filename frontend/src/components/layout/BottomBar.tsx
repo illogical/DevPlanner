@@ -69,14 +69,14 @@ export function BottomBar() {
                 {/* Right side: Diff quick buttons + Git Status */}
                 {filename && (
                     <div className="absolute right-0 top-0 bottom-0 flex items-center pr-1" onClick={(e) => e.stopPropagation()}>
-                        <DiffQuickButtons filePath={docFilePath} gitState={gitCurrentState} />
+                        <DiffQuickButtons filePath={docFilePath ?? ''} gitState={gitCurrentState} />
                         <div className="relative flex items-center shrink-0">
                             <GitStatusDot
                                 state={gitCurrentState ?? undefined}
                                 loading={gitIsLoading}
                                 onClick={
                                     gitCurrentState === 'untracked'
-                                        ? () => stageFile(docFilePath)
+                                        ? () => stageFile(docFilePath ?? '')
                                         : toggleCommitPanel
                                 }
                                 showLabel={true}

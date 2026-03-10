@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useStore } from '../../store';
 import { cn } from '../../utils/cn';
 
@@ -68,7 +68,6 @@ function tabClass(isActive: boolean) {
 
 export function AppNavBar() {
   const location = useLocation();
-  const navigate = useNavigate();
   const {
     docFilePath,
     lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen,

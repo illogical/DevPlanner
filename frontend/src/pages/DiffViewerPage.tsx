@@ -9,7 +9,6 @@ import { useSyncScroll } from '../hooks/useSyncScroll';
 import { vaultApi, gitApi } from '../api/client';
 import type { GitState } from '../api/client';
 import type { DiffLineData } from '../components/diff/DiffContent';
-import type { LineType } from '../components/diff/DiffLine';
 
 interface DiffViewerState {
   leftContent: string;

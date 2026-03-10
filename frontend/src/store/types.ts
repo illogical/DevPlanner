@@ -183,6 +183,7 @@ export type GitState =
   | 'clean'
   | 'modified'
   | 'staged'
+  | 'staged-new'
   | 'modified-staged'
   | 'untracked'
   | 'ignored'

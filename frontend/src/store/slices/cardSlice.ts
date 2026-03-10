@@ -13,8 +13,8 @@ export const createCardSlice: StateCreator<
   isDetailPanelOpen: false,
   isLoadingCardDetail: false,
 
-  openCardDetail: async (cardSlug, skipHistory = false) => {
-    const { activeProjectSlug, activeCard } = get();
+  openCardDetail: async (cardSlug, _skipHistory = false) => {
+    const { activeProjectSlug } = get();
     if (!activeProjectSlug) return;
 
     console.log(`[openCardDetail] CALLED for ${cardSlug}, current activeCard:`, get().activeCard?.slug);
