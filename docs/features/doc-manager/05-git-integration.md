@@ -53,9 +53,9 @@ A floating panel that appears above the header when the user clicks the Git stat
 | File State | Available Actions |
 |------------|------------------|
 | `clean` | None (panel shows "All changes committed") |
-| `modified` | **Stage** |
+| `modified` | **Stage**, **Discard** |
 | `staged` | **Unstage**, **Commit** |
-| `modified-staged` | **Discard** (unstaged), **Stage** (unstaged), **Commit** (staged only) |
+| `modified-staged` | **Discard** (unstaged), **Stage** (unstaged), **Unstage** (staged). **Commit is blocked** — warning banner shown. |
 | `untracked` | **Stage** (git add) |
 
 - **Keyboard shortcuts:**

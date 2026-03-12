@@ -63,6 +63,8 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
       setTimeout(() => {
         if (get().docSaveState === 'saved') set({ docSaveState: 'idle' });
       }, 2000);
+      // Refresh git status after saving so any unstaged changes are immediately visible
+      get().refreshGitStatus(docFilePath);
     } catch (err: any) {
       set({ docSaveState: 'error' });
     }

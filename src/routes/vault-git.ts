@@ -12,7 +12,7 @@ function requireVaultPath(): string {
 
 function toStatus(err: unknown): number {
   const e = err as any;
-  if (e?.error === 'ARTIFACT_NOT_CONFIGURED' || e?.error === 'INVALID_PATH') return 400;
+  if (e?.error === 'ARTIFACT_NOT_CONFIGURED' || e?.error === 'INVALID_PATH' || e?.error === 'INVALID_REF') return 400;
   return 500;
 }
 
@@ -122,4 +122,25 @@ export const vaultGitRoutes = new Elysia()
       }
     },
     { query: t.Object({ path: t.String(), mode: t.Union([t.Literal('working'), t.Literal('staged')]) }) }
+  )
+  .get(
+    '/api/vault/git/show',
+    async ({ query, set }) => {
+      try {
+        const vaultPath = requireVaultPath();
+        const svc = new GitService(vaultPath);
+        const content = await svc.getFileAtRef(query.path, query.ref);
+        set.headers['Content-Type'] = 'text/plain; charset=utf-8';
+        return content;
+      } catch (err: any) {
+        const e = err as any;
+        if (e?.error === 'GIT_NOT_FOUND') {
+          set.status = 404;
+          return err;
+        }
+        set.status = toStatus(err);
+        return err;
+      }
+    },
+    { query: t.Object({ path: t.String(), ref: t.String() }) }
   );
