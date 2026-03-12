@@ -1,122 +1,96 @@
 # 11 — Git Panel State Accuracy
 
-**Status:** In Progress
-**Phase:** 22.11
-**Date:** 2026-03-09
-**Depends on:** 10-Verify Git Workflow
+**Status:** Active  
+**Phase:** 22 (follow-up)  
+**Date:** 2026-03-10  
 
 ---
 
 ## Problem Summary
 
-The Git Actions panel renders stale git state. The root cause: `gitCurrentState` in the
-Zustand store is only updated on editor save, file load, and a configurable poll interval
-(default 30 s). Opening the panel does not wait for the refresh to complete before rendering,
-so the user sees whatever state was last written to the store.
-
-This is especially visible on the **diff viewer page** (`/diff`), where:
-- The diff viewer fetches git status into local component state (`gitFileState`) — correctly
-- The Zustand store `gitCurrentState` was last set on the editor page — potentially stale
-- The panel reads from the store, not from the diff viewer's local state
-
-### Observed symptom (screenshots)
-
-| Pane | Shows |
-|------|-------|
-| "Staged diff" (HEAD → staged) | Identical content both sides — **no diff** |
-| "All changes" (HEAD → working) | Last line differs — **real working-tree changes** |
-| Status dot | Blue "Staged" |
-| Panel | Unstage + "View staged diff" + Commit — **no Stage button** |
-
-**Root cause trace:**
-- If staged = HEAD and working ≠ HEAD → `git status --porcelain` returns ` M` → state = `modified`
-- But the store holds `staged` from a previous operation
-- `canStage` excludes `staged`, so no Stage button appears
-- The user has real changes but cannot stage them and has no visual warning
+After initial implementation of the git commit panel and diff viewer, three accuracy issues were identified and resolved:
 
 ---
 
-## Fixes Applied (Phase 22.11)
+## Bug 1 — Staged Diff Showed HEAD on Both Panes
 
-### Fix 1 — Block panel content until refresh resolves
+### Symptom
 
-`GitCommitPanel` now holds a local `refreshed` boolean. On mount it calls
-`refreshGitStatus(docFilePath)` and sets `refreshed = true` only when the promise resolves.
-Until then the panel shows "Checking status…" instead of stale state.
+Navigating to `/diff?path=<file>&mode=staged-committed` (or any git diff mode) did not load git-aware content. Both panes loaded either the current working-tree content or remained empty, because the `DiffViewerPage` only understood `?left=` and `?right=` vault-path parameters and had no git diff mode support.
 
-```tsx
-const [refreshed, setRefreshed] = useState(false);
+### Root Cause
 
-useEffect(() => {
-  if (!docFilePath) { setRefreshed(true); return; }
-  refreshGitStatus(docFilePath).then(() => setRefreshed(true));
-}, []);
+`DiffViewerPage` used `vaultApi.getContent()` (vault filesystem) for both panes. There was no code path to fetch content from git refs (`HEAD`, `:0` index, etc.).
 
-// In render:
-const state = refreshed ? (gitCurrentState as GitState | null) : null;
+### Fix
 
-{!refreshed ? (
-  <p className="text-sm text-gray-500">Checking status…</p>
-) : state === 'clean' ? (
-  ...
-) : ( ... )}
-```
+1. **Backend** — Added `getFileAtRef(relativePath, ref)` to `GitService`. Uses `git show <ref>:<path>` to read committed or staged file content. Added `GET /api/vault/git/show?path=<file>&ref=<ref>` endpoint.
+2. **Frontend API** — Added `gitApi.getFileAtRef(path, ref)` to the API client.
+3. **`DiffViewerPage`** — When `?path=<file>&mode=<git-mode>` URL params are both present, the page now fetches both panes from the appropriate git endpoint instead of the vault filesystem. Supported modes:
 
-**File:** `frontend/src/components/doc/GitCommitPanel.tsx`
+| URL Mode | Left Pane | Right Pane |
+|----------|-----------|------------|
+| `staged-committed` | `HEAD` (last commit) | `:0` (staging area) |
+| `working-committed` | `HEAD` (last commit) | Working tree |
+| `working-staged` | `:0` (staging area) | Working tree |
+
+4. **`DiffPaneHeader`** — Accepts an optional `label` prop to display contextual text like `"HEAD (committed)"` or `"Staged (index)"` instead of a bare filename.
 
 ---
 
-## Remaining Known Issues
+## Bug 2 — `modified-staged` State Had No Indicator
 
-### Issue A — `refreshGitStatus` return type
+### Symptom
 
-`refreshGitStatus` in `gitSlice.ts` currently returns `Promise<void>` (implicitly, since the
-async function has no explicit return). The `.then(() => setRefreshed(true))` chain depends on
-this. Verify the action returns a resolved promise after the API call completes (it does —
-`async` functions always return a Promise that resolves when the function body completes).
+When a file had both staged changes and additional unstaged changes (`modified-staged` state), the commit panel showed the Commit section without any warning. Users could accidentally commit only the staged portion while silently leaving unstaged changes behind.
 
-### Issue B — Stale state in BottomBar `DiffQuickButtons`
+### Root Cause
 
-`DiffQuickButtons` reads `gitState` from `gitCurrentState` in the store (passed as a prop from
-`BottomBar`). This is separate from the panel and is NOT refreshed on panel open. The BottomBar
-buttons may show wrong shortcuts (e.g. "Staged diff" when state is actually `modified`).
+The `canCommit` flag was `state === 'staged' || state === 'modified-staged'`, which allowed commits in both states. There was no indicator or warning for the `modified-staged` case.
 
-**Fix needed:** Refresh git status when the diff viewer page loads, writing the result to the
-store, not just to local component state.
+### Fix
 
-### Issue C — `staged` state with empty staged diff
-
-When `gitCurrentState = 'staged'` but HEAD→staged produces no diff (i.e. staged = HEAD), the
-UI is in a contradictory state. This should be impossible in correct git state; it indicates
-the store state is stale. After Fix 1, this should be self-correcting. If it persists, add a
-fallback: after the refresh resolves, if state = `staged` but HEAD→staged diff is empty, treat
-as `modified`.
-
-### Issue D — Unstage button scope
-
-The Unstage button currently calls `git reset HEAD -- <path>` (via `unstageFile`). For a
-`staged-new` file (never committed), `git reset HEAD` fails because there is no HEAD. The
-backend handles this by falling back, but confirm the UI reflects the resulting `untracked`
-state correctly after unstaging a staged-new file.
+1. **`canCommit`** — Changed to `state === 'staged'` only. Commits are now blocked when unstaged changes exist.
+2. **Warning banner** — Added a yellow `"Staged* — unstaged changes also exist. Stage or discard them before committing."` banner that appears in the commit panel whenever `state === 'modified-staged'`.
+3. **Documentation** — Updated `05-git-integration.md` commit panel table and `10-verify-git-workflow.md` to reflect this behavior.
 
 ---
 
-## Playwright Test Gaps
+## Bug 3 — Unstage Button Did Not Work
 
-| Test | Gap |
-|------|-----|
-| Test 13 | Verifies `modified-staged` after external file modify — does NOT verify panel loads with "Checking status…" first |
-| Test 14 | Verifies unsaved-changes warning — `textarea.fill()` may trigger auto-save depending on editor config; test should wait for `docIsDirty` to be true without saving |
-| Missing | Panel opened from diff viewer page shows correct (freshly fetched) state |
-| Missing | BottomBar diff shortcuts update after status refresh |
+### Symptom
+
+Clicking the Unstage button appeared to do nothing. The git status did not change.
+
+### Root Cause
+
+The `unstage()` method in `GitService` used `git reset HEAD -- <file>` as its only strategy. This command fails when:
+- The repository has no commits yet (HEAD does not resolve), e.g., a brand-new repo where a file was staged with `git add` but not yet committed.
+- Some environments / git configurations do not support the deprecated `git reset HEAD` form for unstaging.
+
+The catch block in the frontend `unstageFile` action swallowed the error silently (`catch { set({ gitActionLoading: false }) }`), so the user saw no response.
+
+### Fix
+
+1. **`GitService.unstage()`** — Now attempts `git restore --staged -- <file>` first (git ≥ 2.23, the preferred modern command). Falls back to `git reset HEAD -- <file>` for older git versions.
+2. **Post-save git refresh** — `saveDocFile` in `docSlice` now calls `refreshGitStatus()` immediately after a successful save. This ensures the dot and commit panel reflect any newly-created unstaged changes without waiting for the next polling cycle.
 
 ---
 
-## File Changelist
+## Files Changed
 
-| File | Change | Status |
-|------|--------|--------|
-| `frontend/src/components/doc/GitCommitPanel.tsx` | Fix 1: block on refresh; unsaved warning; HEAD→staged for modified-staged | Done |
-| `frontend/src/store/slices/gitSlice.ts` | Verify `refreshGitStatus` returns Promise correctly | Verify |
-| `frontend/src/pages/DiffViewerPage.tsx` | Issue B: sync local gitFileState → Zustand store on load | Pending |
-| `tests/e2e/git-workflow.spec.ts` | Add diff-viewer-page panel test; fix Test 14 timing | Pending |
+| File | Change |
+|------|--------|
+| `src/services/git.service.ts` | Fixed `unstage()` to use `git restore --staged`; added `getFileAtRef()` |
+| `src/routes/vault-git.ts` | Added `GET /api/vault/git/show` endpoint |
+| `frontend/src/api/client.ts` | Added `gitApi.getFileAtRef()` |
+| `frontend/src/components/doc/GitCommitPanel.tsx` | Fixed `canCommit`; added `modified-staged` warning banner |
+| `frontend/src/store/slices/docSlice.ts` | Refresh git status after save |
+| `frontend/src/pages/DiffViewerPage.tsx` | Added `?path=&mode=` git diff mode support |
+| `frontend/src/components/diff/DiffPaneHeader.tsx` | Added optional `label` prop |
+| `frontend/src/components/diff/DiffPane.tsx` | Passed `label` to `DiffPaneHeader` |
+| `frontend/src/components/diff/DiffLayout.tsx` | Passed `leftLabel`/`rightLabel` to `DiffPane` |
+| `src/__tests__/git.service.test.ts` | New: unit tests for `GitService` |
+| `docs/features/doc-manager/05-git-integration.md` | Updated commit panel behavior table |
+| `docs/features/doc-manager/10-verify-git-workflow.md` | New: workflow verification doc |
+| `docs/features/doc-manager/11-git-panel-state-accuracy.md` | New: this file |

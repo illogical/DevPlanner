@@ -3,10 +3,11 @@ interface DiffPaneHeaderProps {
   filename: string;
   content: string;
   side: 'left' | 'right';
+  label?: string;
   onFilePickerOpen?: () => void;
 }
 
-export function DiffPaneHeader({ filename, content, side, onFilePickerOpen }: DiffPaneHeaderProps) {
+export function DiffPaneHeader({ filename, content, side, label, onFilePickerOpen }: DiffPaneHeaderProps) {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(content);
@@ -15,10 +16,12 @@ export function DiffPaneHeader({ filename, content, side, onFilePickerOpen }: Di
     }
   };
 
+  const displayLabel = label ?? filename;
+
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-700 min-h-[2.25rem]">
-      <span className="flex-1 text-xs text-gray-400 font-mono truncate" title={filename}>
-        {filename || (
+      <span className="flex-1 text-xs text-gray-400 font-mono truncate" title={displayLabel || filename}>
+        {displayLabel || (
           <span className="italic text-gray-600">
             {side === 'left' ? 'Left pane — no file loaded' : 'Right pane — no file loaded'}
           </span>

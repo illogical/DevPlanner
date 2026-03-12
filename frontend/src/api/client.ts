@@ -348,9 +348,9 @@ export const gitApi = {
       return r.text();
     }),
 
-  show: (filePath: string, ref: 'staged' | 'HEAD'): Promise<string> =>
-    fetch(`/api/vault/git/show?path=${encodeURIComponent(filePath)}&ref=${ref}`).then((r) => {
-      if (!r.ok) throw new Error(`Failed to get file at ref: ${r.status}`);
+  getFileAtRef: (filePath: string, ref: string): Promise<string> =>
+    fetch(`/api/vault/git/show?path=${encodeURIComponent(filePath)}&ref=${encodeURIComponent(ref)}`).then((r) => {
+      if (!r.ok) throw new Error(`Failed to get file at ref ${ref}: ${r.status}`);
       return r.text();
     }),
 };

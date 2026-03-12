@@ -7,6 +7,7 @@ interface DiffPaneProps {
   side: 'left' | 'right';
   content: string;
   filename: string;
+  label?: string;
   lines: DiffLineData[];
   language: string;
   wrap: boolean;
@@ -19,6 +20,7 @@ export function DiffPane({
   side,
   content,
   filename,
+  label,
   lines,
   language,
   wrap,
@@ -34,6 +36,7 @@ export function DiffPane({
         filename={filename}
         content={content}
         side={side}
+        label={label}
         onFilePickerOpen={side === 'right' ? () => fileInputRef.current?.click() : undefined}
       />
 

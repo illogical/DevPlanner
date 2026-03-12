@@ -67,13 +67,10 @@ A floating panel that appears above the header when the user clicks the Git stat
 | File State | Available Actions |
 |------------|------------------|
 | `clean` | None (panel shows "All changes committed") |
-| `untracked` | **Stage** (`git add` — begins tracking and stages) |
-| `staged-new` | **Unstage**, **Commit** (+ info note: "New file — no previous commit to compare") |
-| `modified` | **Stage** |
+| `modified` | **Stage**, **Discard** |
 | `staged` | **Unstage**, **Commit** |
-| `modified-staged` | **Discard** (unstaged), **Stage** (unstaged), **Commit** (staged only) |
-
-> **Panel behavior:** The panel stays open after Stage and Unstage so the user can commit immediately. It closes automatically only after Discard and Commit.
+| `modified-staged` | **Discard** (unstaged), **Stage** (unstaged), **Unstage** (staged). **Commit is blocked** — warning banner shown. |
+| `untracked` | **Stage** (git add) |
 
 - **Keyboard shortcuts:**
   - `Enter` — Commit (when staged)

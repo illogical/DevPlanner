@@ -4,9 +4,11 @@ import type { DiffLineData } from './DiffContent';
 interface DiffLayoutProps {
   leftContent: string;
   leftFilename: string;
+  leftLabel?: string;
   leftLines: DiffLineData[];
   rightContent: string;
   rightFilename: string;
+  rightLabel?: string;
   rightLines: DiffLineData[];
   language: string;
   wrap: boolean;
@@ -21,9 +23,11 @@ interface DiffLayoutProps {
 export function DiffLayout({
   leftContent,
   leftFilename,
+  leftLabel,
   leftLines,
   rightContent,
   rightFilename,
+  rightLabel,
   rightLines,
   language,
   wrap,
@@ -40,6 +44,7 @@ export function DiffLayout({
         side="left"
         content={leftContent}
         filename={leftFilename}
+        label={leftLabel}
         lines={leftLines}
         language={language}
         wrap={wrap}
@@ -51,6 +56,7 @@ export function DiffLayout({
         side="right"
         content={rightContent}
         filename={rightFilename}
+        label={rightLabel}
         lines={rightLines}
         language={language}
         wrap={wrap}

@@ -65,10 +65,12 @@ export function GitCommitPanel() {
     }
   };
 
-  const canCommit = state === 'staged' || state === 'staged-new' || state === 'modified-staged';
+  // Only allow commit when ALL changes are staged (no remaining unstaged edits)
+  const canCommit = state === 'staged';
   const canStage = state === 'modified' || state === 'untracked' || state === 'modified-staged';
   const canUnstage = state === 'staged' || state === 'staged-new' || state === 'modified-staged';
   const canDiscard = state === 'modified' || state === 'modified-staged';
+  const hasUnstagedWarning = state === 'modified-staged';
 
   const navigate = useNavigate();
 
@@ -98,6 +100,16 @@ export function GitCommitPanel() {
         <p className="text-sm text-gray-400">All changes committed.</p>
       ) : (
         <>
+          {hasUnstagedWarning && (
+            <div className="mb-3 px-2 py-1.5 rounded bg-yellow-900/40 border border-yellow-700/60 text-xs text-yellow-300 flex items-start gap-1.5">
+              <svg className="w-3.5 h-3.5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <span>
+                <strong>Staged*</strong> — unstaged changes also exist. Stage or discard them before committing.
+              </span>
+            </div>
+          )}
           {state === 'modified-staged' && (
             <p className="text-xs text-amber-400 bg-amber-900/30 border border-amber-800 rounded px-2 py-1.5 mb-3">
               Only staged changes will be committed. Unstaged changes will remain in your working tree.
