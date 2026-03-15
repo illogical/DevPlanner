@@ -27,6 +27,7 @@ export const createUISlice: StateCreator<
 > = (set, get) => ({
   expandedCardTasks: new Set(),
   laneCollapsedState: {},
+  focusedLane: null,
   isSidebarOpen: true,
   isActivitySidebarOpen: true,
   isActivityPanelOpen: false,
@@ -46,12 +47,18 @@ export const createUISlice: StateCreator<
   },
 
   toggleLaneCollapsed: (laneSlug) => {
+    // No-op if this lane is currently focused
+    if (get().focusedLane === laneSlug) return;
     set((state) => ({
       laneCollapsedState: {
         ...state.laneCollapsedState,
         [laneSlug]: !state.laneCollapsedState[laneSlug],
       },
     }));
+  },
+
+  setFocusedLane: (slug) => {
+    set({ focusedLane: slug });
   },
 
   initializeLaneState: (lanes: Record<string, LaneConfig>) => {

@@ -287,7 +287,10 @@ export const createCardSlice: StateCreator<
     if (activeCard?.slug === cardSlug) {
       set((state) => {
         if (!state.activeCard) return {};
-        const links = [...(state.activeCard.frontmatter.links ?? []), link];
+        const existing = state.activeCard.frontmatter.links ?? [];
+        const links = existing.some((l: CardLink) => l.id === link.id)
+          ? existing
+          : [...existing, link];
         return {
           activeCard: {
             ...state.activeCard,
@@ -355,7 +358,10 @@ export const createCardSlice: StateCreator<
     if (activeCard?.slug === cardSlug) {
       set((state) => {
         if (!state.activeCard) return {};
-        const links = [...(state.activeCard.frontmatter.links ?? []), link];
+        const existing = state.activeCard.frontmatter.links ?? [];
+        const links = existing.some((l: CardLink) => l.id === link.id)
+          ? existing
+          : [...existing, link];
         return {
           activeCard: {
             ...state.activeCard,

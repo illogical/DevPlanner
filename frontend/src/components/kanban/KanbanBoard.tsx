@@ -7,6 +7,7 @@ import {
   useSensors,
   rectIntersection,
 } from '@dnd-kit/core';
+import { LayoutGroup } from 'framer-motion';
 import { useStore } from '../../store';
 import { Lane } from './Lane';
 import { CollapsedLaneTab } from './CollapsedLaneTab';
@@ -15,24 +16,25 @@ import { CardPreview } from './CardPreview';
 import type { CardSummary } from '../../types';
 
 export function KanbanBoard() {
-  // Use selective subscriptions to prevent unnecessary re-renders
   const projects = useStore((state) => state.projects);
   const activeProjectSlug = useStore((state) => state.activeProjectSlug);
   const cardsByLane = useStore((state) => state.cardsByLane);
   const laneCollapsedState = useStore((state) => state.laneCollapsedState);
+  const focusedLane = useStore((state) => state.focusedLane);
   const isLoadingCards = useStore((state) => state.isLoadingCards);
   const loadCards = useStore((state) => state.loadCards);
   const toggleLaneCollapsed = useStore((state) => state.toggleLaneCollapsed);
+  const setFocusedLane = useStore((state) => state.setFocusedLane);
   const moveCard = useStore((state) => state.moveCard);
   const reorderCards = useStore((state) => state.reorderCards);
 
   const [activeCard, setActiveCard] = useState<CardSummary | null>(null);
 
-  // Configure sensors for drag interaction
+  // Disable drag when a lane is focused
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts (prevents accidental drags)
+        distance: focusedLane ? Infinity : 8,
       },
     })
   );
@@ -45,12 +47,20 @@ export function KanbanBoard() {
     }
   }, [activeProjectSlug, loadCards]);
 
-  // Handle drag start - store the active card for overlay rendering
+  // Escape key exits focus mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && focusedLane) {
+        setFocusedLane(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedLane, setFocusedLane]);
+
   const handleDragStart = (event: any) => {
     const { active } = event;
     const cardSlug = active.id as string;
-
-    // Find the card across all lanes
     for (const cards of Object.values(cardsByLane)) {
       const card = cards.find((c) => c.slug === cardSlug);
       if (card) {
@@ -60,17 +70,14 @@ export function KanbanBoard() {
     }
   };
 
-  // Handle drag end - determine if it's a reorder or move
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
     setActiveCard(null);
-
-    if (!over) return; // Dropped outside droppable area
+    if (!over) return;
 
     const cardSlug = active.id as string;
     const overId = over.id as string;
 
-    // Find source lane
     let sourceLane = '';
     for (const [lane, cards] of Object.entries(cardsByLane)) {
       if (cards.some((c) => c.slug === cardSlug)) {
@@ -79,17 +86,13 @@ export function KanbanBoard() {
       }
     }
 
-    // Determine if we're hovering over a card or a lane
     let targetLane = '';
     let targetPosition: number | undefined;
 
-    // Check if overId is a lane (starts with numbers like "01-", "02-")
     if (/^\d+-/.test(overId)) {
-      // Dropped on a lane container or empty lane droppable
-      targetLane = overId.replace('-empty', ''); // Remove -empty suffix if present
-      targetPosition = undefined; // Append to end
+      targetLane = overId.replace('-empty', '');
+      targetPosition = undefined;
     } else {
-      // Dropped on another card - find which lane it belongs to
       for (const [lane, cards] of Object.entries(cardsByLane)) {
         const overCardIndex = cards.findIndex((c) => c.slug === overId);
         if (overCardIndex !== -1) {
@@ -102,7 +105,6 @@ export function KanbanBoard() {
 
     if (!targetLane) return;
 
-    // Same lane: reorder
     if (sourceLane === targetLane) {
       const cards = cardsByLane[sourceLane];
       const oldIndex = cards.findIndex((c) => c.slug === cardSlug);
@@ -111,9 +113,8 @@ export function KanbanBoard() {
           ? targetPosition
           : cards.findIndex((c) => c.slug === overId);
 
-      if (oldIndex === newIndex) return; // No change
+      if (oldIndex === newIndex) return;
 
-      // Create new order
       const reordered = [...cards];
       const [movedCard] = reordered.splice(oldIndex, 1);
       reordered.splice(newIndex, 0, movedCard);
@@ -121,7 +122,6 @@ export function KanbanBoard() {
       const order = reordered.map((c) => c.filename);
       await reorderCards(sourceLane, order);
     } else {
-      // Different lane: move
       await moveCard(cardSlug, targetLane, targetPosition);
     }
   };
@@ -149,18 +149,16 @@ export function KanbanBoard() {
     );
   }
 
-  // Get lanes in order (01-upcoming, 02-in-progress, etc.)
   const laneEntries = Object.entries(activeProject.lanes).sort(([a], [b]) =>
     a.localeCompare(b)
   );
 
-  // Separate expanded and collapsed lanes
-  const expandedLanes = laneEntries.filter(
-    ([slug]) => !laneCollapsedState[slug]
-  );
-  const collapsedLanes = laneEntries.filter(
-    ([slug]) => laneCollapsedState[slug]
-  );
+  const expandedLanes = laneEntries.filter(([slug]) => !laneCollapsedState[slug]);
+  const collapsedLanes = laneEntries.filter(([slug]) => laneCollapsedState[slug]);
+
+  const handleFocusToggle = (slug: string) => {
+    setFocusedLane(focusedLane === slug ? null : slug);
+  };
 
   return (
     <DndContext
@@ -169,23 +167,36 @@ export function KanbanBoard() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full flex flex-col md:flex-row gap-3 p-4 md:overflow-x-auto overflow-y-auto">
-        {/* Expanded lanes */}
-        {expandedLanes.map(([slug, config]) => (
-          <Lane
-            key={slug}
-            slug={slug}
-            config={config}
-            cards={cardsByLane[slug] || []}
-            projectSlug={activeProject.slug}
-            isCollapsed={false}
-            onToggleCollapse={() => toggleLaneCollapsed(slug)}
-          />
-        ))}
+      {/* overflow-hidden when focused so collapsing lanes don't cause scrollbar flicker */}
+      <div className={`h-full flex flex-col md:flex-row gap-3 p-4 overflow-y-auto ${focusedLane ? 'md:overflow-hidden' : 'md:overflow-x-auto'}`}>
+        <LayoutGroup id="lanes">
+          {/* Expanded lanes */}
+          {expandedLanes.map(([slug, config]) => (
+            <Lane
+              key={slug}
+              slug={slug}
+              config={config}
+              cards={cardsByLane[slug] || []}
+              projectSlug={activeProject.slug}
+              isCollapsed={false}
+              isFocused={focusedLane === slug}
+              isHidden={focusedLane !== null && focusedLane !== slug}
+              onToggleCollapse={() => toggleLaneCollapsed(slug)}
+              onFocusToggle={() => handleFocusToggle(slug)}
+            />
+          ))}
+        </LayoutGroup>
 
-        {/* Collapsed lane tabs */}
+        {/* Collapsed lane tabs — fade out when a lane is focused */}
         {collapsedLanes.length > 0 && (
-          <div className="flex gap-2 flex-shrink-0">
+          <div
+            className="flex gap-2 flex-shrink-0"
+            style={{
+              opacity: focusedLane ? 0 : 1,
+              pointerEvents: focusedLane ? 'none' : 'auto',
+              transition: 'opacity 0.2s ease',
+            }}
+          >
             {collapsedLanes.map(([slug, config]) => (
               <CollapsedLaneTab
                 key={slug}
@@ -200,7 +211,7 @@ export function KanbanBoard() {
         )}
       </div>
 
-      {/* Drag overlay - shows the card being dragged */}
+      {/* Drag overlay */}
       <DragOverlay>
         {activeCard ? (
           <CardPreview

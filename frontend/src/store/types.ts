@@ -94,6 +94,7 @@ export interface CardSlice {
 export interface UISlice {
   expandedCardTasks: Set<string>;
   laneCollapsedState: Record<string, boolean>;
+  focusedLane: string | null;
   isSidebarOpen: boolean;
   isActivitySidebarOpen: boolean;
   isActivityPanelOpen: boolean;
@@ -102,6 +103,7 @@ export interface UISlice {
 
   toggleCardTaskExpansion: (cardSlug: string) => void;
   toggleLaneCollapsed: (laneSlug: string) => void;
+  setFocusedLane: (slug: string | null) => void;
   initializeLaneState: (lanes: Record<string, LaneConfig>) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
