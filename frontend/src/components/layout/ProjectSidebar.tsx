@@ -77,7 +77,7 @@ export function ProjectSidebar() {
       <aside
         className={cn(
           'fixed lg:relative z-30 lg:z-0',
-          'h-[calc(100vh-3.5rem)] w-64',
+          'h-[calc(100vh-6.5rem)] lg:h-full w-64',
           'bg-gray-900 border-r border-gray-700',
           'transition-transform duration-300 ease-out',
           'flex flex-col',

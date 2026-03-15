@@ -5,7 +5,7 @@
     "dev:frontend": "cd frontend && bun run dev --host",
     "build": "cd frontend && bun run build",
     "start": "NODE_ENV=production bun src/server.ts",
-    "test": "bun test",
+    "test": "bun test src/",
     "seed": "bun src/seed.ts",
     "verify:websocket": "bun scripts/verify-websocket.ts",
     "verify:api-workflows": "bun scripts/verify-api-workflows.ts",
