@@ -1,0 +1,645 @@
+{
+  "version": 1,
+  "skill": "devplanner",
+  "scenarios": [
+    {
+      "id": "basic-001",
+      "name": "Create a card",
+      "tier": 1,
+      "prompt": "Create a new DevPlanner card in project hex titled 'Add OAuth Login' with a short description about adding OAuth 2.0 login support.",
+      "tags": ["create", "card"],
+      "criteria": [
+        {
+          "name": "Uses POST to /cards",
+          "type": "call_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/\\w[^/]*/cards$"
+          }
+        },
+        {
+          "name": "Includes title field",
+          "type": "body_field_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/\\w[^/]*/cards$",
+            "required_body_fields": ["title"]
+          }
+        },
+        {
+          "name": "Includes description field",
+          "type": "body_field_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/\\w[^/]*/cards$",
+            "required_body_fields": ["description"]
+          }
+        },
+        {
+          "name": "Includes lane field",
+          "type": "body_field_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/\\w[^/]*/cards$",
+            "required_body_fields": ["lane"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "basic-002",
+      "name": "Add a task",
+      "tier": 1,
+      "prompt": "Add the task 'Write unit tests for the login flow' to card 'add-oauth-login' in project hex.",
+      "tags": ["task", "never-rule"],
+      "criteria": [
+        {
+          "name": "Uses POST to /tasks",
+          "type": "call_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/add-oauth-login/tasks"
+          }
+        },
+        {
+          "name": "Includes text field",
+          "type": "body_field_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/add-oauth-login/tasks",
+            "required_body_fields": ["text"]
+          }
+        },
+        {
+          "name": "No checkbox syntax in task text",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "No checkbox syntax",
+            "pattern": "- \\[[ x]\\]",
+            "description": "Task text must not include '- [ ]' or '- [x]' — the API adds checkboxes automatically"
+          }
+        }
+      ]
+    },
+    {
+      "id": "basic-003",
+      "name": "Toggle a task complete",
+      "tier": 1,
+      "prompt": "Mark task 0 on card 'add-oauth-login' in project hex as complete. Make sure you read the card first to verify the task index.",
+      "tags": ["task", "toggle", "sequence"],
+      "criteria": [
+        {
+          "name": "Reads card before toggling",
+          "type": "call_sequence",
+          "expected_sequence": [
+            {
+              "method": "GET",
+              "path_pattern": "/projects/hex/cards/add-oauth-login$"
+            },
+            {
+              "method": "PATCH",
+              "path_pattern": "/projects/hex/cards/add-oauth-login/tasks/0"
+            }
+          ]
+        },
+        {
+          "name": "Sets checked to true",
+          "type": "body_value_match",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/add-oauth-login/tasks/0",
+            "required_body_values": { "checked": true }
+          }
+        }
+      ]
+    },
+    {
+      "id": "basic-004",
+      "name": "Move card to in-progress",
+      "tier": 1,
+      "prompt": "Move card 'add-oauth-login' in project hex to the in-progress lane.",
+      "tags": ["move", "never-rule", "lane"],
+      "criteria": [
+        {
+          "name": "Uses /move endpoint",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/add-oauth-login/move$"
+          }
+        },
+        {
+          "name": "Correct lane slug in body",
+          "type": "body_value_match",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/add-oauth-login/move$",
+            "required_body_values": { "lane": "02-in-progress" }
+          }
+        },
+        {
+          "name": "Does not use PATCH /cards without /move to change lane",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "Lane change must use /move",
+            "pattern": "PATCH /projects/[^/]+/cards/[^/]+\"",
+            "description": "Lane changes must use PATCH /cards/{slug}/move — using PATCH /cards/{slug} to change lane silently does nothing"
+          }
+        }
+      ]
+    },
+    {
+      "id": "basic-005",
+      "name": "Add a URL link to a card",
+      "tier": 1,
+      "prompt": "Add a link to the Obsidian design doc at https://example.com/obsidian-doc to card 'add-oauth-login' in project hex. Label it 'Design Doc'.",
+      "tags": ["link"],
+      "criteria": [
+        {
+          "name": "Reads card first to avoid duplicates",
+          "type": "call_present",
+          "expected_call": {
+            "method": "GET",
+            "path_pattern": "/projects/hex/cards/add-oauth-login$"
+          }
+        },
+        {
+          "name": "Uses POST to /links",
+          "type": "call_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/add-oauth-login/links$"
+          }
+        },
+        {
+          "name": "Includes url, label, kind",
+          "type": "body_field_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/add-oauth-login/links$",
+            "required_body_fields": ["url", "label", "kind"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "medium-001",
+      "name": "Claim existing work from backlog",
+      "tier": 2,
+      "prompt": "Find the highest-priority unclaimed card in project hex's backlog and claim it for yourself as an agent. Move it to in-progress.",
+      "tags": ["claim", "sequence", "workflow"],
+      "criteria": [
+        {
+          "name": "Lists backlog cards first",
+          "type": "call_present",
+          "expected_call": {
+            "method": "GET",
+            "path_pattern": "/projects/hex/cards"
+          }
+        },
+        {
+          "name": "Reads full card detail",
+          "type": "call_present",
+          "expected_call": {
+            "method": "GET",
+            "path_pattern": "/projects/hex/cards/[^/]+$"
+          }
+        },
+        {
+          "name": "Claims card with agent assignee",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+$",
+            "required_body_values": { "assignee": "agent" }
+          }
+        },
+        {
+          "name": "Moves card to in-progress using /move",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+/move$",
+            "required_body_values": { "lane": "02-in-progress" }
+          }
+        },
+        {
+          "name": "Correct order: list → read → claim → move",
+          "type": "call_sequence",
+          "expected_sequence": [
+            { "method": "GET", "path_pattern": "/projects/hex/cards" },
+            { "method": "GET", "path_pattern": "/projects/hex/cards/[^/]+$" },
+            { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+$" },
+            { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+/move$" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "medium-002",
+      "name": "Create card with 3 tasks and move to in-progress",
+      "tier": 2,
+      "prompt": "Create a card 'Refactor Auth Module' in project hex, add exactly 3 tasks for the work (planning, implementation, testing), then move it to in-progress.",
+      "tags": ["create", "task", "move", "sequence", "never-rule"],
+      "criteria": [
+        {
+          "name": "Creates card via POST /cards",
+          "type": "call_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards$"
+          }
+        },
+        {
+          "name": "Adds exactly 3 tasks",
+          "type": "call_count",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/[^/]+/tasks$"
+          },
+          "min_count": 3,
+          "max_count": 3
+        },
+        {
+          "name": "Moves to in-progress using /move",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+/move$",
+            "required_body_values": { "lane": "02-in-progress" }
+          }
+        },
+        {
+          "name": "Correct order: create → tasks → move",
+          "type": "call_sequence",
+          "expected_sequence": [
+            { "method": "POST", "path_pattern": "/projects/hex/cards$" },
+            { "method": "POST", "path_pattern": "/projects/hex/cards/[^/]+/tasks$" },
+            { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+/move$" }
+          ]
+        },
+        {
+          "name": "No checkbox syntax in task text",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "No checkbox syntax",
+            "pattern": "- \\[[ x]\\]",
+            "description": "Task body.text must not contain '- [ ]' or '- [x]'"
+          }
+        }
+      ]
+    },
+    {
+      "id": "medium-003",
+      "name": "Set blocked status then unblock",
+      "tier": 2,
+      "prompt": "Mark card 'refactor-auth-module' in project hex as blocked because you're waiting for an API key from the user. Then clear the blocked status and mark it as in-progress again.",
+      "tags": ["blocked", "status", "sequence"],
+      "criteria": [
+        {
+          "name": "Sets status to blocked with reason",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/refactor-auth-module$",
+            "required_body_values": { "status": "blocked" },
+            "required_body_fields": ["blockedReason"]
+          }
+        },
+        {
+          "name": "Clears blocked status",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/refactor-auth-module$",
+            "required_body_values": { "status": "in-progress" }
+          }
+        },
+        {
+          "name": "Block happens before unblock",
+          "type": "call_sequence",
+          "expected_sequence": [
+            {
+              "method": "PATCH",
+              "path_pattern": "/projects/hex/cards/refactor-auth-module$",
+              "required_body_values": { "status": "blocked" }
+            },
+            {
+              "method": "PATCH",
+              "path_pattern": "/projects/hex/cards/refactor-auth-module$",
+              "required_body_values": { "status": "in-progress" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "medium-004",
+      "name": "Add link without duplicating",
+      "tier": 2,
+      "prompt": "Add the link https://example.com/api-spec to card 'refactor-auth-module' in project hex, labeled 'API Spec' with kind 'spec'. Make sure you check the card's existing links first to avoid a 409 DUPLICATE_LINK error.",
+      "tags": ["link", "sequence", "error-handling"],
+      "criteria": [
+        {
+          "name": "Reads card before posting link",
+          "type": "call_sequence",
+          "expected_sequence": [
+            {
+              "method": "GET",
+              "path_pattern": "/projects/hex/cards/refactor-auth-module$"
+            },
+            {
+              "method": "POST",
+              "path_pattern": "/projects/hex/cards/refactor-auth-module/links$"
+            }
+          ]
+        },
+        {
+          "name": "Link has correct fields",
+          "type": "body_field_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/refactor-auth-module/links$",
+            "required_body_fields": ["url", "label", "kind"]
+          }
+        },
+        {
+          "name": "Correct URL in body",
+          "type": "body_value_match",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/refactor-auth-module/links$",
+            "required_body_values": { "url": "https://example.com/api-spec" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "medium-005",
+      "name": "Create vault artifact",
+      "tier": 2,
+      "prompt": "Create a vault artifact for card 'refactor-auth-module' in project hex. Label it 'Implementation Spec', use kind 'doc', and include a short Markdown body describing the refactor plan.",
+      "tags": ["artifact"],
+      "criteria": [
+        {
+          "name": "Uses POST to /artifacts",
+          "type": "call_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/refactor-auth-module/artifacts$"
+          }
+        },
+        {
+          "name": "Includes label, content, kind",
+          "type": "body_field_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/refactor-auth-module/artifacts$",
+            "required_body_fields": ["label", "content", "kind"]
+          }
+        },
+        {
+          "name": "Kind is doc",
+          "type": "body_value_match",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/refactor-auth-module/artifacts$",
+            "required_body_values": { "kind": "doc" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "complex-001",
+      "name": "Full create workflow",
+      "tier": 3,
+      "prompt": "Complete the full DevPlanner create workflow for a new feature card:\n1. Create a card 'Implement Search' in project hex with a description\n2. Add 3 tasks\n3. Create an intro artifact labeled 'Implementation Spec' with a brief plan\n4. Move the card to in-progress\n5. Toggle all 3 tasks complete (one at a time, immediately as each finishes)\n6. Create a summary artifact labeled 'Summary' with the required template\n7. Move the card to complete",
+      "tags": ["workflow", "create", "artifact", "task", "sequence"],
+      "criteria": [
+        {
+          "name": "Creates card",
+          "type": "call_present",
+          "expected_call": { "method": "POST", "path_pattern": "/projects/hex/cards$" }
+        },
+        {
+          "name": "Adds at least 3 tasks",
+          "type": "call_count",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/[^/]+/tasks$"
+          },
+          "min_count": 3
+        },
+        {
+          "name": "Creates at least 2 artifacts (spec + summary)",
+          "type": "call_count",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/[^/]+/artifacts$"
+          },
+          "min_count": 2
+        },
+        {
+          "name": "Toggles tasks individually",
+          "type": "call_count",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+/tasks/\\d+"
+          },
+          "min_count": 3
+        },
+        {
+          "name": "Moves to in-progress",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+/move$",
+            "required_body_values": { "lane": "02-in-progress" }
+          }
+        },
+        {
+          "name": "Moves to complete",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+/move$",
+            "required_body_values": { "lane": "03-complete" }
+          }
+        },
+        {
+          "name": "Core sequence: create → tasks → in-progress → complete",
+          "type": "call_sequence",
+          "expected_sequence": [
+            { "method": "POST", "path_pattern": "/projects/hex/cards$" },
+            { "method": "POST", "path_pattern": "/projects/hex/cards/[^/]+/tasks$" },
+            { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+/move$" },
+            { "method": "POST", "path_pattern": "/projects/hex/cards/[^/]+/artifacts$" },
+            { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+/move$" }
+          ]
+        },
+        {
+          "name": "No checkbox syntax in task text",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "No checkbox syntax",
+            "pattern": "- \\[[ x]\\]",
+            "description": "Task body.text must not contain markdown checkbox syntax"
+          }
+        }
+      ]
+    },
+    {
+      "id": "complex-002",
+      "name": "Full claim workflow",
+      "tier": 3,
+      "prompt": "Complete the full DevPlanner claim workflow:\n1. List cards in project hex backlog (01-upcoming) to find unclaimed work\n2. Read the full detail of the highest-priority unclaimed card\n3. Claim it (set assignee to 'agent', status to 'in-progress') and move to in-progress\n4. Toggle each task complete as you go\n5. Create a summary artifact with the required Summary template\n6. Move the card to complete",
+      "tags": ["workflow", "claim", "artifact", "task", "sequence"],
+      "criteria": [
+        {
+          "name": "Lists backlog first",
+          "type": "call_present",
+          "expected_call": { "method": "GET", "path_pattern": "/projects/hex/cards" }
+        },
+        {
+          "name": "Reads card detail",
+          "type": "call_present",
+          "expected_call": { "method": "GET", "path_pattern": "/projects/hex/cards/[^/]+$" }
+        },
+        {
+          "name": "Claims with agent assignee",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+$",
+            "required_body_values": { "assignee": "agent" }
+          }
+        },
+        {
+          "name": "Creates summary artifact",
+          "type": "call_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/[^/]+/artifacts$"
+          }
+        },
+        {
+          "name": "Moves to complete",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+/move$",
+            "required_body_values": { "lane": "03-complete" }
+          }
+        },
+        {
+          "name": "Core sequence: list → read → claim → move-in-progress → artifact → complete",
+          "type": "call_sequence",
+          "expected_sequence": [
+            { "method": "GET", "path_pattern": "/projects/hex/cards" },
+            { "method": "GET", "path_pattern": "/projects/hex/cards/[^/]+$" },
+            { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+$" },
+            { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+/move$" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "complex-003",
+      "name": "Error recovery: 409 DUPLICATE_LINK",
+      "tier": 3,
+      "prompt": "Try to add the link https://example.com/design-doc to card 'user-auth' in project hex. The API returns: {\"error\": \"DUPLICATE_LINK\", \"message\": \"This URL is already linked to this card\"}. What do you do next?",
+      "tags": ["error-handling", "link", "409"],
+      "criteria": [
+        {
+          "name": "Reads card to inspect existing links",
+          "type": "call_present",
+          "expected_call": {
+            "method": "GET",
+            "path_pattern": "/projects/hex/cards/user-auth$"
+          }
+        },
+        {
+          "name": "Does not blindly retry the same POST",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "No blind duplicate POST",
+            "pattern": "\"url\":\\s*\"https://example\\.com/design-doc\"",
+            "description": "After a 409 DUPLICATE_LINK the model should not simply retry the same URL — it should check existing links first"
+          }
+        }
+      ]
+    },
+    {
+      "id": "complex-004",
+      "name": "NEVER: lane change must use /move",
+      "tier": 3,
+      "prompt": "Move card 'user-auth' in project hex from the upcoming lane to in-progress.",
+      "tags": ["move", "never-rule", "lane"],
+      "criteria": [
+        {
+          "name": "Uses /move endpoint",
+          "type": "call_present",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/user-auth/move$"
+          }
+        },
+        {
+          "name": "Correct target lane",
+          "type": "body_value_match",
+          "expected_call": {
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/user-auth/move$",
+            "required_body_values": { "lane": "02-in-progress" }
+          }
+        },
+        {
+          "name": "Does not use PATCH /cards/{slug} without /move to change lane",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "Lane change must use /move",
+            "pattern": "PATCH /projects/[^/]+/cards/user-auth\"",
+            "description": "Lane changes require PATCH /cards/{slug}/move — calling PATCH /cards/{slug} without /move silently does nothing to the lane"
+          }
+        }
+      ]
+    },
+    {
+      "id": "complex-005",
+      "name": "NEVER: no checkbox syntax in task text",
+      "tier": 3,
+      "prompt": "Add two tasks to card 'user-auth' in project hex: one for writing unit tests and one for updating the API documentation. Format them correctly according to the skill instructions.",
+      "tags": ["task", "never-rule"],
+      "criteria": [
+        {
+          "name": "Adds exactly 2 tasks",
+          "type": "call_count",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/user-auth/tasks$"
+          },
+          "min_count": 2,
+          "max_count": 2
+        },
+        {
+          "name": "Task text has no - [ ] prefix",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "No checkbox syntax",
+            "pattern": "- \\[[ x]\\]",
+            "description": "Task body.text must never include '- [ ]' or '- [x]' — the API adds checkboxes automatically"
+          }
+        },
+        {
+          "name": "Uses POST to /tasks",
+          "type": "call_present",
+          "expected_call": {
+            "method": "POST",
+            "path_pattern": "/projects/hex/cards/user-auth/tasks$",
+            "required_body_fields": ["text"]
+          }
+        }
+      ]
+    }
+  ]
+}
