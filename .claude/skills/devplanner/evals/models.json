@@ -1,0 +1,8 @@
+{
+  "models": [
+    "qwen3.5:latest",
+    "gemma3:latest",
+    "devstral-small-2:latest",
+    "granite3.3:latest"
+  ]
+}

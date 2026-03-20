@@ -21,6 +21,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "eval:skill": "bun tools/skill-evals/run-eval.ts",
+    "eval:models": "bun tools/skill-evals/run-eval-models.ts",
     "eval:compare": "bun tools/skill-evals/compare-runs.ts"
   },
   "devDependencies": {
