@@ -30,6 +30,7 @@ const { values } = parseArgs({
     tier:          { type: "string" },
     scenario:      { type: "string" },
     feedback:      { type: "boolean", default: false },
+    wait:          { type: "string" },
   },
   strict: false,
 });
@@ -41,6 +42,7 @@ if (!skillArg) {
 }
 
 const skillDir = resolve(process.cwd(), skillArg);
+const waitSecs = values.wait ? parseInt(values.wait as string, 10) : 0;
 
 // ─── Resolve model list ───────────────────────────────────────────────────────
 
@@ -131,6 +133,9 @@ console.log(`  Models : ${models.join(", ")}`);
 if (passthroughArgs.length > 0) {
   console.log(`  Flags  : ${passthroughArgs.join(" ")}`);
 }
+if (waitSecs > 0) {
+  console.log(`  Wait   : ${waitSecs}s between runs`);
+}
 console.log();
 
 // ─── Run each model ───────────────────────────────────────────────────────────
@@ -203,6 +208,11 @@ for (let i = 0; i < models.length; i++) {
   }
 
   summaries.push({ model, runId, runDir, exitCode, result, wallMs });
+
+  if (waitSecs > 0 && i < models.length - 1) {
+    console.log(`${c.dim}Waiting ${waitSecs}s for model to expire from memory…${c.reset}`);
+    await Bun.sleep(waitSecs * 1000);
+  }
 
   console.log();
 }

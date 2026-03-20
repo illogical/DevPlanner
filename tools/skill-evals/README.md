@@ -101,6 +101,29 @@ bun run eval:skill -- --skill .claude/skills/devplanner --feedback
 
 ---
 
+## Running a Model Sweep
+
+`run-eval-models.ts` runs the same eval across multiple Ollama models and produces a ranked comparison table.
+
+```bash
+# Use models listed in <skill>/evals/models.json
+bun run eval:models -- --skill .claude/skills/devplanner
+
+# Explicit model list
+bun run eval:models -- --skill .claude/skills/devplanner --models qwen2.5-coder:14b,llama3.1:8b
+
+# Wait 6 minutes between runs so the prior model expires from Ollama memory
+bun run eval:models -- --skill .claude/skills/devplanner --wait 360
+```
+
+All per-model flags (`--tier`, `--scenario`, `--feedback`) are passed through to each individual run.
+
+**`--wait <seconds>`** — Pause between model runs. Useful when running large models sequentially on a GPU with limited VRAM: Ollama keeps models loaded for `OLLAMA_KEEP_ALIVE` (default 5 min) after a run completes, so setting `--wait` to match or exceed that value ensures the prior model is evicted before the next one loads. Omitting the flag (or `--wait 0`) skips the delay.
+
+**Exit code:** `0` if ALL models achieve overall pass rate ≥ 70%, `1` otherwise.
+
+---
+
 ## Comparing Runs
 
 ```bash
