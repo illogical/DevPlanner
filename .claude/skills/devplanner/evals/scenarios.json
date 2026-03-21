@@ -51,7 +51,7 @@
       "name": "Add a task",
       "tier": 1,
       "prompt": "Add the task 'Write unit tests for the login flow' to card 'add-oauth-login' in project hex.",
-      "tags": ["task", "never-rule"],
+      "tags": ["task"],
       "criteria": [
         {
           "name": "Uses POST to /tasks",
@@ -68,15 +68,6 @@
             "method": "POST",
             "path_pattern": "/projects/hex/cards/add-oauth-login/tasks",
             "required_body_fields": ["text"]
-          }
-        },
-        {
-          "name": "No checkbox syntax in task text",
-          "type": "never_violation",
-          "never_violation": {
-            "name": "No checkbox syntax",
-            "pattern": "- \\[[ x]\\]",
-            "description": "Task text must not include '- [ ]' or '- [x]' — the API adds checkboxes automatically"
           }
         }
       ]
@@ -152,7 +143,7 @@
       "id": "basic-005",
       "name": "Add a URL link to a card",
       "tier": 1,
-      "prompt": "Add a link to the Obsidian design doc at https://example.com/obsidian-doc to card 'add-oauth-login' in project hex. Label it 'Design Doc'.",
+      "prompt": "Add a link to the design doc at https://example.com/doc to card 'add-oauth-login' in project hex. Label it 'Design Doc'.",
       "tags": ["link"],
       "criteria": [
         {
@@ -240,7 +231,7 @@
       "name": "Create card with 3 tasks and move to in-progress",
       "tier": 2,
       "prompt": "Create a card 'Refactor Auth Module' in project hex, add exactly 3 tasks for the work (planning, implementation, testing), then move it to in-progress.",
-      "tags": ["create", "task", "move", "sequence", "never-rule"],
+      "tags": ["create", "task", "move", "sequence"],
       "criteria": [
         {
           "name": "Creates card via POST /cards",
@@ -277,15 +268,6 @@
             { "method": "POST", "path_pattern": "/projects/hex/cards/[^/]+/tasks$" },
             { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+/move$" }
           ]
-        },
-        {
-          "name": "No checkbox syntax in task text",
-          "type": "never_violation",
-          "never_violation": {
-            "name": "No checkbox syntax",
-            "pattern": "- \\[[ x]\\]",
-            "description": "Task body.text must not contain '- [ ]' or '- [x]'"
-          }
         }
       ]
     },
@@ -476,15 +458,6 @@
             { "method": "POST", "path_pattern": "/projects/hex/cards/[^/]+/artifacts$" },
             { "method": "PATCH", "path_pattern": "/projects/hex/cards/[^/]+/move$" }
           ]
-        },
-        {
-          "name": "No checkbox syntax in task text",
-          "type": "never_violation",
-          "never_violation": {
-            "name": "No checkbox syntax",
-            "pattern": "- \\[[ x]\\]",
-            "description": "Task body.text must not contain markdown checkbox syntax"
-          }
         }
       ]
     },
@@ -571,17 +544,17 @@
     },
     {
       "id": "complex-004",
-      "name": "NEVER: lane change must use /move",
+      "name": "Move card between lanes (either endpoint)",
       "tier": 3,
       "prompt": "Move card 'user-auth' in project hex from the upcoming lane to in-progress.",
-      "tags": ["move", "never-rule", "lane"],
+      "tags": ["move", "lane"],
       "criteria": [
         {
-          "name": "Uses /move endpoint",
+          "name": "Uses /move or PATCH /cards endpoint",
           "type": "call_present",
           "expected_call": {
             "method": "PATCH",
-            "path_pattern": "/projects/hex/cards/user-auth/move$"
+            "path_pattern": "/projects/hex/cards/[^/]+(/move)?$"
           }
         },
         {
@@ -589,54 +562,35 @@
           "type": "body_value_match",
           "expected_call": {
             "method": "PATCH",
-            "path_pattern": "/projects/hex/cards/user-auth/move$",
+            "path_pattern": "/projects/hex/cards/[^/]+(/move)?$",
             "required_body_values": { "lane": "02-in-progress" }
-          }
-        },
-        {
-          "name": "Does not use PATCH /cards/{slug} without /move to change lane",
-          "type": "never_violation",
-          "never_violation": {
-            "name": "Lane change must use /move",
-            "pattern": "PATCH /projects/[^/]+/cards/user-auth\"",
-            "description": "Lane changes require PATCH /cards/{slug}/move — calling PATCH /cards/{slug} without /move silently does nothing to the lane"
           }
         }
       ]
     },
     {
       "id": "complex-005",
-      "name": "NEVER: no checkbox syntax in task text",
+      "name": "NEVER: complete task via text edit instead of toggle",
       "tier": 3,
-      "prompt": "Add two tasks to card 'user-auth' in project hex: one for writing unit tests and one for updating the API documentation. Format them correctly according to the skill instructions.",
-      "tags": ["task", "never-rule"],
+      "prompt": "Task 0 on card 'user-auth' in project hex is now done. Mark it complete.",
+      "tags": ["task", "toggle", "never-rule"],
       "criteria": [
         {
-          "name": "Adds exactly 2 tasks",
-          "type": "call_count",
+          "name": "Uses PATCH /tasks/0 with checked: true",
+          "type": "body_value_match",
           "expected_call": {
-            "method": "POST",
-            "path_pattern": "/projects/hex/cards/user-auth/tasks$"
-          },
-          "min_count": 2,
-          "max_count": 2
-        },
-        {
-          "name": "Task text has no - [ ] prefix",
-          "type": "never_violation",
-          "never_violation": {
-            "name": "No checkbox syntax",
-            "pattern": "- \\[[ x]\\]",
-            "description": "Task body.text must never include '- [ ]' or '- [x]' — the API adds checkboxes automatically"
+            "method": "PATCH",
+            "path_pattern": "/projects/hex/cards/[^/]+/tasks/0",
+            "required_body_values": { "checked": true }
           }
         },
         {
-          "name": "Uses POST to /tasks",
-          "type": "call_present",
-          "expected_call": {
-            "method": "POST",
-            "path_pattern": "/projects/hex/cards/user-auth/tasks$",
-            "required_body_fields": ["text"]
+          "name": "Does not mark complete by editing task text with [x]",
+          "type": "never_violation",
+          "never_violation": {
+            "name": "No [x] in task text",
+            "pattern": "\"text\":\\s*\"[^\"]*\\[x\\]",
+            "description": "Tasks must be marked complete via PATCH /tasks/{id} with checked: true — never by editing text to add '[x]'"
           }
         }
       ]

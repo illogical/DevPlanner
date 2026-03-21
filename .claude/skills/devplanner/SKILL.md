@@ -5,7 +5,7 @@ description: "API client for managing DevPlanner Kanban boards — cards, tasks,
 
 # DevPlanner
 
-Real-time Kanban board API. All state persists to Markdown files — actions are
+Real-time Kanban board API. All state persists to text files — actions are
 immediately visible in the web UI.
 
 **Base URL**: `http://192.168.7.45:17103/api`
@@ -201,7 +201,7 @@ The `link.url` is portable and shareable. Use it in references, messages, and cr
 
 - **Prefer `PATCH /cards/{card}/move` for lane changes.** Both `PATCH /cards/{card}/move` and `PATCH /cards/{card}` accept a `lane` field and will move the card. The `/move` endpoint is the canonical form.
 
-- **NEVER include `- [ ]` or `- [x]` in task text.** The API adds checkboxes automatically. Always `{"text":"Do it"}` not `{"text":"- [ ] Do it"}`.
+- **NEVER mark a task complete by editing its text to add `[x]`.** Use `PATCH /cards/{card}/tasks/{index}` with `{"checked": true}`. Always use the toggle endpoint, never `{"text":"[x] Do it"}`.
 
 - **NEVER add tasks without reading the card first.** Existing tasks from the human author could be redundant, avoid redundancy.
 

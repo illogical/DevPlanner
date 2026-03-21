@@ -155,5 +155,6 @@ test-results/
 
 # Skill eval run output (history lives on disk; not committed)
 .claude/skills/*/evals/runs/
+.claude/skills/*/evals/archive/
 .claude/skills/*/evals/comparison.json
 .claude/skills/*/evals/comparison.html

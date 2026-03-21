@@ -136,7 +136,8 @@ for (let i = 0; i < scenarios.length; i++) {
   const scenario = scenarios[i];
   const prefix = `[${i + 1}/${scenarios.length}] ${scenario.id}`;
 
-  process.stdout.write(`  ${prefix} "${scenario.name}" … `);
+  const ts = new Date().toTimeString().slice(0, 8);
+  process.stdout.write(`  ${prefix} ${c.dim}${ts}${c.reset} "${scenario.name}" … `);
 
   if (i > 0) await client.delay();
 
