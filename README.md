@@ -27,7 +27,7 @@ DevPlanner is designed from the ground up for **human + agent collaboration**:
 | 🔍 **Command Palette** | `Ctrl+K` / `Cmd+K` cross-project search across titles, tasks, tags, descriptions, and links |
 | 🤖 **MCP Server** | 17 tools + 3 resources for AI agents (Claude Code, GitHub Copilot, etc.) |
 | 🧪 **Skill Eval Framework** | Bun-based toolchain to score how well LLMs follow DevPlanner skill instructions; supports testing across multiple models and comparing runs over time |
-| ⚡ **Real-time Sync** | WebSocket broadcasts card changes, moves, task updates, and git status to all connected clients |
+| ⚡ **Real-time Sync** | WebSocket broadcasts card changes, moves, and task updates to all connected clients in real time |
 | 🐳 **Docker** | Single-port containerised deployment (UI + API on port 17103) |
 
 ## Purpose
@@ -53,14 +53,16 @@ DevPlanner/
 │   │   ├── preferences.ts      # Workspace preferences
 │   │   ├── backup.ts           # Workspace backup
 │   │   ├── search.ts           # Global and per-project search
-│   │   ├── vault.ts            # Vault file content serving (`GET /api/vault/content`)
+│   │   ├── vault.ts            # Vault file CRUD (`GET /api/vault/content`, `PUT /api/vault/file`, `DELETE /api/vault/file`, `GET /api/vault/tree`)
+│   │   ├── vault-git.ts        # Per-file git operations (status, stage, unstage, discard, commit, diff, show)
 │   │   ├── config.ts           # Public config endpoint (`GET /api/config/public`)
 │   │   └── websocket.ts        # WebSocket upgrade handler
 │   ├── services/               # Core business logic and file I/O
 │   │   ├── card.service.ts     # Card CRUD, move, reorder, search
 │   │   ├── task.service.ts     # Checklist add/toggle/edit/delete (per-card mutex)
 │   │   ├── link.service.ts     # Card URL link management
-│   │   ├── vault.service.ts    # Obsidian vault artifact creation
+│   │   ├── vault.service.ts    # Obsidian vault artifact creation and file management
+│   │   ├── git.service.ts      # Per-file git operations via porcelain v1 status + plumbing commands
 │   │   ├── project.service.ts  # Project CRUD
 │   │   ├── markdown.service.ts # Frontmatter parsing, checklist manipulation
 │   │   ├── history.service.ts  # In-memory activity event tracking
@@ -352,14 +354,17 @@ All endpoints are under `/api` and return JSON.
 | `PATCH` | `/api/preferences` | Update preferences (incl. `digestAnchor`) |
 | `POST` | `/api/backup` | Create workspace backup (zip) |
 | `GET` | `/api/vault/content?path=` | Read raw vault artifact file content (requires `ARTIFACT_BASE_PATH`) |
+| `PUT` | `/api/vault/file` | Write or overwrite a vault artifact file |
+| `DELETE` | `/api/vault/file` | Delete a vault artifact file |
+| `GET` | `/api/vault/tree` | List vault directory tree (requires `ARTIFACT_BASE_PATH`) |
 | `GET` | `/api/vault/git/status?path=` | Single-file git status |
 | `POST` | `/api/vault/git/statuses` | Batch git status for multiple files |
 | `POST` | `/api/vault/git/stage` | Stage a file (`git add`) |
-| `POST` | `/api/vault/git/unstage` | Unstage a file (`git reset HEAD`) |
+| `POST` | `/api/vault/git/unstage` | Unstage a file (`git restore --staged`, fallback `git reset HEAD`) |
 | `POST` | `/api/vault/git/discard` | Discard unstaged changes (`git restore --worktree`) |
 | `POST` | `/api/vault/git/commit` | Commit staged changes with a message |
 | `GET` | `/api/vault/git/diff?path=&mode=working\|staged` | Raw unified diff output |
-| `GET` | `/api/vault/git/show?path=&ref=staged\|HEAD` | File content at a git ref (index or last commit) |
+| `GET` | `/api/vault/git/show?path=&ref=` | File content at a git ref (`HEAD`, `:0`–`:3` for staged index, or 40-char commit SHA) |
 | `GET` | `/api/config/public` | Public server configuration (`artifactBaseUrl`) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
@@ -380,7 +385,7 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 #### Doc Manager & Artifacts
 - ✅ **Doc Manager** — Integrated Markdown viewer/editor with a full-screen bottom-drawer panel; hierarchical folder tree for navigating vault artifact directories; breadcrumb path display and "go up" navigation
 - ✅ **Vault Artifacts** — Write Markdown files directly to an Obsidian Vault and auto-attach as card links; upload files from the card detail panel via `UploadLinkForm`
-- ✅ **Git Integration** — Per-file git status tracking with color-coded pills (clean / untracked / unstaged / staged / staged-new / partial-staged); stage, unstage, discard, and commit from the bottom bar without leaving the editor; status refreshes immediately on save and file selection; batch status fetch for all visible files
+- ✅ **Git Integration** — Per-file git status tracking with color-coded dots (`clean` / `untracked` / `modified` / `staged` / `staged-new` / `modified-staged` / `ignored` / `outside-repo`); stage, unstage, discard, and commit from the bottom bar without leaving the editor; status refreshes immediately on save and file selection; batch status fetch for all visible files; configurable auto-refresh interval (5–300 s)
 - ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting and inline word-level highlights for precise change spotting; left pane = older version, right pane = newer version; git-aware mode switcher shows available comparisons (All changes / Staged diff / Unstaged changes) based on the file's git state; quick-access diff buttons in the bottom bar; opens vault artifact files directly from card links; manual mode supports drag-and-drop, paste, and file picker
 
 #### Search & Discovery
