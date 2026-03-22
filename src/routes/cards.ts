@@ -667,7 +667,7 @@ export const cardRoutes = (workspacePath: string) => {
           assignee: t.Optional(t.Union([t.Literal('user'), t.Literal('agent'), t.Null()])),
           tags: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
           blockedReason: t.Optional(t.Union([t.String(), t.Null()])),
-          // lane is intentionally accepted here only to detect misuse and return a helpful error
+          // lane is accepted here to move the card; when present, the handler performs a move (like /move) before applying remaining field updates
           lane: t.Optional(t.String()),
         }),
       }
