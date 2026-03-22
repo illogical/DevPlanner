@@ -90,7 +90,11 @@ const today = new Date().toISOString().slice(0, 10);
 const existing = existsSync(runsBase)
   ? readdirSync(runsBase).filter((d) => d.startsWith(today))
   : [];
-const nextN = (existing.length + 1).toString().padStart(3, "0");
+const maxN = existing.reduce((max, d) => {
+  const match = d.match(/_(\d+)$/);
+  return match ? Math.max(max, parseInt(match[1], 10)) : max;
+}, 0);
+const nextN = (maxN + 1).toString().padStart(3, "0");
 const runId = `${today}_${nextN}`;
 const runDir = join(runsBase, runId);
 mkdirSync(join(runDir, "raw-responses"), { recursive: true });
