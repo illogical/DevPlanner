@@ -664,6 +664,7 @@ export const cardRoutes = (workspacePath: string) => {
           priority: t.Optional(
             t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high'), t.Null()])
           ),
+          content: t.Optional(t.String()),
           assignee: t.Optional(t.Union([t.Literal('user'), t.Literal('agent'), t.Null()])),
           tags: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
           blockedReason: t.Optional(t.Union([t.String(), t.Null()])),
