@@ -21,6 +21,7 @@ export interface CompletionResponse {
   content: string;
   durationMs: number;
   model: string;
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
 }
 
 export class LmClient {

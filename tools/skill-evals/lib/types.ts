@@ -107,6 +107,12 @@ export interface ParseResult {
 
 // ─── Scorer output ────────────────────────────────────────────────────────────
 
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 export interface CriterionResult {
   name: string;
   type: Criterion["type"];
@@ -115,6 +121,8 @@ export interface CriterionResult {
   evidence: string;
   /** True for never_violation criteria — used to detect auto-fail. */
   isNever: boolean;
+  /** Original criterion definition — included for report rendering. */
+  criterion?: Criterion;
 }
 
 export interface ScenarioResult {
@@ -134,6 +142,7 @@ export interface ScenarioResult {
   passRate: number;
   durationMs: number;
   tags?: string[];
+  usage?: TokenUsage;
 }
 
 export interface TierSummary {
@@ -159,6 +168,7 @@ export interface RunResult {
     neverViolationCount: number;
     parseFailureCount: number;
     totalDurationMs: number;
+    totalUsage?: TokenUsage;
   };
 }
 
