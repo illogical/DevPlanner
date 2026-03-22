@@ -66,7 +66,7 @@ export function GitCommitPanel() {
   };
 
   // Only allow commit when ALL changes are staged (no remaining unstaged edits)
-  const canCommit = state === 'staged';
+  const canCommit = state === 'staged' || state === 'staged-new';
   const canStage = state === 'modified' || state === 'untracked' || state === 'modified-staged';
   const canUnstage = state === 'staged' || state === 'staged-new' || state === 'modified-staged';
   const canDiscard = state === 'modified' || state === 'modified-staged';
