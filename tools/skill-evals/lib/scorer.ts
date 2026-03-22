@@ -17,6 +17,27 @@ import type {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Recursive deep equality that is order-independent for object keys.
+ * Avoids the false-negative pitfall of JSON.stringify when objects have
+ * identical properties in different insertion order.
+ */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  // null-guard + typeof-guard combined: typeof null === "object", so null must be checked first
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((item, i) => deepEqual(item, (b as unknown[])[i]));
+  }
+  const aObj = a as Record<string, unknown>;
+  const bObj = b as Record<string, unknown>;
+  const aKeys = Object.keys(aObj);
+  if (aKeys.length !== Object.keys(bObj).length) return false; // same key count → no extra keys in bObj
+  return aKeys.every((key) => Object.prototype.hasOwnProperty.call(bObj, key) && deepEqual(aObj[key], bObj[key]));
+}
+
 function methodMatches(call: ParsedCall, expected: ExpectedCall): boolean {
   return call.method.toUpperCase() === expected.method.toUpperCase();
 }
@@ -38,14 +59,14 @@ function bodyFieldsPresent(call: ParsedCall, fields: string[]): boolean {
 function bodyValuesMatch(call: ParsedCall, values: Record<string, unknown>): boolean {
   if (!call.body) return false;
   return Object.entries(values).every(([k, v]) => {
-    return JSON.stringify(call.body![k]) === JSON.stringify(v);
+    return deepEqual(call.body![k], v);
   });
 }
 
 function bodyValuesForbidden(call: ParsedCall, forbidden: Record<string, unknown>): boolean {
   if (!call.body) return true; // no body → no forbidden values present
   return Object.entries(forbidden).every(([k, v]) => {
-    return JSON.stringify(call.body![k]) !== JSON.stringify(v);
+    return !deepEqual(call.body![k], v);
   });
 }
 
@@ -138,7 +159,7 @@ function scoreBodyValueMatch(c: Criterion, calls: ParsedCall[]): CriterionResult
   }
   const expected = ec.required_body_values ?? {};
   const mismatches = Object.entries(expected).filter(([k, v]) => {
-    return JSON.stringify(match.body?.[k]) !== JSON.stringify(v);
+    return !deepEqual(match.body?.[k], v);
   });
   if (mismatches.length === 0) {
     return {
