@@ -34,7 +34,8 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 1. GET /projects/hex/cards?lane=01-upcoming    → find candidates (filter: no assignee or assignee:"user")
 2. GET /projects/{slug}/cards/{card}           → [REQUIRED] read full card before claiming (tasks, links, context)
 3. PATCH /projects/{slug}/cards/{card}         → claim: {"assignee":"agent","status":"in-progress"}
-4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}5. [Work — toggle EACH task complete immediately as you finish it]
+4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
+5. [Work — toggle EACH task complete immediately as you finish it]
 6. Ensure card has spec + summary artifacts via `/artifacts` (minimum 2 links on completion)
 7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}   ```
 
@@ -48,7 +49,8 @@ Do not skip step 2 — existing tasks and context on the card inform the work.
 1. POST /projects/{slug}/cards                      → {"title":"Short Title","description":"1–5 sentence summary.","lane":"01-upcoming"}
 2. POST /projects/{slug}/cards/{card}/tasks         → add each subtask — one POST per task, never batch
 3. POST /projects/{slug}/cards/{card}/artifacts     → {"label":"Intro Plan","content":"# ...\n\nFull plan/instructions.","kind":"doc"}
-4. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"02-in-progress"}5. [Work — toggle EACH task complete immediately as you finish it]
+4. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"02-in-progress"}
+5. [Work — toggle EACH task complete immediately as you finish it]
 6. POST /projects/{slug}/cards/{card}/artifacts     → {"label":"Summary","content":"# Summary\n\n...","kind":"doc"}   ← required before completing
 7. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"03-complete"}   ```
 
