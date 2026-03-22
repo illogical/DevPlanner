@@ -106,6 +106,7 @@ export class LinkService {
         throw {
           error: 'DUPLICATE_LINK',
           message: `A link with URL "${normalizedUrl}" already exists on this card.`,
+          existingLink: duplicate,
         };
       }
 

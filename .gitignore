@@ -145,3 +145,16 @@ workspace/
 .github/skills/*
 .claude/settings.local.json
 .claude/skills/agent-skill-creator/
+.claude/skills/skill-creator/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright-vault-path
+.env.test
+
+# Skill eval run output (history lives on disk; not committed)
+.claude/skills/*/evals/runs/
+.claude/skills/*/evals/archive/
+.claude/skills/*/evals/comparison.json
+.claude/skills/*/evals/comparison.html

@@ -590,7 +590,26 @@ export const cardRoutes = (workspacePath: string) => {
           }
         }
 
-        const card = await cardService.updateCard(params.projectSlug, params.cardSlug, body);
+        // If lane is present, perform the move (same as /move endpoint) then update remaining fields
+        if (body.lane) {
+          const cardBefore = await cardService.getCard(params.projectSlug, params.cardSlug);
+          const sourceLane = cardBefore.lane;
+          await cardService.moveCard(params.projectSlug, params.cardSlug, body.lane);
+          const moveEventData: CardMovedData = { slug: params.cardSlug, sourceLane, targetLane: body.lane };
+          wsService.broadcast(params.projectSlug, {
+            type: 'event',
+            event: { type: 'card:moved', projectSlug: params.projectSlug, timestamp: new Date().toISOString(), data: moveEventData },
+          });
+          const project = await projectService.getProject(params.projectSlug);
+          const targetLaneName = project.lanes[body.lane]?.displayName || body.lane;
+          recordAndBroadcastHistory(params.projectSlug, 'card:moved', `Card "${cardBefore.frontmatter.title}" moved to ${targetLaneName}`, {
+            cardSlug: params.cardSlug, cardTitle: cardBefore.frontmatter.title, sourceLane, targetLane: body.lane,
+          });
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { lane: _lane, ...updateFields } = body;
+        const card = await cardService.updateCard(params.projectSlug, params.cardSlug, updateFields);
 
         // Broadcast card:updated event
         const eventData: CardUpdatedData = {
@@ -645,9 +664,12 @@ export const cardRoutes = (workspacePath: string) => {
           priority: t.Optional(
             t.Union([t.Literal('low'), t.Literal('medium'), t.Literal('high'), t.Null()])
           ),
+          content: t.Optional(t.String()),
           assignee: t.Optional(t.Union([t.Literal('user'), t.Literal('agent'), t.Null()])),
           tags: t.Optional(t.Union([t.Array(t.String()), t.Null()])),
           blockedReason: t.Optional(t.Union([t.String(), t.Null()])),
+          // lane is accepted here to move the card; when present, the handler performs a move (like /move) before applying remaining field updates
+          lane: t.Optional(t.String()),
         }),
       }
     );

@@ -75,10 +75,12 @@ export const linkRoutes = (workspacePath: string) => {
 
           return { link };
         } catch (err: unknown) {
-          const e = err as { error?: string; message?: string };
+          const e = err as { error?: string; message?: string; existingLink?: unknown };
           if (e?.error) {
             set.status = toHttpStatus(e.error);
-            return { error: e.error, message: e.message ?? e.error };
+            const body: Record<string, unknown> = { error: e.error, message: e.message ?? e.error };
+            if (e.existingLink !== undefined) body.existingLink = e.existingLink;
+            return body;
           }
           throw err;
         }

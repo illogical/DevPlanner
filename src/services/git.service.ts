@@ -5,6 +5,7 @@ export type GitState =
   | 'clean'
   | 'modified'
   | 'staged'
+  | 'staged-new'       // new file staged for the first time (no HEAD version exists)
   | 'modified-staged'
   | 'untracked'
   | 'ignored'
@@ -30,7 +31,7 @@ function parsePorcelainStatus(line: string): GitState {
   const staged = x !== ' ' && x !== '?';
   const modified = y !== ' ' && y !== '?';
   if (staged && modified) return 'modified-staged';
-  if (staged) return 'staged';
+  if (staged) return x === 'A' ? 'staged-new' : 'staged';
   if (modified) return 'modified';
   return 'clean';
 }
@@ -101,22 +102,6 @@ export class GitService {
     return this.getStatus(relativePath);
   }
 
-  async getFileAtRef(relativePath: string, ref: string): Promise<string> {
-    this.validatePath(relativePath);
-    // Validate ref to prevent command injection via unexpected values.
-    // Allowed: 'HEAD', stage indices ':0'–':3', and 40-char commit SHAs.
-    if (!/^(HEAD|:[0-3]|[0-9a-f]{40})$/.test(ref)) {
-      throw { error: 'INVALID_REF', message: `Invalid git ref: ${ref}` };
-    }
-    // ref can be 'HEAD' (last commit) or ':0' (staging area / index)
-    const gitPath = `${ref}:${relativePath}`;
-    const result = runGit(['show', gitPath], this.vaultPath);
-    if (result.exitCode !== 0) {
-      throw { error: 'GIT_NOT_FOUND', message: result.stderr.trim() || `No content at ref ${ref}` };
-    }
-    return result.stdout;
-  }
-
   async discardUnstaged(relativePath: string): Promise<GitState> {
     this.validatePath(relativePath);
     // Try git restore first, fall back to git checkout
@@ -140,6 +125,30 @@ export class GitService {
       ? ['diff', '--cached', '--', relativePath]
       : ['diff', '--', relativePath];
     const result = runGit(args, this.vaultPath);
+    return result.stdout;
+  }
+
+  async getFileAtRef(relativePath: string, ref: string): Promise<string> {
+    this.validatePath(relativePath);
+    // Validate ref to prevent command injection via unexpected values.
+    // Allowed: 'HEAD', stage indices ':0'–':3', and 40-char commit SHAs.
+    if (!/^(HEAD|:[0-3]|[0-9a-f]{40})$/.test(ref)) {
+      throw { error: 'INVALID_REF', message: `Invalid git ref: ${ref}` };
+    }
+    // `git show HEAD:<path>` requires path relative to repo root, not cwd.
+    // `git rev-parse --show-prefix` returns the prefix of cwd relative to root (e.g. "10-Projects/").
+    const prefixResult = runGit(['rev-parse', '--show-prefix'], this.vaultPath);
+    const prefix = prefixResult.stdout.trim(); // trailing slash included, or "" at root
+    const gitRelPath = prefix ? `${prefix}${relativePath}` : relativePath;
+    const gitRef = `${ref}:${gitRelPath}`;
+    const result = runGit(['show', gitRef], this.vaultPath);
+    if (result.exitCode !== 0) {
+      // New file: exists on disk but not yet in HEAD/staged — treat as empty (all lines will appear as added)
+      if (result.stderr.includes('exists on disk, but not in') || result.stderr.includes('does not exist in')) {
+        return '';
+      }
+      throw { error: 'GIT_NOT_FOUND', message: result.stderr.trim() || `No content at ref ${ref}` };
+    }
     return result.stdout;
   }
 }

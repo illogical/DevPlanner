@@ -110,6 +110,133 @@ The Vite dev server proxies all `/api` requests to the backend at `http://localh
 - **Framer Motion transitions**: The card detail panel and activity panel use spring animations for slide-in/slide-out. Cards animate on reorder.
 - **Optimistic updates**: Task toggles and card moves update the store immediately, then sync with the server. On failure, the store rolls back.
 
+## Git Integration
+
+The editor and file browser include a full single-file Git workflow. Each open file shows a status pill in the bottom bar that refreshes immediately after save and on file selection (no polling delay for these events).
+
+### Git workflow state machine
+
+> **Key fact:** `git add` is the staging command. For new files it both begins tracking AND stages simultaneously — there is no separate "track" step.
+
+| Step | GitState | Status color | Available diffs | Available actions |
+|------|----------|--------------|-----------------|-------------------|
+| New file, not staged | `untracked` | Red | None | Stage |
+| `git add` (tracks + stages) | `staged-new` | Blue | None (no HEAD) | Unstage, Commit |
+| Edit a staged-new file | `modified-staged` | Yellow | `staged→working` only | Discard, Stage, Commit |
+| Stage again | `staged-new` | Blue | None | Unstage, Commit |
+| First commit | `clean` | Emerald | None | None |
+| Edit a committed file | `modified` | Red | `HEAD→working` | Stage |
+| Stage changes | `staged` | Blue | `HEAD→staged` | Unstage, Commit |
+| Edit again (partially staged) | `modified-staged` | Yellow | `staged→working`, `HEAD→staged`, `HEAD→working` | Discard, Stage, Commit |
+| Stage all changes | `staged` | Blue | `HEAD→staged` | Unstage, Commit |
+
+> **Note on `staged-new` + working changes:** If you edit a `staged-new` file before committing it, the state becomes `modified-staged`. Because there is no HEAD version yet, only the `staged→working` diff mode is available. HEAD-based modes are suppressed and a banner is shown in the Diff Viewer.
+
+### Status colors
+
+| Color (Tailwind) | State(s) | Short label |
+|---|---|---|
+| `bg-emerald-500` | `clean` | Clean |
+| `bg-red-500` | `modified` | Unstaged |
+| `bg-red-500` | `untracked` | Untracked |
+| `bg-blue-500` | `staged` | Staged |
+| `bg-blue-500` | `staged-new` | New file |
+| `bg-yellow-500` | `modified-staged` | Partial staged |
+| `bg-gray-500` | `ignored`, `outside-repo`, `unknown` | Ignored / Outside repo / Unknown |
+
+### Git Actions panel
+
+Click the status pill to open the Git Actions panel, which shows context-sensitive buttons:
+
+- **Stage** — add working-tree changes to the index (`git add`)
+- **Unstage** — remove staged changes from the index (`git reset HEAD`)
+- **Discard** — revert unstaged working-tree changes to the staged/committed version (`git restore --worktree`)
+- **Commit** — commit staged changes with a message (Enter to submit, Shift+Enter for newline)
+
+> **Panel stays open after Stage/Unstage** so you can immediately commit or review without reopening it. The panel only closes automatically after Discard and Commit.
+
+> **Partial staged state**: When both staged and unstaged changes exist, an amber warning is shown. Only the staged portion will be committed — unstaged changes remain in the working tree.
+
+Available actions per state:
+
+| State | Actions |
+|---|---|
+| `untracked` | Stage |
+| `staged-new` | Unstage, Commit |
+| `modified` | Stage |
+| `staged` | Unstage, Commit |
+| `modified-staged` | Discard, Stage, Commit |
+| `clean` | *(none — all changes committed)* |
+
+### Diff views — BottomBar quick-access buttons
+
+Compact diff jump buttons appear directly in the **BottomBar** to the left of the status pill whenever a file with git changes is open. One click navigates straight to the correct diff view — no panel required.
+
+| State | Buttons |
+|---|---|
+| `modified` | **All changes** (HEAD → working) |
+| `staged` | **Staged diff** (HEAD → staged) |
+| `modified-staged` | **All changes** · **Staged diff** · **Unstaged** |
+| `staged-new` | *(none — no HEAD to compare against)* |
+| `clean` / `untracked` / others | *(none)* |
+
+Implemented in `components/diff/DiffQuickButtons.tsx`, rendered by `BottomBar.tsx`.
+
+### Diff views — Git Actions panel
+
+The Git Actions panel (opened by clicking the status pill) also includes context-sensitive diff navigation buttons:
+
+| State | Button | What it shows |
+|---|---|---|
+| `modified` (unstaged) | View changes | Last commit (HEAD) vs current working tree |
+| `staged` | View staged diff | Last commit (HEAD) vs staged index — exactly what will be committed |
+| `modified-staged` | View unstaged changes | Staged index vs working tree — what will NOT be in the next commit |
+| `modified-staged` | View all changes | Last commit (HEAD) vs current working tree |
+
+The Diff Viewer is opened pre-loaded via URL params: `/diff?gitPath=<path>&leftRef=HEAD|staged&rightRef=working|staged`.
+
+## Diff Viewer (Compare tab)
+
+The Diff Viewer at `/diff` is a two-pane, side-by-side file comparison tool. The **left pane always shows the older version** and the **right pane always shows the newer version**.
+
+### Modes
+
+**Manual mode** — load any two files by drag-and-drop, paste, URL params `?left=&right=`, or the file picker button in each pane header.
+
+**Git mode** — when opened with `?gitPath=`, the viewer fetches file content from git and shows a mode switcher bar below the toolbar. Available tabs depend on the file's current git status:
+
+| Tab | Left pane | Right pane | Available when |
+|---|---|---|---|
+| All changes | Last commit (HEAD) | Working tree | `modified`, `staged`, `modified-staged` (with HEAD) |
+| Staged diff | Last commit (HEAD) | Staged (index) | `staged`, `modified-staged` (with HEAD) |
+| Unstaged changes | Staged (index) | Working tree | `modified-staged` (always, including no-HEAD files) |
+
+> When a `modified-staged` file has never been committed, HEAD-based tabs are hidden and a blue banner notes the file is new. Only "Unstaged changes" is available.
+
+Clicking a tab reloads both panes instantly without navigating away. The URL updates to reflect the active mode (`leftRef` / `rightRef` params), so the view is shareable and survives a page refresh.
+
+### Toolbar controls
+
+| Control | Description |
+|---|---|
+| Language | Syntax highlighting language (auto-detected by default) |
+| Wrap | Toggle long-line wrapping |
+| Sync Scroll | Lock both panes to scroll together |
+| Swap | Swap left and right pane contents |
+| Clear | Reset both panes |
+
+### URL scheme
+
+```
+# Manual mode
+/diff?left=<vaultPath>&right=<vaultPath>
+
+# Git mode — old on left, new on right
+/diff?gitPath=<path>&leftRef=HEAD&rightRef=working    # All changes
+/diff?gitPath=<path>&leftRef=HEAD&rightRef=staged     # Staged diff
+/diff?gitPath=<path>&leftRef=staged&rightRef=working  # Unstaged changes
+```
+
 ## Tech stack
 
 | Concern | Library |

@@ -4,21 +4,18 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { ProjectService } from '../services/project.service';
 import { CardService } from '../services/card.service';
-import { FileService } from '../services/file.service';
 import { searchProjectForPalette } from '../routes/cards';
 
 describe('Palette Search', () => {
   let testWorkspace: string;
   let projectService: ProjectService;
   let cardService: CardService;
-  let fileService: FileService;
   const projectSlug = 'test-project';
 
   beforeEach(async () => {
     testWorkspace = await mkdtemp(join(tmpdir(), 'devplanner-search-test-'));
     projectService = new ProjectService(testWorkspace);
     cardService = new CardService(testWorkspace);
-    fileService = new FileService(testWorkspace);
 
     await projectService.createProject('Test Project');
   });
@@ -34,7 +31,7 @@ describe('Palette Search', () => {
   describe('searchProjectForPalette', () => {
     test('returns empty array for query under 2 chars', async () => {
       await cardService.createCard(projectSlug, { title: 'Auth Flow' });
-      const results = await searchProjectForPalette(projectSlug, 'a', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'a', cardService);
       // Single char query still passes through — filtering is done at route level
       // but scoring should still work
       expect(Array.isArray(results)).toBe(true);
@@ -44,7 +41,7 @@ describe('Palette Search', () => {
       await cardService.createCard(projectSlug, { title: 'Authentication Flow' });
       await cardService.createCard(projectSlug, { title: 'Dashboard Widget' });
 
-      const results = await searchProjectForPalette(projectSlug, 'auth', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'auth', cardService);
 
       const cardResults = results.filter(r => r.type === 'card');
       expect(cardResults.length).toBeGreaterThan(0);
@@ -59,7 +56,7 @@ describe('Palette Search', () => {
       const content = await import('fs/promises').then(fs => fs.readFile(cardPath, 'utf-8'));
       await writeFile(cardPath, content + '\n## Tasks\n- [ ] Implement JWT refresh logic\n');
 
-      const results = await searchProjectForPalette(projectSlug, 'JWT', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'JWT', cardService);
       const taskResults = results.filter(r => r.type === 'task');
       expect(taskResults.length).toBeGreaterThan(0);
       expect(taskResults[0].primaryText).toContain('JWT');
@@ -71,7 +68,7 @@ describe('Palette Search', () => {
         tags: ['backend', 'auth'],
       });
 
-      const results = await searchProjectForPalette(projectSlug, 'backend', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'backend', cardService);
       const tagResults = results.filter(r => r.type === 'tag');
       expect(tagResults.length).toBeGreaterThan(0);
       expect(tagResults[0].primaryText).toBe('backend');
@@ -84,7 +81,7 @@ describe('Palette Search', () => {
         assignee: 'agent',
       });
 
-      const results = await searchProjectForPalette(projectSlug, 'agent', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'agent', cardService);
       const assigneeResults = results.filter(r => r.type === 'assignee');
       expect(assigneeResults.length).toBeGreaterThan(0);
       expect(assigneeResults[0].primaryText).toBe('agent');
@@ -96,7 +93,7 @@ describe('Palette Search', () => {
         description: 'This implements a JWT authentication system',
       });
 
-      const results = await searchProjectForPalette(projectSlug, 'JWT', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'JWT', cardService);
       const descResults = results.filter(r => r.type === 'description');
       expect(descResults.length).toBeGreaterThan(0);
       expect(descResults[0].cardSlug).toBe(card.slug);
@@ -106,7 +103,7 @@ describe('Palette Search', () => {
     test('returns no results for unmatched query', async () => {
       await cardService.createCard(projectSlug, { title: 'My Card' });
 
-      const results = await searchProjectForPalette(projectSlug, 'xyzzy_not_found', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'xyzzy_not_found', cardService);
       expect(results).toHaveLength(0);
     });
 
@@ -116,7 +113,7 @@ describe('Palette Search', () => {
         tags: ['security'],
       });
 
-      const results = await searchProjectForPalette(projectSlug, 'auth', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'auth', cardService);
       for (const r of results) {
         expect(r.type).toBeTruthy();
         expect(r.cardSlug).toBeTruthy();
@@ -133,7 +130,7 @@ describe('Palette Search', () => {
       await cardService.createCard(projectSlug, { title: 'auth' });
       await cardService.createCard(projectSlug, { title: 'Authentication System' });
 
-      const results = await searchProjectForPalette(projectSlug, 'auth', cardService, fileService);
+      const results = await searchProjectForPalette(projectSlug, 'auth', cardService);
       const cardResults = results.filter(r => r.type === 'card').sort((a, b) => b.score - a.score);
       expect(cardResults.length).toBeGreaterThanOrEqual(2);
       // Exact match should score higher

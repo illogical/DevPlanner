@@ -1,6 +1,34 @@
 # DevPlanner
 
-A file-based Kanban board web app designed for iterative software development with AI agents. All project data is stored as plain-text Markdown and JSON files — no database required. Both humans and AI assistants can read, search, and modify project data directly through the filesystem or via the REST API.
+**A human + AI project management platform where every piece of work lives as a plain-text file on disk.** Teams and AI coding agents share the same board, read and write the same Markdown cards, and both see live updates — no proprietary database, no sync conflicts, no silos.
+
+> Built for the era where humans and AI agents collaborate on the same codebase, DevPlanner gives both sides a transparent, version-controllable surface for planning, tracking, and shipping software.
+
+## Why DevPlanner?
+
+Modern development increasingly involves AI agents — tools like Claude Code, GitHub Copilot, and custom automation — working alongside human developers. Most project management tools are built exclusively for humans: they hide data behind opaque APIs, require GUIs to interact with, and make it hard for agents to read or update task state.
+
+DevPlanner is designed from the ground up for **human + agent collaboration**:
+
+- **Plain text, always** — Cards are `.md` files with YAML frontmatter. Any tool — VS Code, `grep`, Claude Code, a shell script — can read and write them natively.
+- **A live Kanban board** — Humans get a visual drag-and-drop UI with real-time updates, rich card editing, and inline diff viewing.
+- **MCP-native for AI agents** — A Model Context Protocol server gives AI assistants structured access to every project, card, and task without screen-scraping.
+- **Git-backed artifacts** — Documents produced during development are tracked in git; stage, commit, and diff from inside the UI.
+- **Skill evaluation tooling** — Built-in framework to evaluate and refine how well AI models follow the DevPlanner skill instructions.
+
+## Feature Highlights
+
+| Feature | Description |
+|---------|-------------|
+| 🗂️ **Kanban Board** | Drag-and-drop lanes with collapsible columns and **lane focus mode** for deep dive card review |
+| 📄 **Doc Manager** | Integrated Markdown viewer/editor with a hierarchical file browser for vault artifacts |
+| 🔀 **Diff Viewer** | Split-pane comparison with inline word highlights; git-aware mode switcher (All / Staged / Unstaged) |
+| 🔗 **Git Integration** | Per-file status dots, stage/unstage/discard/commit from the bottom bar without leaving the UI |
+| 🔍 **Command Palette** | `Ctrl+K` / `Cmd+K` cross-project search across titles, tasks, tags, descriptions, and links |
+| 🤖 **MCP Server** | 17 tools + 3 resources for AI agents (Claude Code, GitHub Copilot, etc.) |
+| 🧪 **Skill Eval Framework** | Bun-based toolchain to score how well LLMs follow DevPlanner skill instructions; supports testing across multiple models and comparing runs over time |
+| ⚡ **Real-time Sync** | WebSocket broadcasts card changes, moves, and task updates to all connected clients in real time |
+| 🐳 **Docker** | Single-port containerised deployment (UI + API on port 17103) |
 
 ## Purpose
 
@@ -25,14 +53,16 @@ DevPlanner/
 │   │   ├── preferences.ts      # Workspace preferences
 │   │   ├── backup.ts           # Workspace backup
 │   │   ├── search.ts           # Global and per-project search
-│   │   ├── vault.ts            # Vault file content serving (`GET /api/vault/content`)
+│   │   ├── vault.ts            # Vault file CRUD (`GET /api/vault/content`, `PUT /api/vault/file`, `DELETE /api/vault/file`, `GET /api/vault/tree`)
+│   │   ├── vault-git.ts        # Per-file git operations (status, stage, unstage, discard, commit, diff, show)
 │   │   ├── config.ts           # Public config endpoint (`GET /api/config/public`)
 │   │   └── websocket.ts        # WebSocket upgrade handler
 │   ├── services/               # Core business logic and file I/O
 │   │   ├── card.service.ts     # Card CRUD, move, reorder, search
 │   │   ├── task.service.ts     # Checklist add/toggle/edit/delete (per-card mutex)
 │   │   ├── link.service.ts     # Card URL link management
-│   │   ├── vault.service.ts    # Obsidian vault artifact creation
+│   │   ├── vault.service.ts    # Obsidian vault artifact creation and file management
+│   │   ├── git.service.ts      # Per-file git operations via porcelain v1 status + plumbing commands
 │   │   ├── project.service.ts  # Project CRUD
 │   │   ├── markdown.service.ts # Frontmatter parsing, checklist manipulation
 │   │   ├── history.service.ts  # In-memory activity event tracking
@@ -56,7 +86,13 @@ DevPlanner/
 │       ├── api/client.ts       # Typed fetch wrappers for all endpoints
 │       ├── services/           # WebSocket client
 │       ├── store/index.ts      # Zustand state management
-│       └── components/         # React components (Kanban, card detail, activity)
+│       └── components/         # React components (Kanban, card detail, diff viewer, doc manager)
+├── tools/
+│   └── skill-evals/            # Skill evaluation framework (Bun)
+│       ├── run-eval.ts         # Single-skill eval runner
+│       ├── run-eval-models.ts  # Model sweep runner
+│       ├── compare-runs.ts     # Cross-run comparison report generator
+│       └── lib/                # Scorer, reporter, LM client, parser
 └── workspace/                  # Project data directory (gitignored)
 ```
 
@@ -124,6 +160,10 @@ mkdir -p workspace
 | `DISABLE_FILE_WATCHER` | No | `false` | Set to `true` to disable file watching (useful for debugging WebSocket vs file watcher issues) |
 | `ARTIFACT_BASE_URL` | No | — | Base URL prefix for vault artifact links (e.g. `https://viewer.example.com/view?path=10-Projects`). Required for vault artifact creation and the Diff Viewer. |
 | `ARTIFACT_BASE_PATH` | No | — | Absolute path to the directory where artifact files are written. Required for vault artifact creation and the Diff Viewer. |
+| `OLLAMA_BASE_URL` | No | — | Ollama API base URL for skill evaluation (e.g. `http://localhost:11434`) |
+| `OLLAMA_MODEL` | No | — | Default Ollama model for skill eval runs (e.g. `qwen2.5-coder:14b`) |
+| `OLLAMA_FEEDBACK_MODEL` | No | `$OLLAMA_MODEL` | Separate model for LLM feedback step in skill evals |
+| `OLLAMA_CALL_DELAY_MS` | No | `500` | Milliseconds to pause between scenario calls in skill evals |
 
 #### Using a `.env` file
 
@@ -152,14 +192,21 @@ DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run seed
 # Run tests
 bun test
 
-# Verify WebSocket infrastructure (Phase 12)
-bun run verify:websocket
-
 # Run E2E demo (exercises real-time features — watch the UI!)
 bun run demo:e2e
 
 # Start MCP server (for AI agent integration)
 DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run mcp
+
+# --- Skill Evaluation ---
+# Run all devplanner skill eval scenarios
+bun run eval:skill -- --skill .claude/skills/devplanner
+
+# Run a model sweep across all configured Ollama models
+bun run eval:models -- --skill .claude/skills/devplanner
+
+# Compare all existing runs and generate a timeline report
+bun run eval:compare -- --skill .claude/skills/devplanner
 ```
 
 The frontend dev server proxies `/api` requests to the backend at `http://localhost:17103`.
@@ -307,6 +354,17 @@ All endpoints are under `/api` and return JSON.
 | `PATCH` | `/api/preferences` | Update preferences (incl. `digestAnchor`) |
 | `POST` | `/api/backup` | Create workspace backup (zip) |
 | `GET` | `/api/vault/content?path=` | Read raw vault artifact file content (requires `ARTIFACT_BASE_PATH`) |
+| `PUT` | `/api/vault/file` | Write or overwrite a vault artifact file |
+| `DELETE` | `/api/vault/file` | Delete a vault artifact file |
+| `GET` | `/api/vault/tree` | List vault directory tree (requires `ARTIFACT_BASE_PATH`) |
+| `GET` | `/api/vault/git/status?path=` | Single-file git status |
+| `POST` | `/api/vault/git/statuses` | Batch git status for multiple files |
+| `POST` | `/api/vault/git/stage` | Stage a file (`git add`) |
+| `POST` | `/api/vault/git/unstage` | Unstage a file (`git restore --staged`, fallback `git reset HEAD`) |
+| `POST` | `/api/vault/git/discard` | Discard unstaged changes (`git restore --worktree`) |
+| `POST` | `/api/vault/git/commit` | Commit staged changes with a message |
+| `GET` | `/api/vault/git/diff?path=&mode=working\|staged` | Raw unified diff output |
+| `GET` | `/api/vault/git/show?path=&ref=` | File content at a git ref (`HEAD`, `:0`–`:3` for staged index, or 40-char commit SHA) |
 | `GET` | `/api/config/public` | Public server configuration (`artifactBaseUrl`) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
 
@@ -315,36 +373,49 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 ## Features
 
 ### Current
-- ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting; opens vault artifact files directly from card links
-- ✅ **Kanban Board UI** - Drag-and-drop cards between lanes with collapsible lanes
-- ✅ **Card Management** - Create, edit, archive cards with Markdown content; description, `blockedReason` field, inline title/metadata editing
-- ✅ **Card IDs** - Unique identifiers (e.g., `DEV-42`) with project-configurable prefix
-- ✅ **Card Links** - Attach structured URL references to cards (docs, specs, tickets, repos) with kind classification
-- ✅ **Vault Artifacts** - Write Markdown files directly to an Obsidian Vault and auto-attach as links; upload files from the card detail panel via `UploadLinkForm`
-- ✅ **Task Tracking** - Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps; inline task editing and deletion
-- ✅ **Project Management** - Multi-project support with card counts
-- ✅ **Search & Filter** - Command-palette overlay (`Ctrl+K`/`Cmd+K`) with real-time search across card titles, tasks, descriptions, tags, assignees, and links; keyboard navigation; type-filter tabs; scope toggle (this project / all projects); matched text highlighted in results
-- ✅ **Real-time Sync** - WebSocket infrastructure for live updates across clients
-- ✅ **File Watching** - Automatic detection of external file changes
-- ✅ **Activity History** - Per-project history with `?since=` filter; cross-project `/api/activity` feed
-- ✅ **Project Stats** - Health metrics endpoint (WIP count, backlog depth, completion velocity)
-- ✅ **Digest Checkpoint** - `digestAnchor` preference for precise time-bounded agent queries
-- ✅ **Visual Indicators** - Animated feedback for background changes
-- ✅ **Responsive Design** - Mobile, tablet, and desktop layouts
-- ✅ **Preferences** - Last-selected project and digest anchor persistence
-- ✅ **Backup** - Workspace backup to zip via API
-- ✅ **MCP Server** - Model Context Protocol integration for AI agents (17 tools, 3 resources)
-- ✅ **Docker** - Containerized deployment with single-port serving (UI + API)
+
+#### Kanban & Cards
+- ✅ **Kanban Board UI** — Drag-and-drop cards between lanes with collapsible lanes and animated transitions
+- ✅ **Lane Focus Mode** — Click any lane header to enter focus mode: full-height expanded card list with rich metadata, keyboard Escape to exit
+- ✅ **Card Management** — Create, edit, archive cards with Markdown content; description, `blockedReason` field, inline title/metadata editing
+- ✅ **Card IDs** — Unique identifiers (e.g., `DEV-42`) with project-configurable prefix
+- ✅ **Card Links** — Attach structured URL references to cards (docs, specs, tickets, repos) with kind classification
+- ✅ **Task Tracking** — Checkbox-based task lists with progress visualization; per-task `addedAt`/`completedAt` timestamps; inline task editing and deletion
+
+#### Doc Manager & Artifacts
+- ✅ **Doc Manager** — Integrated Markdown viewer/editor with a full-screen bottom-drawer panel; hierarchical folder tree for navigating vault artifact directories; breadcrumb path display and "go up" navigation
+- ✅ **Vault Artifacts** — Write Markdown files directly to an Obsidian Vault and auto-attach as card links; upload files from the card detail panel via `UploadLinkForm`
+- ✅ **Git Integration** — Per-file git status tracking with color-coded dots (`clean` / `untracked` / `modified` / `staged` / `staged-new` / `modified-staged` / `ignored` / `outside-repo`); stage, unstage, discard, and commit from the bottom bar without leaving the editor; status refreshes immediately on save and file selection; batch status fetch for all visible files; configurable auto-refresh interval (5–300 s)
+- ✅ **Diff Viewer** — Split-pane file comparison with syntax highlighting and inline word-level highlights for precise change spotting; left pane = older version, right pane = newer version; git-aware mode switcher shows available comparisons (All changes / Staged diff / Unstaged changes) based on the file's git state; quick-access diff buttons in the bottom bar; opens vault artifact files directly from card links; manual mode supports drag-and-drop, paste, and file picker
+
+#### Search & Discovery
+- ✅ **Search & Filter** — Command-palette overlay (`Ctrl+K` / `Cmd+K`) with real-time search across card titles, tasks, descriptions, tags, assignees, and links; keyboard navigation; type-filter tabs; scope toggle (this project / all projects); matched text highlighted in results
+
+#### Infrastructure
+- ✅ **Real-time Sync** — WebSocket infrastructure for live updates across all connected clients
+- ✅ **File Watching** — Automatic detection of external file changes (e.g., edits made in VS Code or via AI agents)
+- ✅ **Activity History** — Per-project history with `?since=` filter; cross-project `/api/activity` feed
+- ✅ **Project Stats** — Health metrics endpoint (WIP count, backlog depth, completion velocity)
+- ✅ **Digest Checkpoint** — `digestAnchor` preference for precise time-bounded agent queries
+- ✅ **Visual Indicators** — Animated feedback for background changes
+- ✅ **Responsive Design** — Mobile, tablet, and desktop layouts
+- ✅ **Preferences** — Last-selected project and digest anchor persistence
+- ✅ **Backup** — Workspace backup to zip via API
+- ✅ **MCP Server** — Model Context Protocol integration for AI agents (17 tools, 3 resources)
+- ✅ **Docker** — Containerized deployment with single-port serving (UI + API)
+- ✅ **Project Management** — Multi-project support with card counts and per-project prefix configuration
+
+#### Skill Evaluation Framework
+- ✅ **Skill Eval Runner** (`bun run eval:skill`) — Completion-only harness: sends SKILL.md + scenario prompts to an Ollama model, parses the JSON plan of API calls, and scores against expected criteria (endpoint, method, body fields, ordering, NEVER violations); saves timestamped run folder with raw responses, scored results, and HTML report
+- ✅ **Model Sweep** (`bun run eval:models`) — Runs the same eval across multiple Ollama models in sequence; produces a ranked comparison table; `--wait` flag to evict prior model from GPU before the next loads
+- ✅ **Run Comparison** (`bun run eval:compare`) — Generates a visual HTML timeline across all runs for a skill with color-coded pass rates, skill-snapshot diff markers, and model column; pinpoints when a SKILL.md edit helped or hurt
 
 ### Planned (Post-MVP)
-- 📋 **Concurrency Guard** - Per-resource locking and operation queue for multi-agent safety ([spec](docs/features/concurrency-operation-queue.md))
-- 📋 **User Attribution** - Track who made each change (agent identity via `X-DevPlanner-Actor` header)
-- 📋 **WebSocket Smart Merge** - Prevent edit interruptions when agents update cards being edited
-- 📋 **History Persistence** - Durable JSON file storage with write queue and rotation
-- 📋 **Multi-Agent Support** - Coordinate multiple AI agents with claim/release, session registry
-- 📋 **Sub-task Support** - Nested checklists with indentation
-- 📋 **Dashboard View** - Project health metrics at a glance
-- 📋 **Markdown Editor** - Rich text editing for card content
+- 📋 **User Attribution** — Track who made each change (agent identity via `X-DevPlanner-Actor` header)
+- 📋 **WebSocket Smart Merge** — Prevent edit interruptions when agents update cards being edited
+- 📋 **Multi-Agent Support** — Coordinate multiple AI agents with claim/release, session registry
+- 📋 **Sub-task Support** — Nested checklists with indentation
+- 📋 **Dashboard View** — Project health metrics at a glance
 
 ## Project Documents
 
@@ -353,3 +424,4 @@ See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/re
 | [BRAINSTORM.md](BRAINSTORM.md) | Design decisions, resolved questions, future ideas |
 | [SPECIFICATION.md](SPECIFICATION.md) | Technical spec — file formats, API contracts, component architecture |
 | [TASKS.md](TASKS.md) | Phased build plan with task checklist |
+| [tools/skill-evals/README.md](tools/skill-evals/README.md) | Skill Eval Framework — running evals, model sweeps, comparing runs, adding new skills |

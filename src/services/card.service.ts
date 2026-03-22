@@ -293,7 +293,7 @@ export class CardService {
         console.error('Failed to assign card number:', error);
       }
 
-      const markdown = MarkdownService.serialize(frontmatter, '');
+      const markdown = MarkdownService.serialize(frontmatter, data.content ?? '');
 
       // Write the card file
       const cardPath = join(this.workspacePath, projectSlug, lane, filename);
@@ -307,14 +307,15 @@ export class CardService {
       release();
     }
 
+    const initialContent = data.content ?? '';
     return {
       slug,
       filename,
       lane,
       cardId: this.computeCardId(cardPrefix, frontmatter.cardNumber),
       frontmatter,
-      content: '',
-      tasks: [],
+      content: initialContent,
+      tasks: MarkdownService.parseTasks(initialContent),
     };
   }
 
@@ -385,16 +386,39 @@ export class CardService {
         }
       }
 
+      // Update content body if provided, preserving any existing tasks section
+      let finalContent = content;
+      if (updates.content !== undefined) {
+        const newTasks = MarkdownService.parseTasks(updates.content);
+        if (newTasks.length === 0) {
+          // New content has no tasks — preserve the existing tasks section
+          const tasksSectionMatch = content.match(/(\n*## Tasks\n[\s\S]*)$/m);
+          if (tasksSectionMatch) {
+            finalContent = updates.content.trimEnd() + tasksSectionMatch[0];
+          } else {
+            const existingTasks = MarkdownService.parseTasks(content);
+            if (existingTasks.length > 0) {
+              const taskLines = content.split('\n').filter((l) => /^\s*-\s+\[[ xX]\]/.test(l));
+              finalContent = updates.content.trimEnd() + '\n\n## Tasks\n' + taskLines.join('\n');
+            } else {
+              finalContent = updates.content;
+            }
+          }
+        } else {
+          finalContent = updates.content;
+        }
+      }
+
       // Update timestamp and increment version
       frontmatter.updated = new Date().toISOString();
       frontmatter.version = (frontmatter.version ?? 1) + 1;
 
-      // Serialize and write back to disk (content body is read-only; only frontmatter changes)
-      const markdown = MarkdownService.serialize(frontmatter, content);
+      // Serialize and write back to disk
+      const markdown = MarkdownService.serialize(frontmatter, finalContent);
       await writeFile(cardPath, markdown);
 
-      // Parse tasks from the existing content
-      const tasks = MarkdownService.parseTasks(content);
+      // Parse tasks from the final content
+      const tasks = MarkdownService.parseTasks(finalContent);
 
       const prefix = await this.readProjectPrefix(projectSlug);
 
@@ -404,7 +428,7 @@ export class CardService {
         lane,
         cardId: this.computeCardId(prefix, frontmatter.cardNumber),
         frontmatter,
-        content,
+        content: finalContent,
         tasks,
       };
     } finally {

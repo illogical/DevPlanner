@@ -13,7 +13,7 @@ export const createCardSlice: StateCreator<
   isDetailPanelOpen: false,
   isLoadingCardDetail: false,
 
-  openCardDetail: async (cardSlug) => {
+  openCardDetail: async (cardSlug, _skipHistory = false) => {
     const { activeProjectSlug } = get();
     if (!activeProjectSlug) return;
 
@@ -30,7 +30,7 @@ export const createCardSlice: StateCreator<
     }
   },
 
-  closeCardDetail: () => {
+  closeCardDetail: (_skipHistory = false) => {
     set({ isDetailPanelOpen: false, activeCard: null });
   },
 
@@ -287,7 +287,10 @@ export const createCardSlice: StateCreator<
     if (activeCard?.slug === cardSlug) {
       set((state) => {
         if (!state.activeCard) return {};
-        const links = [...(state.activeCard.frontmatter.links ?? []), link];
+        const existing = state.activeCard.frontmatter.links ?? [];
+        const links = existing.some((l: CardLink) => l.id === link.id)
+          ? existing
+          : [...existing, link];
         return {
           activeCard: {
             ...state.activeCard,
@@ -355,7 +358,10 @@ export const createCardSlice: StateCreator<
     if (activeCard?.slug === cardSlug) {
       set((state) => {
         if (!state.activeCard) return {};
-        const links = [...(state.activeCard.frontmatter.links ?? []), link];
+        const existing = state.activeCard.frontmatter.links ?? [];
+        const links = existing.some((l: CardLink) => l.id === link.id)
+          ? existing
+          : [...existing, link];
         return {
           activeCard: {
             ...state.activeCard,

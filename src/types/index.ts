@@ -107,6 +107,7 @@ export interface CreateCardInput {
   tags?: string[];
   status?: 'in-progress' | 'blocked' | 'review' | 'testing';
   blockedReason?: string;
+  content?: string;
 }
 
 export interface UpdateCardInput {
@@ -117,6 +118,7 @@ export interface UpdateCardInput {
   assignee?: 'user' | 'agent' | null;
   tags?: string[] | null;
   blockedReason?: string | null;
+  content?: string;
 }
 
 export interface AddFileToCardInput {

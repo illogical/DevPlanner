@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import type { GitState } from '../../api/client';
 
@@ -8,20 +9,30 @@ export function GitCommitPanel() {
     gitCommitMessage,
     gitActionLoading,
     docFilePath,
+    docIsDirty,
     setGitCommitMessage,
     stageFile,
     unstageFile,
     discardUnstaged,
     commitFile,
     toggleCommitPanel,
+    refreshGitStatus,
   } = useStore();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [refreshed, setRefreshed] = useState(false);
 
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  // Fetch current git state before rendering panel content — avoids showing
+  // stale state from the last poll/save (especially when opened from diff viewer).
+  useEffect(() => {
+    if (!docFilePath) { setRefreshed(true); return; }
+    refreshGitStatus(docFilePath).then(() => setRefreshed(true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -33,7 +44,7 @@ export function GitCommitPanel() {
 
   if (!docFilePath) return null;
 
-  const state = gitCurrentState as GitState | null;
+  const state = refreshed ? (gitCurrentState as GitState | null) : null;
 
   const handleCommit = async () => {
     if (!gitCommitMessage.trim()) {
@@ -55,14 +66,21 @@ export function GitCommitPanel() {
   };
 
   // Only allow commit when ALL changes are staged (no remaining unstaged edits)
-  const canCommit = state === 'staged';
+  const canCommit = state === 'staged' || state === 'staged-new';
   const canStage = state === 'modified' || state === 'untracked' || state === 'modified-staged';
-  const canUnstage = state === 'staged' || state === 'modified-staged';
+  const canUnstage = state === 'staged' || state === 'staged-new' || state === 'modified-staged';
   const canDiscard = state === 'modified' || state === 'modified-staged';
   const hasUnstagedWarning = state === 'modified-staged';
 
+  const navigate = useNavigate();
+
+  const navigateDiff = (leftRef: string, rightRef: string) => {
+    toggleCommitPanel();
+    navigate(`/diff?gitPath=${encodeURIComponent(docFilePath)}&leftRef=${leftRef}&rightRef=${rightRef}`);
+  };
+
   return (
-    <div className="absolute right-0 top-full mt-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
+    <div className="absolute right-0 bottom-full mb-1 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-gray-200">Git Actions</span>
         <button
@@ -76,7 +94,9 @@ export function GitCommitPanel() {
         </button>
       </div>
 
-      {state === 'clean' ? (
+      {!refreshed ? (
+        <p className="text-sm text-gray-500">Checking status…</p>
+      ) : state === 'clean' ? (
         <p className="text-sm text-gray-400">All changes committed.</p>
       ) : (
         <>
@@ -90,10 +110,16 @@ export function GitCommitPanel() {
               </span>
             </div>
           )}
+          {state === 'modified-staged' && (
+            <p className="text-xs text-amber-400 bg-amber-900/30 border border-amber-800 rounded px-2 py-1.5 mb-3">
+              Only staged changes will be committed. Unstaged changes will remain in your working tree.
+            </p>
+          )}
+
           <div className="flex flex-wrap gap-2 mb-3">
             {canDiscard && (
               <button
-                onClick={() => discardUnstaged(docFilePath)}
+                onClick={() => { discardUnstaged(docFilePath); toggleCommitPanel(); }}
                 disabled={gitActionLoading}
                 className="px-2 py-1 text-xs rounded bg-red-900/50 text-red-300 hover:bg-red-900 border border-red-800 disabled:opacity-50"
               >
@@ -117,6 +143,56 @@ export function GitCommitPanel() {
               >
                 Unstage
               </button>
+            )}
+          </div>
+
+          {/* Diff navigation — context-sensitive by state */}
+          <div className="flex flex-col gap-1 mb-3">
+            {docIsDirty && (
+              <p className="text-xs text-yellow-400 bg-yellow-900/30 border border-yellow-800 rounded px-2 py-1.5">
+                You have unsaved editor changes. Save the file before staging to include them.
+              </p>
+            )}
+            {state === 'staged-new' && (
+              <p className="text-xs text-gray-500 italic">New file — no previous commit to compare.</p>
+            )}
+            {state === 'modified' && (
+              <button
+                onClick={() => navigateDiff('HEAD', 'working')}
+                className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+              >
+                View changes (HEAD → working)
+              </button>
+            )}
+            {state === 'staged' && (
+              <button
+                onClick={() => navigateDiff('HEAD', 'staged')}
+                className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+              >
+                View staged diff (HEAD → staged)
+              </button>
+            )}
+            {state === 'modified-staged' && (
+              <>
+                <button
+                  onClick={() => navigateDiff('HEAD', 'staged')}
+                  className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+                >
+                  View staged diff (HEAD → staged)
+                </button>
+                <button
+                  onClick={() => navigateDiff('staged', 'working')}
+                  className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+                >
+                  View unstaged changes (staged → working)
+                </button>
+                <button
+                  onClick={() => navigateDiff('HEAD', 'working')}
+                  className="text-left px-2 py-1 text-xs rounded text-gray-300 hover:bg-gray-800 border border-gray-700"
+                >
+                  View all changes (HEAD → working)
+                </button>
+              </>
             )}
           </div>
 

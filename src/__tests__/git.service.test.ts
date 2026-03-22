@@ -64,12 +64,12 @@ describe('GitService', () => {
     expect(status).toBe('untracked');
   });
 
-  test('getStatus returns staged after git add', async () => {
+  test('getStatus returns staged-new after git add of new file', async () => {
     if (!HAS_GIT) return;
     fs.writeFileSync(path.join(tmpDir, 'file.md'), 'v1');
     runGitSync(['add', 'file.md'], tmpDir);
     const status = await svc.getStatus('file.md');
-    expect(status).toBe('staged');
+    expect(status).toBe('staged-new');
   });
 
   test('getStatus returns clean after commit', async () => {
@@ -107,11 +107,11 @@ describe('GitService', () => {
   // stage / unstage
   // ──────────────────────────────────────────────────────────────────────────
 
-  test('stage transitions untracked → staged', async () => {
+  test('stage transitions untracked → staged-new', async () => {
     if (!HAS_GIT) return;
     fs.writeFileSync(path.join(tmpDir, 'file.md'), 'content');
     const newState = await svc.stage('file.md');
-    expect(newState).toBe('staged');
+    expect(newState).toBe('staged-new');
   });
 
   test('unstage (from staged-only state) transitions staged → untracked for new file', async () => {

@@ -1,0 +1,12 @@
+{
+  "models": [
+    "ministral-3:latest",
+    "qwen3:latest",
+    "gemma3:latest",
+    "devstral-small-2:latest",
+    "granite3.3:latest",
+    "granite4:latest",
+    "llama3-groq-tool-use:latest",
+    "qwen3.5:27b"
+  ]
+}

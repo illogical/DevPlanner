@@ -13,6 +13,12 @@ function getIndicatorDuration(type: ChangeIndicatorType): number {
   }
 }
 
+const getInitialLastDocMode = (): 'viewer' | 'editor' => {
+  if (typeof window === 'undefined') return 'viewer';
+  const saved = localStorage.getItem('devplanner_lastDocMode');
+  return saved === 'editor' ? 'editor' : 'viewer';
+};
+
 export const createUISlice: StateCreator<
   DevPlannerStore,
   [],
@@ -21,10 +27,12 @@ export const createUISlice: StateCreator<
 > = (set, get) => ({
   expandedCardTasks: new Set(),
   laneCollapsedState: {},
+  focusedLane: null,
   isSidebarOpen: true,
   isActivitySidebarOpen: true,
   isActivityPanelOpen: false,
   changeIndicators: new Map(),
+  lastDocMode: getInitialLastDocMode(),
 
   toggleCardTaskExpansion: (cardSlug) => {
     set((state) => {
@@ -39,12 +47,18 @@ export const createUISlice: StateCreator<
   },
 
   toggleLaneCollapsed: (laneSlug) => {
+    // No-op if this lane is currently focused
+    if (get().focusedLane === laneSlug) return;
     set((state) => ({
       laneCollapsedState: {
         ...state.laneCollapsedState,
         [laneSlug]: !state.laneCollapsedState[laneSlug],
       },
     }));
+  },
+
+  setFocusedLane: (slug) => {
+    set({ focusedLane: slug });
   },
 
   initializeLaneState: (lanes: Record<string, LaneConfig>) => {
@@ -137,5 +151,12 @@ export const createUISlice: StateCreator<
       }
     }
     return null;
+  },
+
+  setLastDocMode: (mode) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('devplanner_lastDocMode', mode);
+    }
+    set({ lastDocMode: mode });
   },
 });

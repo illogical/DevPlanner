@@ -16,16 +16,30 @@ Add Git version control capabilities for vault artifact files. Users can stage, 
 
 ## Git States
 
-| State | Color | Meaning |
-|-------|-------|---------|
-| `clean` | Green `#2ea043` | No changes since last commit |
-| `modified` | Orange `#f5a524` | Unstaged edits in working tree |
-| `staged` | Teal `#416E47` | Changes staged for commit |
-| `modified-staged` | Orange-red `#D97757` | Has both staged and unstaged changes |
-| `untracked` | Brown `#ce9178` | New file not yet tracked by Git |
-| `ignored` | Gray `#7d8590` | Listed in `.gitignore` |
-| `outside-repo` | Gray `#7d8590` | `ARTIFACT_BASE_PATH` is not a Git repo |
-| `unknown` | Gray `#7d8590` | Git command failed |
+| State | Tailwind | Meaning |
+|-------|----------|---------|
+| `clean` | `bg-emerald-500` | No changes since last commit |
+| `modified` | `bg-red-500` | Unstaged edits in working tree; nothing staged |
+| `staged` | `bg-blue-500` | Changes staged for commit; working tree matches index |
+| `staged-new` | `bg-blue-500` | New file staged for first commit — no HEAD version exists |
+| `modified-staged` | `bg-yellow-500` | Has both staged and additional unstaged changes |
+| `untracked` | `bg-red-500` | New file not yet tracked or staged by Git |
+| `ignored` | `bg-gray-500` | Listed in `.gitignore` |
+| `outside-repo` | `bg-gray-500` | `ARTIFACT_BASE_PATH` is not a Git repo |
+| `unknown` | `bg-gray-500` | Git command failed |
+
+### Actions available per state
+
+| State | Stage | Unstage | Discard | Commit | Diff buttons |
+|-------|-------|---------|---------|--------|--------------|
+| `untracked` | ✅ | — | — | — | None |
+| `staged-new` | — | ✅ | — | ✅ | None (no HEAD) |
+| `modified` | ✅ | — | — | — | HEAD→working |
+| `staged` | — | ✅ | — | ✅ | HEAD→staged |
+| `modified-staged` | ✅ | — | ✅ | ✅ | staged→working, HEAD→staged, HEAD→working |
+| `clean` | — | — | — | — | None |
+
+> **`staged-new` + working changes:** If a `staged-new` file is edited before committing, git reports it as `modified-staged`. Because no HEAD version exists, HEAD-based diff modes are suppressed and only the `staged→working` comparison is available. A banner is shown in the Diff Viewer.
 
 ---
 

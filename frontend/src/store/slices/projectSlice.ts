@@ -58,7 +58,7 @@ export const createProjectSlice: StateCreator<
     }));
   },
 
-  setActiveProject: (slug) => {
+  setActiveProject: (slug, _skipHistory = false) => {
     const project = get().projects.find((p) => p.slug === slug);
     if (project) {
       set({ activeProjectSlug: slug });

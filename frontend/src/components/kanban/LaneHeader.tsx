@@ -6,7 +6,9 @@ interface LaneHeaderProps {
   color: string;
   cardCount: number;
   isCollapsed?: boolean;
+  isFocused?: boolean;
   onToggleCollapse?: () => void;
+  onFocusToggle?: () => void;
   onAddCard?: () => void;
 }
 
@@ -15,29 +17,57 @@ export function LaneHeader({
   color,
   cardCount,
   isCollapsed,
+  isFocused,
   onToggleCollapse,
+  onFocusToggle,
   onAddCard,
 }: LaneHeaderProps) {
   return (
-    <div className="flex items-center gap-2 mb-3">
+    <div
+      className={cn(
+        'flex items-center gap-2 mb-3 select-none',
+        onFocusToggle && 'cursor-pointer'
+      )}
+      onDoubleClick={onFocusToggle}
+      title={isFocused ? 'Double-click to exit focus mode' : 'Double-click to focus this lane'}
+    >
       {/* Color bar */}
       <div
-        className="w-1 h-6 rounded-full"
+        className="w-1 h-6 rounded-full flex-shrink-0"
         style={{ backgroundColor: color }}
       />
 
       {/* Lane name and count */}
       <div className="flex-1 min-w-0">
-        <h3 className="font-semibold text-gray-100 truncate">{displayName}</h3>
+        <h3 className={cn(
+          'font-semibold truncate transition-colors duration-200',
+          isFocused ? 'text-white' : 'text-gray-100'
+        )}>
+          {displayName}
+        </h3>
       </div>
-      <span className="text-sm text-gray-500">{cardCount}</span>
+      <span className="text-sm text-gray-500 flex-shrink-0">{cardCount}</span>
 
-      {/* Collapse button */}
-      {onToggleCollapse && (
+      {/* Focus exit button — shown only in focus mode */}
+      {isFocused && onFocusToggle && (
+        <IconButton
+          label="Exit focus mode"
+          size="sm"
+          onClick={(e) => { e.stopPropagation(); onFocusToggle(); }}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 9l6 6m0-6l-6 6" />
+          </svg>
+        </IconButton>
+      )}
+
+      {/* Collapse button — hidden in focus mode */}
+      {!isFocused && onToggleCollapse && (
         <IconButton
           label={isCollapsed ? 'Expand lane' : 'Collapse lane'}
           size="sm"
-          onClick={onToggleCollapse}
+          onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
         >
           <svg
             className={cn(
@@ -60,7 +90,7 @@ export function LaneHeader({
 
       {/* Add card button */}
       {onAddCard && (
-        <IconButton label="Add card" size="sm" onClick={onAddCard}>
+        <IconButton label="Add card" size="sm" onClick={(e) => { e.stopPropagation(); onAddCard(); }}>
           <svg
             className="w-4 h-4"
             fill="none"

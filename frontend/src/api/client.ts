@@ -278,7 +278,7 @@ export const searchApi = {
 export { ApiClientError };
 
 // Vault content endpoint (for Diff Viewer)
-export type GitState = 'clean' | 'modified' | 'staged' | 'modified-staged' | 'untracked' | 'ignored' | 'outside-repo' | 'unknown';
+export type GitState = 'clean' | 'modified' | 'staged' | 'staged-new' | 'modified-staged' | 'untracked' | 'ignored' | 'outside-repo' | 'unknown';
 export interface TreeFile { name: string; path: string; updatedAt: string; }
 export interface TreeFolder { name: string; path: string; parentPath: string | null; count: number; files: TreeFile[]; }
 export interface TreeError { path: string; error: string; }

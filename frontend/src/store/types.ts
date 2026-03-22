@@ -63,7 +63,7 @@ export interface ProjectSlice {
   loadProjects: () => Promise<void>;
   createProject: (name: string, description?: string) => Promise<void>;
   archiveProject: (slug: string) => Promise<void>;
-  setActiveProject: (slug: string) => void;
+  setActiveProject: (slug: string, skipHistory?: boolean) => void;
   loadCards: () => Promise<void>;
   createCard: (title: string, lane?: string) => Promise<void>;
   archiveCard: (cardSlug: string) => Promise<void>;
@@ -78,8 +78,8 @@ export interface CardSlice {
   isDetailPanelOpen: boolean;
   isLoadingCardDetail: boolean;
 
-  openCardDetail: (cardSlug: string) => Promise<void>;
-  closeCardDetail: () => void;
+  openCardDetail: (cardSlug: string, skipHistory?: boolean) => Promise<void>;
+  closeCardDetail: (skipHistory?: boolean) => void;
   updateCard: (cardSlug: string, updates: UpdateCardInput) => Promise<void>;
   toggleTask: (cardSlug: string, taskIndex: number, checked: boolean) => Promise<void>;
   addTask: (cardSlug: string, text: string) => Promise<void>;
@@ -94,13 +94,16 @@ export interface CardSlice {
 export interface UISlice {
   expandedCardTasks: Set<string>;
   laneCollapsedState: Record<string, boolean>;
+  focusedLane: string | null;
   isSidebarOpen: boolean;
   isActivitySidebarOpen: boolean;
   isActivityPanelOpen: boolean;
   changeIndicators: Map<string, ChangeIndicator>;
+  lastDocMode: 'viewer' | 'editor';
 
   toggleCardTaskExpansion: (cardSlug: string) => void;
   toggleLaneCollapsed: (laneSlug: string) => void;
+  setFocusedLane: (slug: string | null) => void;
   initializeLaneState: (lanes: Record<string, LaneConfig>) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -112,6 +115,7 @@ export interface UISlice {
   clearExpiredIndicators: () => void;
   getCardIndicators: (cardSlug: string) => ChangeIndicator[];
   getTaskIndicator: (cardSlug: string, taskIndex: number) => ChangeIndicator | null;
+  setLastDocMode: (mode: 'viewer' | 'editor') => void;
 }
 
 export interface HistorySlice {
@@ -181,6 +185,7 @@ export type GitState =
   | 'clean'
   | 'modified'
   | 'staged'
+  | 'staged-new'
   | 'modified-staged'
   | 'untracked'
   | 'ignored'
@@ -200,16 +205,13 @@ export interface DocSlice {
   docLastSavedContent: string | null;
   docIsDirty: boolean;
   docSaveState: 'idle' | 'saving' | 'saved' | 'error';
-  docBackHistory: string[];
-  docForwardHistory: string[];
 
   loadDocFile: (filePath: string) => Promise<void>;
   clearDoc: () => void;
   setDocEditContent: (content: string) => void;
   saveDocFile: () => Promise<void>;
-  navigateToFile: (filePath: string, mode?: 'push' | 'back' | 'forward') => void;
-  goBack: () => void;
-  goForward: () => void;
+  /** mode='push' records history via navSlice; mode='replace' skips history (used by back/forward) */
+  navigateToFile: (filePath: string, mode?: 'push' | 'replace') => void;
 }
 
 // ─── File Browser Slice ──────────────────────────────────────────────────────

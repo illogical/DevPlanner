@@ -5,7 +5,7 @@ description: "API client for managing DevPlanner Kanban boards — cards, tasks,
 
 # DevPlanner
 
-Real-time Kanban board API. All state persists to Markdown files — actions are
+Real-time Kanban board API. All state persists to text files — actions are
 immediately visible in the web UI.
 
 **Base URL**: `http://192.168.7.45:17103/api`
@@ -32,13 +32,14 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 
 ```
 1. GET /projects/hex/cards?lane=01-upcoming    → find candidates (filter: no assignee or assignee:"user")
-2. GET /projects/{slug}/cards/{card}           → read full card (existing tasks, links, context)
+2. GET /projects/{slug}/cards/{card}           → [REQUIRED] read full card before claiming (tasks, links, context)
 3. PATCH /projects/{slug}/cards/{card}         → claim: {"assignee":"agent","status":"in-progress"}
 4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
 6. Ensure card has spec + summary artifacts via `/artifacts` (minimum 2 links on completion)
-7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}
-```
+7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}   ```
+
+Do not skip step 2 — existing tasks and context on the card inform the work.
 
 ### Creating a Card
 
@@ -46,13 +47,14 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 
 ```
 1. POST /projects/{slug}/cards                      → {"title":"Short Title","description":"1–5 sentence summary.","lane":"01-upcoming"}
-2. POST /projects/{slug}/cards/{card}/tasks         → add each subtask (one request per task)
+2. POST /projects/{slug}/cards/{card}/tasks         → add each subtask — one POST per task, never batch
 3. POST /projects/{slug}/cards/{card}/artifacts     → {"label":"Intro Plan","content":"# ...\n\nFull plan/instructions.","kind":"doc"}
 4. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
-6. POST /projects/{slug}/cards/{card}/artifacts     → {"label":"Summary","content":"# Summary\n\n...","kind":"doc"}
-7. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"03-complete"}
-```
+6. POST /projects/{slug}/cards/{card}/artifacts     → {"label":"Summary","content":"# Summary\n\n...","kind":"doc"}   ← required before completing
+7. PATCH /projects/{slug}/cards/{card}/move         → {"lane":"03-complete"}   ```
+
+**One POST per task — never batch multiple tasks into a single call.**
 
 ## Toggling Tasks
 
@@ -70,18 +72,29 @@ Attach structured URL references to cards. Use when the user shares a URL to ass
 with a card — Obsidian docs, specs, tickets, repos, or any relevant external resource.
 
 ```
-POST /projects/{slug}/cards/{card}/links
-  → {"label":"Obsidian Design Doc","url":"https://...","kind":"doc"}
-  → Returns {"link": {id, label, url, kind, createdAt, updatedAt}}
+0. GET /projects/{slug}/cards/{card}           → inspect frontmatter.links (required — prevent 409)
+1. POST /projects/{slug}/cards/{card}/links    → {"label":"Obsidian Design Doc","url":"https://...","kind":"doc"}
+                                                  Returns {"link": {id, label, url, kind, createdAt, updatedAt}}
 
 PATCH /projects/{slug}/cards/{card}/links/{linkId}
-  → Partial update: {label?, url?, kind?}
+  → Partial update: {label?, kind?}   ← url is immutable via PATCH; use delete + re-add to change a URL
 
 DELETE /projects/{slug}/cards/{card}/links/{linkId}
   → Returns {"success": true}
 ```
 
-**Read the card first** to check `frontmatter.links` before adding — avoid duplicates.
+### Recovery: 409 DUPLICATE_LINK
+
+The 409 response body includes the existing link:
+```json
+{ "error": "DUPLICATE_LINK", "message": "...", "existingLink": { "id": "uuid", "label": "...", "url": "...", "kind": "doc" } }
+```
+
+Use `existingLink.id` directly — no extra GET needed:
+1. If metadata needs updating: `PATCH /links/{existingLink.id}` with `{label?, kind?}` only — **never include `url` in the body**
+2. If the existing link is already correct: take no further action — do not retry the POST
+
+The `url` field must NOT appear in any recovery PATCH body. The link already exists with that URL.
 
 | Kind        | When to use                                               |
 | ----------- | --------------------------------------------------------- |
@@ -188,9 +201,9 @@ The `link.url` is portable and shareable. Use it in references, messages, and cr
 
 ## NEVER
 
-- **NEVER use `PATCH /cards/{card}` to change lanes.** Only `PATCH /cards/{card}/move` with `{"lane":"..."}` moves a card. Using the wrong endpoint silently does nothing to the lane.
+- **Prefer `PATCH /cards/{card}/move` for lane changes.** Both `PATCH /cards/{card}/move` and `PATCH /cards/{card}` accept a `lane` field and will move the card. The `/move` endpoint is the canonical form.
 
-- **NEVER include `- [ ]` or `- [x]` in task text.** The API adds checkboxes automatically. Always `{"text":"Do it"}` not `{"text":"- [ ] Do it"}`.
+- **NEVER mark a task complete by editing its text to add `[x]`.** Use `PATCH /cards/{card}/tasks/{index}` with `{"checked": true}`. Always use the toggle endpoint, never `{"text":"[x] Do it"}`.
 
 - **NEVER add tasks without reading the card first.** Existing tasks from the human author could be redundant, avoid redundancy.
 
@@ -208,7 +221,7 @@ The `link.url` is portable and shareable. Use it in references, messages, and cr
 | ----------------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
 | 404 card not found            | Slug = filename without `.md`      | List cards to get correct slug                                             |
 | 400 validation error          | Invalid field value                | Read `message` + `expected` in response                                    |
-| 409 DUPLICATE_LINK            | URL already on this card           | Check `frontmatter.links`; update the existing link or use a different URL |
+| 409 DUPLICATE_LINK            | URL already on this card           | GET card, find existing link in `frontmatter.links`, PATCH label/kind only — never include `url` in recovery body |
 | 400 INVALID_URL               | URL missing or not http/https      | Ensure URL starts with `http://` or `https://`                             |
 | 400 INVALID_LABEL             | Label is empty or whitespace       | Provide a meaningful display label                                         |
 | 400 OBSIDIAN_NOT_CONFIGURED   | Missing env vars for vault         | Set `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in server `.env`         |
