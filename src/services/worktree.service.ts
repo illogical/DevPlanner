@@ -1,5 +1,5 @@
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, normalize } from 'path';
 import { mkdir, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 
@@ -131,7 +131,7 @@ export class WorktreeService {
     for (const line of result.stdout.split('\n')) {
       if (line.startsWith('worktree ')) {
         if (current.path) worktrees.push(current as { path: string; branch: string; head: string });
-        current = { path: line.slice('worktree '.length) };
+        current = { path: normalize(line.slice('worktree '.length)) };
       } else if (line.startsWith('HEAD ')) {
         current.head = line.slice('HEAD '.length);
       } else if (line.startsWith('branch ')) {
