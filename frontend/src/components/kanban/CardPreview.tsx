@@ -9,6 +9,7 @@ import { Collapsible } from '../ui/Collapsible';
 import { TaskProgressBar } from '../tasks/TaskProgressBar';
 import { CardPreviewTasks } from './CardPreviewTasks';
 import { AnimatedCardWrapper } from '../animations/AnimatedCardWrapper';
+import { DispatchStatus } from '../dispatch/DispatchStatus';
 import type { CardSummary } from '../../types';
 
 function getPriorityBorderClass(priority?: 'low' | 'medium' | 'high'): string {
@@ -41,6 +42,7 @@ export function CardPreview({
   const isFirstInLane = laneCards?.[0]?.slug === card.slug;
   const isExpanded = expandedCardTasks.has(card.slug);
   const hasTasks = card.taskProgress.total > 0;
+  const cardDispatch = useStore(state => state.getCardDispatch(card.slug));
 
   // Get project prefix for card identifier
   const projectPrefix = projects.find(p => p.slug === projectSlug)?.prefix;
@@ -122,6 +124,8 @@ export function CardPreview({
           isDragging && 'opacity-50', // Reduce opacity of the original card while dragging
           // Search highlight
           isHighlighted && !isDragging && 'ring-2 ring-yellow-500/50 border-yellow-500/30',
+          // Dispatch running — subtle pulsing blue border
+          cardDispatch?.status === 'running' && !isDragging && 'border-blue-600/60 animate-pulse',
         )}
       >
         {/* Header: Title + Actions */}
@@ -232,10 +236,13 @@ export function CardPreview({
             )}
           </div>
 
-          {/* Right side: Assignee */}
-          {card.frontmatter.assignee && (
-            <AssigneeBadge assignee={card.frontmatter.assignee} />
-          )}
+          {/* Right side: Assignee + dispatch badge */}
+          <div className="flex items-center gap-1.5">
+            {cardDispatch && <DispatchStatus dispatch={cardDispatch} compact />}
+            {card.frontmatter.assignee && (
+              <AssigneeBadge assignee={card.frontmatter.assignee} />
+            )}
+          </div>
         </div>
       </div>
     </AnimatedCardWrapper>

@@ -14,6 +14,10 @@ import type {
   LinkAddedData,
   LinkUpdatedData,
   LinkDeletedData,
+  CardDispatchedData,
+  CardDispatchOutputData,
+  CardDispatchCompletedData,
+  CardDispatchFailedData,
 } from '../types';
 
 export function useWebSocket() {
@@ -37,6 +41,12 @@ export function useWebSocket() {
   const wsHandleLinkUpdated = useStore((state) => state.wsHandleLinkUpdated);
   const wsHandleLinkDeleted = useStore((state) => state.wsHandleLinkDeleted);
   const addHistoryEvent = useStore((state) => state.addHistoryEvent);
+
+  // Dispatch handlers
+  const wsHandleCardDispatched = useStore((state) => state.wsHandleCardDispatched);
+  const wsHandleDispatchOutput = useStore((state) => state.wsHandleDispatchOutput);
+  const wsHandleDispatchCompleted = useStore((state) => state.wsHandleDispatchCompleted);
+  const wsHandleDispatchFailed = useStore((state) => state.wsHandleDispatchFailed);
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
@@ -97,6 +107,19 @@ export function useWebSocket() {
       client.on('link:deleted', (data) => {
         wsHandleLinkDeleted?.(data as LinkDeletedData);
       }),
+      // Dispatch events
+      client.on('card:dispatched', (data) => {
+        wsHandleCardDispatched?.(data as CardDispatchedData);
+      }),
+      client.on('card:dispatch-output', (data) => {
+        wsHandleDispatchOutput?.(data as CardDispatchOutputData);
+      }),
+      client.on('card:dispatch-completed', (data) => {
+        wsHandleDispatchCompleted?.(data as CardDispatchCompletedData);
+      }),
+      client.on('card:dispatch-failed', (data) => {
+        wsHandleDispatchFailed?.(data as CardDispatchFailedData);
+      }),
     ];
 
     return () => unsubscribers.forEach(unsub => unsub());
@@ -114,6 +137,10 @@ export function useWebSocket() {
     wsHandleLinkAdded,
     wsHandleLinkUpdated,
     wsHandleLinkDeleted,
+    wsHandleCardDispatched,
+    wsHandleDispatchOutput,
+    wsHandleDispatchCompleted,
+    wsHandleDispatchFailed,
   ]);
 
   // Handle reconnection - refresh data

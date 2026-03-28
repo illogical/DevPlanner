@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { IconButton } from '../ui/IconButton';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { useStore } from '../../store';
+import { DispatchModal } from '../dispatch/DispatchModal';
+import { DispatchStatus } from '../dispatch/DispatchStatus';
+import { AgentOutputPanel } from '../dispatch/AgentOutputPanel';
 import type { Card } from '../../types';
 
 interface CardDetailHeaderProps {
@@ -22,6 +25,8 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   const [editTitle, setEditTitle] = useState(card.frontmatter.title);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [showOutputPanel, setShowOutputPanel] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { updateCard, archiveCard, deleteCard, closeCardDetail, reorderCards } = useStore();
@@ -31,6 +36,8 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   const projectPrefix = useStore(
     state => state.projects.find(p => p.slug === activeProjectSlug)?.prefix
   );
+  const project = useStore(state => state.projects.find(p => p.slug === activeProjectSlug));
+  const cardDispatch = useStore(state => state.getCardDispatch(card.slug));
 
   const cardId = (projectPrefix && card.frontmatter.cardNumber)
     ? `${projectPrefix}-${card.frontmatter.cardNumber}`
@@ -92,6 +99,9 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   };
 
   const isInArchive = card.lane === '04-archive';
+  const hasRepoPath = Boolean(project?.repoPath);
+  const isRunning = cardDispatch?.status === 'running';
+  const canDispatch = !isInArchive && hasRepoPath && !isRunning;
 
   const handleMoveToTop = () => {
     if (!laneCards || isFirstInLane) return;
@@ -160,6 +170,60 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Dispatch status badge / View Output button — shown when dispatched */}
+            {cardDispatch && (
+              <div className="flex items-center gap-2">
+                <DispatchStatus dispatch={cardDispatch} compact />
+                {(cardDispatch.status === 'running' || cardDispatch.status === 'completed') && (
+                  <button
+                    onClick={() => setShowOutputPanel(true)}
+                    className="text-xs px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 transition-colors"
+                  >
+                    View Output
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Dispatch button — always shown for non-archived cards, disabled when repoPath missing */}
+            {!isInArchive && (
+              <div className="relative group/dispatch">
+                <IconButton
+                  label={
+                    hasRepoPath
+                      ? isRunning
+                        ? 'Dispatch in progress'
+                        : 'Dispatch card to AI agent'
+                      : 'Set a repository path in Project Settings to enable dispatch'
+                  }
+                  onClick={canDispatch ? () => setShowDispatchModal(true) : undefined}
+                  disabled={!canDispatch}
+                  className={
+                    canDispatch
+                      ? 'text-gray-500 hover:text-blue-400'
+                      : 'text-gray-600 cursor-not-allowed opacity-50'
+                  }
+                  title={
+                    !hasRepoPath
+                      ? 'Repository path not set — configure in Project Settings'
+                      : isRunning
+                      ? 'Dispatch in progress'
+                      : 'Dispatch to AI agent'
+                  }
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </IconButton>
+                {/* Tooltip — only shown when repoPath is missing */}
+                {!hasRepoPath && (
+                  <div className="absolute right-0 top-full mt-1.5 z-50 w-56 px-3 py-2 rounded-md bg-gray-800 border border-gray-700 text-xs text-gray-300 shadow-lg pointer-events-none opacity-0 group-hover/dispatch:opacity-100 transition-opacity duration-150">
+                    Set a <span className="font-semibold text-gray-100">Repository Path</span> in Project Settings to enable dispatch.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Move to top button — hidden when already first or in archive */}
             {!isFirstInLane && !isInArchive && (
               <IconButton
@@ -223,6 +287,24 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
           confirmVariant="danger"
           onConfirm={handlePermanentDelete}
           onCancel={() => setShowDeleteModal(false)}
+        />
+      )}
+
+      {/* Dispatch modal */}
+      {showDispatchModal && activeProjectSlug && (
+        <DispatchModal
+          card={card}
+          projectSlug={activeProjectSlug}
+          onClose={() => setShowDispatchModal(false)}
+        />
+      )}
+
+      {/* Agent output panel */}
+      {showOutputPanel && activeProjectSlug && (
+        <AgentOutputPanel
+          cardSlug={card.slug}
+          projectSlug={activeProjectSlug}
+          onClose={() => setShowOutputPanel(false)}
         />
       )}
     </>

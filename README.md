@@ -29,6 +29,7 @@ DevPlanner is designed from the ground up for **human + agent collaboration**:
 | 🧪 **Skill Eval Framework** | Bun-based toolchain to score how well LLMs follow DevPlanner skill instructions; supports testing across multiple models and comparing runs over time |
 | ⚡ **Real-time Sync** | WebSocket broadcasts card changes, moves, and task updates to all connected clients in real time |
 | 🐳 **Docker** | Single-port containerised deployment (UI + API on port 17103) |
+| 🚀 **Card Dispatch** | One-click dispatch of any card to Claude Code CLI or Gemini CLI — agent works in an isolated git worktree, updates the board in real time via MCP, and auto-completes the card when done |
 
 ## Purpose
 
@@ -320,6 +321,82 @@ Then restart Claude Desktop. The AI will have access to all DevPlanner tools and
 
 All actions are tracked in DevPlanner's activity history and visible in the web UI.
 
+## Card Dispatch (AI Coding Agent Integration)
+
+Card Dispatch lets you hand off any card directly to an AI coding agent from the board. The agent works in an isolated git worktree, updates the board in real time via the DevPlanner MCP server, and auto-moves the card to "Complete" when all tasks are done.
+
+### How It Works
+
+1. Open any card in the detail panel
+2. Click the **Dispatch** button (rocket icon) in the card header
+3. Choose an agent, optionally set a model, and click **Dispatch**
+4. The agent spawns in an isolated git worktree on branch `card/<card-slug>`
+5. Watch tasks check off in real time as the agent works
+6. Open **View Output** to see a live terminal feed of agent activity
+7. On success, the card moves to "Complete" automatically
+
+### Supported Agents
+
+| Agent | Adapter Name | CLI | Install |
+|-------|-------------|-----|---------|
+| Claude Code | `claude-cli` | `claude` | `npm install -g @anthropic-ai/claude-code` |
+| Gemini CLI | `gemini-cli` | `gemini` | `npm install -g @google/gemini-cli` |
+
+### Setup
+
+**1. Configure the project's repository path**
+
+In Project Settings, set the **Git Repository Path** to the absolute local path of the git repository where the agent will work.
+
+Or via API:
+```bash
+curl -X PATCH http://localhost:17103/api/projects/my-project \
+  -H "Content-Type: application/json" \
+  -d '{"repoPath": "/absolute/path/to/your/repo"}'
+```
+
+**2. Install an agent CLI**
+
+```bash
+# Claude Code CLI (requires ANTHROPIC_API_KEY)
+npm install -g @anthropic-ai/claude-code
+
+# Gemini CLI (requires GEMINI_API_KEY)
+npm install -g @google/gemini-cli
+```
+
+**3. Set API keys in your environment**
+
+```bash
+# In your shell profile or .env file — never stored in DevPlanner data files
+export ANTHROPIC_API_KEY=sk-ant-...
+export GEMINI_API_KEY=...
+```
+
+**4. Configure optional dispatch settings in `.env`**
+
+```bash
+# Base directory for git worktrees (default: {os.tmpdir()}/devplanner-dispatch/)
+DISPATCH_WORKTREE_BASE=/tmp/devplanner-dispatch
+
+# Timeout in milliseconds (default: 1800000 = 30 minutes)
+DISPATCH_TIMEOUT_MS=1800000
+```
+
+### Completion Behavior
+
+| Agent exit | All tasks done? | Result |
+|-----------|----------------|--------|
+| Exit 0 | Yes | Card → 03-complete |
+| Exit 0 | No | Tasks swept to done → card → 03-complete |
+| Exit 0 (blocked) | Partial | Card stays in-progress with "review" status |
+| Non-zero | — | Card marked blocked with error reason; worktree kept for debugging |
+| Gemini exit 53 (turn limit) | — | Card marked "needs review" |
+
+### Auto-PR
+
+Check **Auto-create Pull Request** in the dispatch modal to run `gh pr create` automatically after a successful dispatch. Requires the `gh` CLI to be installed and authenticated on the host.
+
 ## API Overview
 
 All endpoints are under `/api` and return JSON.
@@ -367,6 +444,11 @@ All endpoints are under `/api` and return JSON.
 | `GET` | `/api/vault/git/show?path=&ref=` | File content at a git ref (`HEAD`, `:0`–`:3` for staged index, or 40-char commit SHA) |
 | `GET` | `/api/config/public` | Public server configuration (`artifactBaseUrl`) |
 | `WS` | `/api/ws` | WebSocket connection for real-time updates |
+| `POST` | `/api/projects/:slug/cards/:card/dispatch` | Dispatch card to AI agent (Claude Code CLI or Gemini CLI) |
+| `GET` | `/api/projects/:slug/cards/:card/dispatch` | Get active dispatch status for a card |
+| `POST` | `/api/projects/:slug/cards/:card/dispatch/cancel` | Cancel an active dispatch |
+| `GET` | `/api/projects/:slug/cards/:card/dispatch/output` | Get buffered agent output for an active dispatch |
+| `GET` | `/api/dispatches` | List all currently active dispatches |
 
 See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.
 

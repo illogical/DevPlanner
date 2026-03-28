@@ -1,5 +1,7 @@
 import { Elysia, t } from 'elysia';
+import { existsSync } from 'fs';
 import { ProjectService } from '../services/project.service';
+import { WorktreeService } from '../services/worktree.service';
 import { slugify } from '../utils/slug';
 import { WebSocketService } from '../services/websocket.service';
 import { recordAndBroadcastHistory } from '../utils/history-helper';
@@ -7,6 +9,7 @@ import type { ProjectUpdatedData } from '../types';
 
 export const projectRoutes = (workspacePath: string) => {
   const projectService = new ProjectService(workspacePath);
+  const worktreeService = new WorktreeService();
   const wsService = WebSocketService.getInstance();
 
   return new Elysia({ prefix: '/api/projects' })
@@ -61,7 +64,25 @@ export const projectRoutes = (workspacePath: string) => {
     })
     .patch(
       '/:projectSlug',
-      async ({ params, body }) => {
+      async ({ params, body, set }) => {
+        // Validate repoPath if provided
+        if (body.repoPath !== undefined && body.repoPath !== null) {
+          if (!existsSync(body.repoPath)) {
+            set.status = 400;
+            return {
+              error: 'REPO_NOT_FOUND',
+              message: `Repository path does not exist: ${body.repoPath}`,
+            };
+          }
+          if (!worktreeService.validateRepo(body.repoPath)) {
+            set.status = 400;
+            return {
+              error: 'REPO_NOT_FOUND',
+              message: `Path is not a git repository: ${body.repoPath}`,
+            };
+          }
+        }
+
         const project = await projectService.updateProject(params.projectSlug, body);
 
         // Broadcast project:updated event
@@ -95,6 +116,7 @@ export const projectRoutes = (workspacePath: string) => {
           name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
           description: t.Optional(t.String({ maxLength: 500 })),
           archived: t.Optional(t.Boolean()),
+          repoPath: t.Optional(t.Union([t.String(), t.Null()])),
         }),
       }
     )

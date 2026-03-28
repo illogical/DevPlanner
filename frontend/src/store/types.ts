@@ -30,6 +30,12 @@ import type {
   PaletteSearchResult,
   PaletteFilterTab,
   DetailScrollTarget,
+  DispatchRecord,
+  DispatchRequest,
+  CardDispatchedData,
+  CardDispatchOutputData,
+  CardDispatchCompletedData,
+  CardDispatchFailedData,
 } from '../types';
 
 // ─── Change Indicator types (used by UISlice + animations) ───────────────────
@@ -255,6 +261,37 @@ export interface GitSlice {
   setGitRefreshInterval: (seconds: number) => void;
 }
 
+// ─── Dispatch Slice ────────────────────────────────────────────────────────────
+
+export interface DispatchSlice {
+  /** Active dispatch records keyed by cardSlug */
+  activeDispatches: Record<string, DispatchRecord>;
+  /** Output event ring buffers keyed by cardSlug */
+  dispatchOutputs: Record<string, CardDispatchOutputData[]>;
+  /** Whether the dispatch configuration modal is open */
+  isDispatchModalOpen: boolean;
+  dispatchModalCardSlug: string | null;
+  /** Whether the agent output panel is open */
+  isOutputPanelOpen: boolean;
+  outputPanelCardSlug: string | null;
+
+  openDispatchModal: (cardSlug: string) => void;
+  closeDispatchModal: () => void;
+  openOutputPanel: (cardSlug: string) => void;
+  closeOutputPanel: () => void;
+  dispatchCard: (projectSlug: string, cardSlug: string, request: DispatchRequest) => Promise<DispatchRecord>;
+  cancelDispatch: (projectSlug: string, cardSlug: string) => Promise<void>;
+  loadDispatch: (projectSlug: string, cardSlug: string) => Promise<DispatchRecord | null>;
+  loadOutputBuffer: (projectSlug: string, cardSlug: string) => Promise<void>;
+  getCardDispatch: (cardSlug: string) => DispatchRecord | null;
+
+  // WebSocket handlers
+  wsHandleCardDispatched: (data: CardDispatchedData) => void;
+  wsHandleDispatchOutput: (data: CardDispatchOutputData) => void;
+  wsHandleDispatchCompleted: (data: CardDispatchCompletedData) => void;
+  wsHandleDispatchFailed: (data: CardDispatchFailedData) => void;
+}
+
 // ─── Combined store type ─────────────────────────────────────────────────────
 
 export type DevPlannerStore =
@@ -266,4 +303,5 @@ export type DevPlannerStore =
   WSSlice &
   DocSlice &
   FileBrowserSlice &
-  GitSlice;
+  GitSlice &
+  DispatchSlice;

@@ -8,6 +8,7 @@ export interface ProjectConfig {
   lanes: Record<string, LaneConfig>;
   prefix?: string; // 2-4 uppercase chars, unique across projects
   nextCardNumber?: number; // Auto-incrementing counter, starts at 1
+  repoPath?: string; // Absolute local path to git repository for card dispatch
 }
 
 export interface LaneConfig {
@@ -57,6 +58,11 @@ export interface CardFrontmatter {
   cardNumber?: number; // Sequential within project
   blockedReason?: string;
   links?: CardLink[]; // URL links attached to this card
+  // Dispatch tracking fields
+  dispatchStatus?: 'dispatched' | 'running' | 'completed' | 'failed';
+  dispatchedAt?: string;
+  dispatchAgent?: string;
+  dispatchBranch?: string;
 }
 
 export interface Card {
@@ -157,6 +163,10 @@ export interface TagsResponse {
 // Preferences types
 export interface Preferences {
   lastSelectedProject: string | null;
+  // Dispatch preferences
+  lastDispatchAdapter?: string;
+  lastDispatchModel?: string;
+  lastDispatchAutoCreatePR?: boolean;
 }
 
 // History types
@@ -179,7 +189,11 @@ export type HistoryActionType =
   // NEW - Link operations
   | 'link:added'
   | 'link:updated'
-  | 'link:deleted';
+  | 'link:deleted'
+  // NEW - Dispatch operations
+  | 'card:dispatched'
+  | 'card:dispatch-completed'
+  | 'card:dispatch-failed';
 
 export interface HistoryEventMetadata {
   // Card-related (now optional - not all events are card-related)
@@ -230,7 +244,11 @@ export type WebSocketEventType =
   | 'history:event'
   | 'link:added'
   | 'link:updated'
-  | 'link:deleted';
+  | 'link:deleted'
+  | 'card:dispatched'
+  | 'card:dispatch-output'
+  | 'card:dispatch-completed'
+  | 'card:dispatch-failed';
 
 export interface WebSocketEvent {
   type: WebSocketEventType;
@@ -363,4 +381,65 @@ export interface DetailScrollTarget {
   taskIndex?: number;
   filename?: string;
   linkId?: string;
+}
+
+// ─── Dispatch types ───────────────────────────────────────────────────────────
+
+export type DispatchAdapterName = 'claude-cli' | 'gemini-cli';
+
+export interface DispatchRecord {
+  id: string;
+  projectSlug: string;
+  cardSlug: string;
+  adapter: DispatchAdapterName;
+  model?: string;
+  branch: string;
+  worktreePath: string;
+  status: 'running' | 'completed' | 'failed' | 'review';
+  startedAt: string;
+  completedAt?: string;
+  exitCode?: number;
+  autoCreatePR: boolean;
+  prUrl?: string;
+  error?: string;
+}
+
+export interface DispatchRequest {
+  adapter: DispatchAdapterName;
+  model?: string;
+  autoCreatePR: boolean;
+}
+
+export interface CardDispatchedData {
+  cardSlug: string;
+  dispatchId: string;
+  adapter: string;
+  branch: string;
+}
+
+export interface CardDispatchOutputData {
+  cardSlug: string;
+  dispatchId: string;
+  chunk: string;
+  structured?: {
+    type: 'tool_use' | 'text' | 'result';
+    toolName?: string;
+    content?: string;
+  };
+  timestamp: string;
+}
+
+export interface CardDispatchCompletedData {
+  cardSlug: string;
+  dispatchId: string;
+  exitCode: number;
+  allTasksComplete: boolean;
+  prUrl?: string;
+}
+
+export interface CardDispatchFailedData {
+  cardSlug: string;
+  dispatchId: string;
+  exitCode: number;
+  error: string;
 }
