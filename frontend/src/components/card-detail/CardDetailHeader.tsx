@@ -185,18 +185,43 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
               </div>
             )}
 
-            {/* Dispatch button — shown when project has repoPath and card is not running */}
-            {canDispatch && (
-              <IconButton
-                label="Dispatch card to AI agent"
-                onClick={() => setShowDispatchModal(true)}
-                className="text-gray-500 hover:text-blue-400"
-                title="Dispatch to AI agent"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </IconButton>
+            {/* Dispatch button — always shown for non-archived cards, disabled when repoPath missing */}
+            {!isInArchive && (
+              <div className="relative group/dispatch">
+                <IconButton
+                  label={
+                    hasRepoPath
+                      ? isRunning
+                        ? 'Dispatch in progress'
+                        : 'Dispatch card to AI agent'
+                      : 'Set a repository path in Project Settings to enable dispatch'
+                  }
+                  onClick={canDispatch ? () => setShowDispatchModal(true) : undefined}
+                  disabled={!canDispatch}
+                  className={
+                    canDispatch
+                      ? 'text-gray-500 hover:text-blue-400'
+                      : 'text-gray-600 cursor-not-allowed opacity-50'
+                  }
+                  title={
+                    !hasRepoPath
+                      ? 'Repository path not set — configure in Project Settings'
+                      : isRunning
+                      ? 'Dispatch in progress'
+                      : 'Dispatch to AI agent'
+                  }
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </IconButton>
+                {/* Tooltip — only shown when repoPath is missing */}
+                {!hasRepoPath && (
+                  <div className="absolute right-0 top-full mt-1.5 z-50 w-56 px-3 py-2 rounded-md bg-gray-800 border border-gray-700 text-xs text-gray-300 shadow-lg pointer-events-none opacity-0 group-hover/dispatch:opacity-100 transition-opacity duration-150">
+                    Set a <span className="font-semibold text-gray-100">Repository Path</span> in Project Settings to enable dispatch.
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Move to top button — hidden when already first or in archive */}
