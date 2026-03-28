@@ -256,7 +256,7 @@ export class DispatchService {
 
     // ── 12. Set timeout ─────────────────────────────────────────────────────
     const timeoutMs = parseInt(process.env.DISPATCH_TIMEOUT_MS ?? String(DEFAULT_TIMEOUT_MS), 10);
-    this.setupTimeout(dispatchId, timeoutMs, process_);
+    this.setupTimeout(dispatchId, timeoutMs, process_, workspacePath, request);
 
     // ── 13. Wire completion handler ─────────────────────────────────────────
     process_.onComplete
@@ -553,7 +553,9 @@ export class DispatchService {
   private setupTimeout(
     dispatchId: string,
     timeoutMs: number,
-    process_: { kill?: () => void }
+    process_: { kill?: () => void },
+    workspacePath: string,
+    request: DispatchRequest
   ): void {
     const handle = setTimeout(() => {
       console.warn(`[DispatchService] Dispatch ${dispatchId} timed out after ${timeoutMs}ms`);
@@ -566,9 +568,8 @@ export class DispatchService {
           stderr: `Timed out after ${Math.round(timeoutMs / 60000)} minutes`,
           durationMs: timeoutMs,
         },
-        // workspacePath not needed here — we reconstruct from record
-        process.env.DEVPLANNER_WORKSPACE ?? '',
-        { adapter: 'claude-cli', autoCreatePR: false }
+        workspacePath,
+        request
       ).catch(console.error);
     }, timeoutMs);
 

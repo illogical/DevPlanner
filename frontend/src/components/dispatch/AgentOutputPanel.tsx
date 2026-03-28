@@ -19,7 +19,7 @@ function renderStructuredLine(event: CardDispatchOutputData): React.ReactNode {
         <div className="text-blue-300">
           <span className="text-gray-500 select-none mr-2">{time}</span>
           <span className="text-blue-400 font-semibold">▶ {structured.toolName}</span>
-          {structured.content && typeof structured.content === 'string' && (
+          {structured.content && (
             <span className="text-gray-400 ml-2 text-xs">{String(structured.content).slice(0, 120)}</span>
           )}
         </div>
