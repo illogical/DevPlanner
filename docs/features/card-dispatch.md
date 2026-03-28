@@ -27,7 +27,6 @@ Research into non-interactive invocation of AI coding CLIs. The columns that mat
 |-------|---------------|-------------|------------|----------------------|---------|
 | **Claude Code CLI** | `claude -p "prompt" --mcp-config file.json --output-format json` | Native | Reliable + JSON output | Yes: `--system-prompt`, `--allowedTools`, `--mcp-config` | **Phase 1 primary** |
 | **Gemini CLI** | `gemini -p "prompt"` | Native via `settings.json` | Documented: 0=ok, 1=error, 42=bad input, 53=turn limit | Yes: MCP via config, model selection | **Phase 1 secondary** |
-| **LMApi (custom Ollama pool)** | `POST /api/chat` | N/A (not agentic) | HTTP status codes | Full control (custom endpoint) | **Phase 1 observability** |
 | Claude Agent SDK | `query({ prompt, options })` TypeScript | Per-invocation via `mcpServers` option | Programmatic (exceptions) | Full: system prompt, tools, hooks, permissions | Phase 2 — best deep integration |
 | Aider | `aider -m "prompt" --yes --model X` | No native MCP | Standard shell (0/1) | Via flags + config file + `--message-file` | Phase 2 |
 | OpenCode | `opencode run "prompt"` | Global config only | **Unreliable** (exits 0 on errors, hangs on 429s) | **No** per-invocation config | **Not recommended** — see notes below |
@@ -105,8 +104,7 @@ User clicks Dispatch → DispatchModal (config) → POST /api/.../dispatch
                                               ┌─────────────────────┐
                                               │  Adapter.spawn()     │
                                               │  (claude-cli /       │
-                                              │   gemini-cli /       │
-                                              │   lmapi)             │
+                                              │   gemini-cli)        │
                                               └────────┬────────────┘
                                                        │
                                             ┌──────────┴──────────┐
@@ -137,7 +135,6 @@ A pluggable adapter interface lets new agent backends be added without touching 
 export type DispatchAdapterName =
   | 'claude-cli'
   | 'gemini-cli'
-  | 'lmapi'
   | 'claude-sdk'    // Phase 2
   | 'aider';        // Phase 2
 
@@ -152,7 +149,7 @@ export interface DispatchConfig {
   userPrompt: string;           // Card-specific instructions
   mcpConfigPath?: string;       // Path to .mcp.json in worktree
   model?: string;               // e.g. "claude-sonnet-4-20250514"
-  apiEndpoint?: string;         // For LMApi / custom endpoints
+  apiEndpoint?: string;         // Reserved for future custom endpoints
   env?: Record<string, string>; // Additional env vars
   onOutput?: (chunk: string) => void; // Callback for streaming stdout to WebSocket
 }
@@ -174,7 +171,17 @@ export interface DispatchResult {
 
 ### How Agents Keep the Board Updated
 
-Claude Code CLI and Gemini CLI both support MCP servers natively. Before spawning the agent, DevPlanner writes a `.mcp.json` file into the worktree root that points to DevPlanner's MCP server:
+> **Full design rationale and tier tradeoffs:** [agent-board-updates.md](./agent-board-updates.md)
+
+Three tiers of board sync are used together. Tier 3 is primary; Tier 1 is an automatic fallback that fires whenever the agent exits without having toggled all tasks:
+
+| Tier | Mechanism | When it fires |
+|------|-----------|---------------|
+| **3 — Primary** | Native MCP tools via `.mcp.json` in worktree | Agent calls `mcp__devplanner__toggle_task` in real time as each task completes |
+| **2 — Backup** | REST API via `curl` in `Bash` tool | Phase 2 non-MCP agents (Aider); REST block included in system prompt as fallback |
+| **1 — Fallback** | Post-completion sweep in `handleCompletion()` | Agent exits cleanly but some tasks remain unchecked — all are swept and card is moved |
+
+**MCP wiring (Tier 3):** Before spawning the agent, DevPlanner writes a `.mcp.json` file into the worktree root that points to DevPlanner's MCP server:
 
 ```json
 {
@@ -190,11 +197,9 @@ Claude Code CLI and Gemini CLI both support MCP servers natively. Before spawnin
 }
 ```
 
-Claude Code reads `.mcp.json` automatically. Gemini CLI reads from `settings.json` — the adapter writes the equivalent config.
+Claude Code reads `.mcp.json` automatically. Gemini CLI reads from `.gemini/settings.json` — the adapter writes both.
 
-The agent's system prompt instructs it to use MCP tools like `toggle_task`, `update_card`, and `create_vault_artifact` as it works. The board reflects progress in real time via existing WebSocket broadcasting.
-
-For non-agentic targets (LMApi), no MCP is available — the dispatch service itself can update card status before/after the API call.
+The agent's `CLAUDE.md` instructs it to use DevPlanner MCP tools (prefixed `mcp__devplanner__`) as it works. Task toggles broadcast via WebSocket and appear in the Kanban UI in real time. The Tier 1 fallback in `handleCompletion()` catches anything the agent missed.
 
 ---
 
@@ -230,7 +235,6 @@ Add dispatch preference persistence:
 ```typescript
 lastDispatchAdapter?: string;       // e.g. "claude-cli"
 lastDispatchModel?: string;         // e.g. "claude-sonnet-4-20250514"
-lastDispatchEndpoint?: string;      // e.g. "http://localhost:11434/api/chat"
 lastDispatchAutoCreatePR?: boolean; // remembered toggle state
 ```
 
@@ -240,7 +244,6 @@ lastDispatchAutoCreatePR?: boolean; // remembered toggle state
 export interface DispatchRequest {
   adapter: DispatchAdapterName;
   model?: string;
-  apiEndpoint?: string;
   autoCreatePR: boolean;
 }
 
@@ -332,7 +335,6 @@ Start a dispatch for a card.
 {
   "adapter": "claude-cli",
   "model": "claude-sonnet-4-20250514",
-  "apiEndpoint": null,
   "autoCreatePR": false
 }
 ```
@@ -432,15 +434,18 @@ Template (written to `CLAUDE.md` in worktree for Claude CLI, or passed via flags
 You are a software development agent implementing a feature described below.
 Work in the current directory — it is a git worktree checked out to a feature branch.
 
-## DevPlanner Integration
+## DevPlanner Board Updates
 
-You have access to the DevPlanner MCP server. Use these tools as you work:
+You have access to the DevPlanner MCP server (`mcp__devplanner__*` tools).
 
-- `toggle_task` — Mark each task complete immediately as you finish it (0-based index)
-- `update_card` — Update card status if you get blocked
-- `create_vault_artifact` — Write summary/spec docs to the vault
+1. Call `mcp__devplanner__get_card` first to read current task indices (0-based).
+2. Call `mcp__devplanner__toggle_task` immediately after finishing each task.
+3. Call `mcp__devplanner__update_card` with `status: "blocked"` and a `blockedReason` if you get stuck.
+4. Call `mcp__devplanner__move_card` with `lane: "03-complete"` when all tasks are done.
+5. Optionally call `mcp__devplanner__create_vault_artifact` to attach a summary.
 
-**Toggle tasks in real time.** Do not batch them at the end.
+Project: {projectSlug} | Card: {cardSlug}
+Toggle tasks immediately — do not batch them at the session end.
 
 ## Git Instructions
 
@@ -586,9 +591,6 @@ Clicking it opens the **DispatchModal**.
 │                                                 │
 │  Model         [claude-sonnet-4-2025...]        │
 │                                                 │
-│  API Endpoint  [http://192.168.7.45:...]        │
-│  (shown only for LMApi adapter)                 │
-│                                                 │
 │  ☐ Auto-create Pull Request                     │
 │                                                 │
 │         [ Cancel ]    [ Dispatch ]              │
@@ -600,9 +602,8 @@ Clicking it opens the **DispatchModal**.
 
 | Field | Behavior |
 |-------|----------|
-| **Agent** | Dropdown: "Claude Code CLI", "Gemini CLI", "LMApi". Default: last used (from preferences) or "Claude Code CLI" |
+| **Agent** | Dropdown: "Claude Code CLI", "Gemini CLI". Default: last used (from preferences) or "Claude Code CLI" |
 | **Model** | Free text input. Pre-filled from preferences. Placeholder varies by adapter (e.g. "claude-sonnet-4-20250514" for Claude, "gemini-2.5-pro" for Gemini) |
-| **API Endpoint** | Free text input. Only visible when adapter is `lmapi`. Pre-filled from preferences or `DISPATCH_LMAPI_ENDPOINT` |
 | **Auto-create PR** | Checkbox. Remembered in preferences. Default: off |
 
 On submit:
@@ -672,7 +673,7 @@ private outputBuffers = new Map<string, Array<CardDispatchOutputData>>();
 private readonly MAX_BUFFER_SIZE = 500;
 ```
 
-The output panel is Phase 1 for Claude Code CLI (since `stream-json` provides structured events) and basic text streaming for Gemini CLI. For LMApi, the single response body is displayed as a static text block after completion.
+The output panel is Phase 1 for Claude Code CLI (since `stream-json` provides structured events) and basic text streaming for Gemini CLI.
 
 **New files for output panel:**
 
@@ -700,14 +701,14 @@ Even without opening the output panel, dispatched cards show activity:
 
 ## Completion Logic
 
-When the agent process exits (or the LMApi HTTP response arrives):
+When the agent process exits:
 
 ```
 Agent exits
     │
     ├─ exit code === 0?
     │   ├─ YES → Read card via CardService.getCard()
-    │   │         ├─ All tasks checked?
+    │   │         ├─ All tasks checked?             ← agent may have toggled via MCP already
     │   │         │   ├─ YES → Move card to 03-complete
     │   │         │   │         Set dispatchStatus: 'completed'
     │   │         │   │         Record 'card:dispatch-completed' history
@@ -715,12 +716,16 @@ Agent exits
     │   │         │   │         If autoCreatePR → run gh pr create
     │   │         │   │         Remove worktree
     │   │         │   │
-    │   │         │   └─ NO  → Set status: 'review'
+    │   │         │   └─ NO  → Tier 1 fallback: batch_update_tasks (all unchecked → true)
+    │   │         │            Move card to 03-complete
     │   │         │            Set dispatchStatus: 'completed'
+    │   │         │            Record 'card:dispatch-completed' history
     │   │         │            Broadcast 'card:dispatch-completed'
-    │   │         │            Keep worktree (agent may resume)
-    │   │
-    │   └─ (For LMApi: always 'review' since it's not agentic)
+    │   │         │            Remove worktree
+    │   │         │
+    │   │         │   Note: if exit code 0 but tasks were only partially done and
+    │   │         │   the agent set status: 'blocked' via MCP, skip the sweep and
+    │   │         │   set card to 'review' instead (agent's explicit signal wins)
     │
     └─ exit code !== 0?
         └─ Set status: 'blocked'
@@ -730,6 +735,8 @@ Agent exits
            Broadcast 'card:dispatch-failed'
            Keep worktree for debugging
 ```
+
+> **Tier 1 fallback:** The post-completion sweep is intentional — it guarantees the board is never left in a permanently stale state even if the agent ignored the MCP instructions entirely. See [agent-board-updates.md](./agent-board-updates.md) for full rationale.
 
 ### Auto-PR Creation
 
@@ -758,51 +765,6 @@ const timeout = setTimeout(() => {
 ---
 
 ## Adapter Specifications
-
-### LMApi Adapter (Phase 1 — Observability)
-
-**Purpose:** Test prompt construction and observe what gets sent to a model. Non-agentic — sends a single completion request to the user's custom Ollama server pool.
-
-**File:** `src/services/adapters/lmapi.adapter.ts`
-
-```typescript
-async spawn(config: DispatchConfig): Promise<DispatchProcess> {
-  const id = crypto.randomUUID();
-  const startTime = Date.now();
-
-  const onComplete = fetch(config.apiEndpoint!, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: config.model || 'qwen2.5-coder:14b',
-      messages: [
-        { role: 'system', content: config.systemPrompt },
-        { role: 'user', content: config.userPrompt }
-      ],
-      stream: false
-    })
-  }).then(async (res) => {
-    const body = await res.text();
-    return {
-      exitCode: res.ok ? 0 : 1,
-      stdout: body,
-      stderr: '',
-      durationMs: Date.now() - startTime
-    };
-  }).catch((err) => ({
-    exitCode: 1,
-    stdout: '',
-    stderr: err.message,
-    durationMs: Date.now() - startTime
-  }));
-
-  return { id, onComplete };
-}
-```
-
-The LMApi response can be stored as a vault artifact ("Agent Response") so the user can review what the model suggested.
-
-**Key difference from agentic adapters:** No file edits, no task toggling, no git commits. The dispatch service sets card status to `review` on completion rather than `completed`.
 
 ### Claude Code CLI Adapter (Phase 1 — Primary Agentic)
 
@@ -1066,7 +1028,6 @@ Add a "Repository" section to the project settings UI (or create a project setti
 | `src/services/prompt.service.ts` | Card context → system prompt + user prompt |
 | `src/services/dispatch.service.ts` | Orchestrator — manages dispatch lifecycle |
 | `src/services/adapters/adapter.interface.ts` | Adapter interface + registry |
-| `src/services/adapters/lmapi.adapter.ts` | LMApi/Ollama adapter (observability) |
 | `src/services/adapters/claude-cli.adapter.ts` | Claude Code CLI adapter (agentic) |
 | `src/services/adapters/gemini-cli.adapter.ts` | Gemini CLI adapter (agentic) |
 | `src/routes/dispatch.ts` | REST endpoints for dispatch |
@@ -1096,36 +1057,35 @@ Add a "Repository" section to the project settings UI (or create a project setti
 
 ### Phase 1 — Core Pipeline (This Spec)
 
-**Goal:** User can dispatch a card to Claude Code CLI, Gemini CLI, or LMApi from the UI. Agent works in a worktree, updates board via MCP, card auto-completes on success.
+**Goal:** User can dispatch a card to Claude Code CLI or Gemini CLI from the UI. Agent works in a worktree, updates board via MCP, card auto-completes on success.
 
 Tasks:
 1. Create `src/types/dispatch.ts` with all dispatch types
 2. Extend `src/types/index.ts` — ProjectConfig.repoPath, CardFrontmatter dispatch fields, Preferences dispatch prefs, WebSocket + History event types
 3. Mirror type changes to `frontend/src/types/index.ts`
 4. Create `src/services/worktree.service.ts` — create, remove, list, branchExists, validateRepo
-5. Create `src/services/prompt.service.ts` — buildPrompts() assembling card context into system + user prompts
+5. Create `src/services/prompt.service.ts` — `buildPrompts()` assembling card context into system + user prompts; system prompt must include the concise MCP instruction block with correct `mcp__devplanner__`-prefixed tool names, project/card slugs injected, and `move_card` at completion (see [agent-board-updates.md](./agent-board-updates.md) for canonical block text)
 6. Create `src/services/adapters/adapter.interface.ts` — adapter interface + registry
-7. Create `src/services/adapters/lmapi.adapter.ts` — POST to Ollama-compatible endpoint
-8. Create `src/services/adapters/claude-cli.adapter.ts` — spawn `claude -p` with MCP config
-9. Create `src/services/adapters/gemini-cli.adapter.ts` — spawn `gemini -p` with MCP config
-10. Create `src/services/dispatch.service.ts` — orchestrator with dispatch(), cancel(), handleCompletion()
-11. Create `src/routes/dispatch.ts` — POST dispatch, GET status, POST cancel, GET list
-12. Register dispatch routes in `src/server.ts`
-13. Add repoPath validation to project update flow
-14. Add `dispatchApi` to `frontend/src/api/client.ts`
-15. Create `frontend/src/store/slices/dispatchSlice.ts`
-16. Register dispatch slice in store index + types
-17. Create `frontend/src/components/dispatch/DispatchModal.tsx`
-18. Create `frontend/src/components/dispatch/DispatchStatus.tsx`
-19. Add Dispatch button to `CardDetailHeader.tsx`
-20. Add dispatch status badge to `CardPreview.tsx`
-21. Handle dispatch WebSocket events in `wsSlice.ts` (including `card:dispatch-output`)
-22. Create `frontend/src/components/dispatch/AgentOutputPanel.tsx` — live terminal output viewer
-23. Add "View Output" button to dispatched cards in `CardDetailHeader.tsx`
-24. Add stdout streaming + ring buffer to `DispatchService` for WebSocket broadcast
-25. Add project repo path UI to project settings
-26. Update `.env.example` with new env vars
-27. Manual end-to-end test: dispatch a card to Claude Code CLI in a test repo
+7. Create `src/services/adapters/claude-cli.adapter.ts` — spawn `claude -p` with MCP config
+8. Create `src/services/adapters/gemini-cli.adapter.ts` — spawn `gemini -p` with MCP config
+9. Create `src/services/dispatch.service.ts` — orchestrator with dispatch(), cancel(), handleCompletion()
+10. Create `src/routes/dispatch.ts` — POST dispatch, GET status, POST cancel, GET list
+11. Register dispatch routes in `src/server.ts`
+12. Add repoPath validation to project update flow
+13. Add `dispatchApi` to `frontend/src/api/client.ts`
+14. Create `frontend/src/store/slices/dispatchSlice.ts`
+15. Register dispatch slice in store index + types
+16. Create `frontend/src/components/dispatch/DispatchModal.tsx`
+17. Create `frontend/src/components/dispatch/DispatchStatus.tsx`
+18. Add Dispatch button to `CardDetailHeader.tsx`
+19. Add dispatch status badge to `CardPreview.tsx`
+20. Handle dispatch WebSocket events in `wsSlice.ts` (including `card:dispatch-output`)
+21. Create `frontend/src/components/dispatch/AgentOutputPanel.tsx` — live terminal output viewer
+22. Add "View Output" button to dispatched cards in `CardDetailHeader.tsx`
+23. Add stdout streaming + ring buffer to `DispatchService` for WebSocket broadcast
+24. Add project repo path UI to project settings
+25. Update `.env.example` with new env vars
+26. Manual end-to-end test: dispatch a card to Claude Code CLI in a test repo
 
 ### Phase 2 — Extended Adapters + Polish
 
@@ -1153,11 +1113,10 @@ Tasks:
 |----------|---------|-------------|
 | `DISPATCH_WORKTREE_BASE` | `{os.tmpdir()}/devplanner-dispatch/` | Base directory for creating worktrees |
 | `DISPATCH_TIMEOUT_MS` | `1800000` (30 min) | Max time for agent execution before kill |
-| `DISPATCH_LMAPI_ENDPOINT` | — | Default LMApi/Ollama endpoint URL |
 | `ANTHROPIC_API_KEY` | — | For Claude Code CLI (must be set in host env) |
 | `GEMINI_API_KEY` | — | For Gemini CLI (must be set in host env) |
 
-API keys are **never** stored in `_project.json` or `_preferences.json`. They must be set as environment variables on the host where DevPlanner runs. The dispatch modal's endpoint field is for non-secret URLs only (local Ollama endpoints).
+API keys are **never** stored in `_project.json` or `_preferences.json`. They must be set as environment variables on the host where DevPlanner runs.
 
 ---
 
@@ -1175,7 +1134,6 @@ API keys are **never** stored in `_project.json` or `_preferences.json`. They mu
 | Agent exits 0 but tasks incomplete | Task check after completion | Set card to 'review' status — needs human attention |
 | MCP server unreachable from agent | Agent reports MCP errors | Agent falls back to working without board updates; completion handler checks tasks |
 | `gh` CLI not available for auto-PR | `Bun.spawnSync` exit code | Log warning, skip PR creation, dispatch still succeeds |
-| Network error (LMApi) | `fetch()` rejects | Set card to blocked with error message |
 | Concurrent dispatch on same card | Check `activeDispatches` map | 409 error — one dispatch per card at a time |
 | Server restart during active dispatch | In-memory map lost | On startup, scan cards with `dispatchStatus: 'running'` and set to 'failed' with "Server restarted" |
 
