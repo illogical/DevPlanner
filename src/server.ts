@@ -15,6 +15,7 @@ import { searchRoutes } from './routes/search';
 import { vaultRoutes } from './routes/vault';
 import { vaultGitRoutes } from './routes/vault-git';
 import { configRoutes } from './routes/config';
+import { dispatchRoutes } from './routes/dispatch';
 import { ConfigService } from './services/config.service';
 import { WebSocketService } from './services/websocket.service';
 import { FileWatcherService } from './services/file-watcher.service';
@@ -106,7 +107,8 @@ const app = new Elysia()
   .use(searchRoutes(workspacePath))
   .use(vaultRoutes)
   .use(vaultGitRoutes)
-  .use(configRoutes);
+  .use(configRoutes)
+  .use(dispatchRoutes(workspacePath));
 
 // In production (Docker), serve the pre-built frontend on the same port as the API.
 // The frontend must be built first (`bun run build`) — the Dockerfile does this automatically.

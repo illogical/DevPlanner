@@ -14,6 +14,10 @@ import type {
   LinkAddedData,
   LinkUpdatedData,
   LinkDeletedData,
+  CardDispatchedData,
+  CardDispatchOutputData,
+  CardDispatchCompletedData,
+  CardDispatchFailedData,
 } from '../types';
 
 export function useWebSocket() {
@@ -37,6 +41,138 @@ export function useWebSocket() {
   const wsHandleLinkUpdated = useStore((state) => state.wsHandleLinkUpdated);
   const wsHandleLinkDeleted = useStore((state) => state.wsHandleLinkDeleted);
   const addHistoryEvent = useStore((state) => state.addHistoryEvent);
+
+  // Dispatch handlers
+  const wsHandleCardDispatched = useStore((state) => state.wsHandleCardDispatched);
+  const wsHandleDispatchOutput = useStore((state) => state.wsHandleDispatchOutput);
+  const wsHandleDispatchCompleted = useStore((state) => state.wsHandleDispatchCompleted);
+  const wsHandleDispatchFailed = useStore((state) => state.wsHandleDispatchFailed);
+
+  // Connect on mount, disconnect on unmount
+  useEffect(() => {
+    client.connect();
+
+    const unsubscribe = client.onStateChange(setConnectionState);
+
+    return () => {
+      unsubscribe();
+      client.disconnect();
+    };
+  }, [client]);
+
+  // Subscribe to active project
+  useEffect(() => {
+    if (activeProjectSlug) {
+      // Unsubscribe from any previous project (client handles this internally)
+      client.subscribe(activeProjectSlug);
+    }
+  }, [activeProjectSlug, client]);
+
+  // Register event handlers
+  useEffect(() => {
+    const unsubscribers = [
+      client.on('card:created', (data) => {
+        wsHandleCardCreated?.(data as CardCreatedData);
+      }),
+      client.on('card:updated', (data) => {
+        wsHandleCardUpdated?.(data as CardUpdatedData);
+      }),
+      client.on('card:moved', (data) => {
+        wsHandleCardMoved?.(data as CardMovedData);
+      }),
+      client.on('card:deleted', (data) => {
+        wsHandleCardDeleted?.(data as CardDeletedData);
+      }),
+      client.on('task:toggled', (data) => {
+        wsHandleTaskToggled?.(data as TaskToggledData);
+      }),
+      client.on('lane:reordered', (data) => {
+        wsHandleLaneReordered?.(data as LaneReorderedData);
+      }),
+      client.on('project:updated', (data) => {
+        wsHandleProjectUpdated?.(data as ProjectUpdatedData);
+      }),
+      client.on('project:deleted', (data) => {
+        wsHandleProjectDeleted?.(data as ProjectDeletedData);
+      }),
+      client.on('history:event', (data) => {
+        addHistoryEvent(data as HistoryEvent);
+      }),
+      client.on('link:added', (data) => {
+        wsHandleLinkAdded?.(data as LinkAddedData);
+      }),
+      client.on('link:updated', (data) => {
+        wsHandleLinkUpdated?.(data as LinkUpdatedData);
+      }),
+      client.on('link:deleted', (data) => {
+        wsHandleLinkDeleted?.(data as LinkDeletedData);
+      }),
+      // Dispatch events
+      client.on('card:dispatched', (data) => {
+        wsHandleCardDispatched?.(data as CardDispatchedData);
+      }),
+      client.on('card:dispatch-output', (data) => {
+        wsHandleDispatchOutput?.(data as CardDispatchOutputData);
+      }),
+      client.on('card:dispatch-completed', (data) => {
+        wsHandleDispatchCompleted?.(data as CardDispatchCompletedData);
+      }),
+      client.on('card:dispatch-failed', (data) => {
+        wsHandleDispatchFailed?.(data as CardDispatchFailedData);
+      }),
+    ];
+
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [
+    client,
+    wsHandleCardCreated,
+    wsHandleCardUpdated,
+    wsHandleCardMoved,
+    wsHandleCardDeleted,
+    wsHandleTaskToggled,
+    wsHandleLaneReordered,
+    wsHandleProjectUpdated,
+    wsHandleProjectDeleted,
+    addHistoryEvent,
+    wsHandleLinkAdded,
+    wsHandleLinkUpdated,
+    wsHandleLinkDeleted,
+    wsHandleCardDispatched,
+    wsHandleDispatchOutput,
+    wsHandleDispatchCompleted,
+    wsHandleDispatchFailed,
+  ]);
+
+  // Handle reconnection - refresh data
+  useEffect(() => {
+    const handleReconnected = () => {
+      console.log('[useWebSocket] Reconnected, refreshing data...');
+      loadCards();
+      loadHistory();
+    };
+
+    // Listen for state changes from reconnecting to connected
+    let previousState = client.getState();
+    const unsubscribe = client.onStateChange((newState) => {
+      if (previousState === 'reconnecting' && newState === 'connected') {
+        handleReconnected();
+      }
+      previousState = newState;
+    });
+
+    return unsubscribe;
+  }, [client, loadCards, loadHistory]);
+
+  const reconnect = () => {
+    client.disconnect();
+    setTimeout(() => client.connect(), 100);
+  };
+
+  return {
+    connectionState,
+    reconnect,
+  };
+}
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {

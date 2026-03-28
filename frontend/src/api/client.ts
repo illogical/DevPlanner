@@ -18,6 +18,9 @@ import type {
   UpdateLinkInput,
   PaletteSearchResponse,
   GlobalPaletteSearchResponse,
+  DispatchRecord,
+  DispatchRequest,
+  CardDispatchOutputData,
 } from '../types';
 
 const API_BASE = '/api';
@@ -361,4 +364,51 @@ export const gitApi = {
 export const publicConfigApi = {
   get: (): Promise<{ artifactBaseUrl: string | null }> =>
     fetch('/api/config/public').then((r) => r.json()),
+};
+
+// ─── Dispatch API ─────────────────────────────────────────────────────────────
+
+export const dispatchApi = {
+  /** Start a dispatch for the given card. */
+  dispatch: (
+    projectSlug: string,
+    cardSlug: string,
+    request: DispatchRequest
+  ): Promise<{ dispatch: DispatchRecord }> =>
+    fetchJSON<{ dispatch: DispatchRecord }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/dispatch`,
+      { method: 'POST', body: JSON.stringify(request) }
+    ),
+
+  /** Get the active or most recent dispatch for a card. */
+  getDispatch: (
+    projectSlug: string,
+    cardSlug: string
+  ): Promise<{ dispatch: DispatchRecord | null }> =>
+    fetchJSON<{ dispatch: DispatchRecord | null }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/dispatch`
+    ),
+
+  /** Cancel a running dispatch. */
+  cancel: (
+    projectSlug: string,
+    cardSlug: string
+  ): Promise<{ success: boolean }> =>
+    fetchJSON<{ success: boolean }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/dispatch/cancel`,
+      { method: 'POST' }
+    ),
+
+  /** Get the buffered output for an active dispatch. */
+  getOutput: (
+    projectSlug: string,
+    cardSlug: string
+  ): Promise<{ events: CardDispatchOutputData[] }> =>
+    fetchJSON<{ events: CardDispatchOutputData[] }>(
+      `${API_BASE}/projects/${projectSlug}/cards/${cardSlug}/dispatch/output`
+    ),
+
+  /** List all active dispatches across all projects. */
+  listActive: (): Promise<{ dispatches: DispatchRecord[] }> =>
+    fetchJSON<{ dispatches: DispatchRecord[] }>(`${API_BASE}/dispatches`),
 };

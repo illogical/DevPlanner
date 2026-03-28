@@ -752,3 +752,52 @@ After Doc Manager features are implemented, update:
 
 - [ ] POST events to a configured external URL (for CI, Slack, custom dashboards)
 - [ ] Complements WebSocket for consumers that can't maintain a persistent connection
+
+---
+
+## Phase 24: Card Dispatch — AI Coding Agent Integration
+
+**Goal:** Users can dispatch any card to Claude Code CLI or Gemini CLI from the board UI. The agent works in an isolated git worktree, updates the board via DevPlanner MCP in real time, and auto-completes the card on success.
+
+### Phase 24.1 — Backend Types & Core Services
+
+- [x] 24.1.1 Create `src/types/dispatch.ts` — adapter, process, request, record, and WS event types
+- [x] 24.1.2 Extend `src/types/index.ts` — `ProjectConfig.repoPath`, dispatch fields in `CardFrontmatter`, dispatch prefs in `Preferences`, new WebSocket and HistoryActionType values
+- [x] 24.1.3 Create `src/services/worktree.service.ts` — `validateRepo`, `branchExists`, `create`, `remove`, `list`
+- [x] 24.1.4 Create `src/services/prompt.service.ts` — `buildSystemPrompt`, `buildUserPrompt`, `buildPrompts`
+- [x] 24.1.5 Create `src/services/adapters/adapter.interface.ts` — adapter interface + `getAdapter` registry
+- [x] 24.1.6 Create `src/services/adapters/claude-cli.adapter.ts` — Claude Code CLI spawn with stream-json, CLAUDE.md, .mcp.json
+- [x] 24.1.7 Create `src/services/adapters/gemini-cli.adapter.ts` — Gemini CLI spawn with .gemini/settings.json
+- [x] 24.1.8 Create `src/services/dispatch.service.ts` — singleton orchestrator: dispatch, cancel, handleCompletion, ring buffer, WS broadcasting
+
+### Phase 24.2 — Backend Routes & Project Integration
+
+- [x] 24.2.1 Create `src/routes/dispatch.ts` — POST dispatch, GET status, POST cancel, GET output, GET all active
+- [x] 24.2.2 Register dispatch routes in `src/server.ts`
+- [x] 24.2.3 Add `repoPath` field validation to `PATCH /api/projects/:slug` in `src/routes/projects.ts`
+
+### Phase 24.3 — Frontend Types, API, & Store
+
+- [x] 24.3.1 Extend `frontend/src/types/index.ts` — mirror all backend type changes, add dispatch-specific types
+- [x] 24.3.2 Add `dispatchApi` to `frontend/src/api/client.ts`
+- [x] 24.3.3 Create `frontend/src/store/slices/dispatchSlice.ts` — activeDispatches, dispatchOutputs, modal state, WS handlers
+- [x] 24.3.4 Add `DispatchSlice` to `frontend/src/store/types.ts`
+- [x] 24.3.5 Compose dispatch slice in `frontend/src/store/index.ts`
+- [x] 24.3.6 Handle dispatch WS events in `frontend/src/hooks/useWebSocket.ts`
+
+### Phase 24.4 — Frontend UI Components
+
+- [x] 24.4.1 Create `frontend/src/components/dispatch/DispatchModal.tsx` — agent, model, auto-PR fields; saves preferences
+- [x] 24.4.2 Create `frontend/src/components/dispatch/DispatchStatus.tsx` — compact status badge (running/completed/failed/review)
+- [x] 24.4.3 Create `frontend/src/components/dispatch/AgentOutputPanel.tsx` — live terminal-style output viewer with auto-scroll, download
+- [x] 24.4.4 Add Dispatch button + status indicator to `CardDetailHeader.tsx`
+- [x] 24.4.5 Add dispatch status badge + pulsing border to `CardPreview.tsx`
+
+### Phase 24.5 — Documentation & Tests
+
+- [x] 24.5.1 Update `.env.example` with `DISPATCH_WORKTREE_BASE`, `DISPATCH_TIMEOUT_MS`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`
+- [x] 24.5.2 Add Card Dispatch section to `README.md` (setup, adapters, completion behavior, auto-PR)
+- [x] 24.5.3 Add Phase 24 to `docs/TASKS.md` (this file)
+- [x] 24.5.4 Create `src/__tests__/worktree.service.test.ts`
+- [x] 24.5.5 Create `src/__tests__/prompt.service.test.ts`
+- [x] 24.5.6 Create `src/__tests__/dispatch.service.test.ts`

@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { IconButton } from '../ui/IconButton';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { useStore } from '../../store';
+import { DispatchModal } from '../dispatch/DispatchModal';
+import { DispatchStatus } from '../dispatch/DispatchStatus';
+import { AgentOutputPanel } from '../dispatch/AgentOutputPanel';
 import type { Card } from '../../types';
 
 interface CardDetailHeaderProps {
@@ -22,6 +25,8 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   const [editTitle, setEditTitle] = useState(card.frontmatter.title);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [showOutputPanel, setShowOutputPanel] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { updateCard, archiveCard, deleteCard, closeCardDetail, reorderCards } = useStore();
@@ -31,6 +36,8 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   const projectPrefix = useStore(
     state => state.projects.find(p => p.slug === activeProjectSlug)?.prefix
   );
+  const project = useStore(state => state.projects.find(p => p.slug === activeProjectSlug));
+  const cardDispatch = useStore(state => state.getCardDispatch(card.slug));
 
   const cardId = (projectPrefix && card.frontmatter.cardNumber)
     ? `${projectPrefix}-${card.frontmatter.cardNumber}`
@@ -92,6 +99,9 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
   };
 
   const isInArchive = card.lane === '04-archive';
+  const hasRepoPath = Boolean(project?.repoPath);
+  const isRunning = cardDispatch?.status === 'running';
+  const canDispatch = !isInArchive && hasRepoPath && !isRunning;
 
   const handleMoveToTop = () => {
     if (!laneCards || isFirstInLane) return;
@@ -160,6 +170,35 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Dispatch status badge / View Output button — shown when dispatched */}
+            {cardDispatch && (
+              <div className="flex items-center gap-2">
+                <DispatchStatus dispatch={cardDispatch} compact />
+                {(cardDispatch.status === 'running' || cardDispatch.status === 'completed') && (
+                  <button
+                    onClick={() => setShowOutputPanel(true)}
+                    className="text-xs px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 transition-colors"
+                  >
+                    View Output
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Dispatch button — shown when project has repoPath and card is not running */}
+            {canDispatch && (
+              <IconButton
+                label="Dispatch card to AI agent"
+                onClick={() => setShowDispatchModal(true)}
+                className="text-gray-500 hover:text-blue-400"
+                title="Dispatch to AI agent"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </IconButton>
+            )}
+
             {/* Move to top button — hidden when already first or in archive */}
             {!isFirstInLane && !isInArchive && (
               <IconButton
@@ -223,6 +262,24 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
           confirmVariant="danger"
           onConfirm={handlePermanentDelete}
           onCancel={() => setShowDeleteModal(false)}
+        />
+      )}
+
+      {/* Dispatch modal */}
+      {showDispatchModal && activeProjectSlug && (
+        <DispatchModal
+          card={card}
+          projectSlug={activeProjectSlug}
+          onClose={() => setShowDispatchModal(false)}
+        />
+      )}
+
+      {/* Agent output panel */}
+      {showOutputPanel && activeProjectSlug && (
+        <AgentOutputPanel
+          cardSlug={card.slug}
+          projectSlug={activeProjectSlug}
+          onClose={() => setShowOutputPanel(false)}
         />
       )}
     </>

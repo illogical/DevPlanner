@@ -8,6 +8,7 @@ export interface ProjectConfig {
   lanes: Record<string, LaneConfig>;
   prefix?: string; // 2-4 uppercase chars, unique across projects
   nextCardNumber?: number; // Auto-incrementing counter, starts at 1
+  repoPath?: string; // Absolute local path to git repository for card dispatch
 }
 
 export interface LaneConfig {
@@ -58,6 +59,11 @@ export interface CardFrontmatter {
   blockedReason?: string; // Free-text reason when status is "blocked"
   taskMeta?: Array<{ addedAt: string; completedAt: string | null }>; // Per-task timestamps
   links?: CardLink[]; // URL links attached to this card
+  // Dispatch tracking fields
+  dispatchStatus?: 'dispatched' | 'running' | 'completed' | 'failed';
+  dispatchedAt?: string; // ISO 8601 — when dispatch started
+  dispatchAgent?: string; // Adapter name used (e.g. "claude-cli")
+  dispatchBranch?: string; // Git branch name (e.g. "card/my-feature")
 }
 
 export interface Card {
@@ -131,6 +137,10 @@ export interface AddFileToCardInput {
 export interface Preferences {
   lastSelectedProject: string | null;
   digestAnchor?: string | null; // ISO 8601 timestamp of the last successful digest run
+  // Dispatch preferences — remembered between dispatches
+  lastDispatchAdapter?: string; // e.g. "claude-cli"
+  lastDispatchModel?: string; // e.g. "claude-sonnet-4-20250514"
+  lastDispatchAutoCreatePR?: boolean;
 }
 
 // File types
@@ -166,7 +176,11 @@ export type WebSocketEventType =
   | 'file:disassociated'
   | 'link:added'
   | 'link:updated'
-  | 'link:deleted';
+  | 'link:deleted'
+  | 'card:dispatched'
+  | 'card:dispatch-output'
+  | 'card:dispatch-completed'
+  | 'card:dispatch-failed';
 
 export interface WebSocketEvent {
   type: WebSocketEventType;
@@ -308,7 +322,11 @@ export type HistoryActionType =
   // NEW - Link operations
   | 'link:added'
   | 'link:updated'
-  | 'link:deleted';
+  | 'link:deleted'
+  // NEW - Dispatch operations
+  | 'card:dispatched'
+  | 'card:dispatch-completed'
+  | 'card:dispatch-failed';
 
 export interface HistoryEventMetadata {
   // Card-related (now optional - not all events are card-related)
@@ -334,6 +352,12 @@ export interface HistoryEventMetadata {
 
   // NEW - Project operations
   projectName?: string;
+
+  // NEW - Dispatch operations
+  dispatchId?: string;
+  dispatchAdapter?: string;
+  dispatchBranch?: string;
+  dispatchExitCode?: number;
 }
 
 export interface HistoryEvent {
