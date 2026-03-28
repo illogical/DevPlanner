@@ -10,16 +10,30 @@ interface DispatchModalProps {
   onClose: () => void;
 }
 
-const ADAPTER_OPTIONS: { value: DispatchAdapterName; label: string; placeholder: string }[] = [
-  { value: 'claude-cli', label: 'Claude Code CLI', placeholder: 'claude-sonnet-4-20250514' },
-  { value: 'gemini-cli', label: 'Gemini CLI', placeholder: 'gemini-2.5-pro' },
+const ADAPTER_OPTIONS: { value: DispatchAdapterName; label: string }[] = [
+  { value: 'claude-cli', label: 'Claude Code CLI' },
+  { value: 'gemini-cli', label: 'Gemini CLI' },
 ];
+
+const MODELS_BY_ADAPTER: Record<DispatchAdapterName, { value: string; label: string }[]> = {
+  'claude-cli': [
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { value: 'claude-opus-4-6',   label: 'Claude Opus 4.6' },
+    { value: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5' },
+  ],
+  'gemini-cli': [
+    { value: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash' },
+    { value: 'gemini-2.5-pro',        label: 'Gemini 2.5 Pro' },
+    { value: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
+  ],
+};
 
 export function DispatchModal({ card, projectSlug, onClose }: DispatchModalProps) {
   const dispatchCard = useStore((state) => state.dispatchCard);
 
   const [adapter, setAdapter] = useState<DispatchAdapterName>('claude-cli');
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState(MODELS_BY_ADAPTER['claude-cli'][0].value);
   const [autoCreatePR, setAutoCreatePR] = useState(false);
   const [isDispatching, setIsDispatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,17 +41,21 @@ export function DispatchModal({ card, projectSlug, onClose }: DispatchModalProps
   // Load saved preferences
   useEffect(() => {
     preferencesApi.get().then((prefs) => {
-      if (prefs.lastDispatchAdapter && (prefs.lastDispatchAdapter === 'claude-cli' || prefs.lastDispatchAdapter === 'gemini-cli')) {
-        setAdapter(prefs.lastDispatchAdapter);
-      }
-      if (prefs.lastDispatchModel) setModel(prefs.lastDispatchModel);
+      const savedAdapter = prefs.lastDispatchAdapter;
+      const validAdapter = savedAdapter === 'claude-cli' || savedAdapter === 'gemini-cli'
+        ? savedAdapter : 'claude-cli';
+      setAdapter(validAdapter);
+
+      const savedModel = prefs.lastDispatchModel ?? '';
+      const availableModels = MODELS_BY_ADAPTER[validAdapter];
+      const modelValues = availableModels.map(m => m.value);
+      setModel(modelValues.includes(savedModel) ? savedModel : availableModels[0].value);
+
       if (prefs.lastDispatchAutoCreatePR !== undefined) setAutoCreatePR(prefs.lastDispatchAutoCreatePR);
     }).catch(() => {
       // Ignore — preferences are optional
     });
   }, []);
-
-  const selectedAdapterOption = ADAPTER_OPTIONS.find((o) => o.value === adapter) ?? ADAPTER_OPTIONS[0];
 
   const handleDispatch = async () => {
     setIsDispatching(true);
@@ -92,7 +110,11 @@ export function DispatchModal({ card, projectSlug, onClose }: DispatchModalProps
             </label>
             <select
               value={adapter}
-              onChange={(e) => setAdapter(e.target.value as DispatchAdapterName)}
+              onChange={(e) => {
+                const newAdapter = e.target.value as DispatchAdapterName;
+                setAdapter(newAdapter);
+                setModel(MODELS_BY_ADAPTER[newAdapter][0].value);
+              }}
               className="w-full bg-gray-800 border border-gray-600 text-gray-100 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {ADAPTER_OPTIONS.map((option) => (
@@ -103,18 +125,20 @@ export function DispatchModal({ card, projectSlug, onClose }: DispatchModalProps
             </select>
           </div>
 
-          {/* Model input */}
+          {/* Model selector */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              Model <span className="text-gray-500">(optional)</span>
+              Model
             </label>
-            <input
-              type="text"
+            <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder={selectedAdapterOption.placeholder}
-              className="w-full bg-gray-800 border border-gray-600 text-gray-100 rounded-md px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+              className="w-full bg-gray-800 border border-gray-600 text-gray-100 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {MODELS_BY_ADAPTER[adapter].map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Auto-create PR */}
