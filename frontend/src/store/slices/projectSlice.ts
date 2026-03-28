@@ -49,6 +49,13 @@ export const createProjectSlice: StateCreator<
     get().setActiveProject(project.slug);
   },
 
+  updateProject: async (slug, updates) => {
+    const updated = await projectsApi.update(slug, updates);
+    set((state) => ({
+      projects: state.projects.map((p) => p.slug === slug ? { ...p, ...updated } : p),
+    }));
+  },
+
   archiveProject: async (slug) => {
     await projectsApi.archive(slug);
     set((state) => ({

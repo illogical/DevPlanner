@@ -6,6 +6,7 @@
  * Slice creator files import from here to avoid circular dependencies.
  */
 import type {
+  ProjectConfig,
   ProjectSummary,
   CardSummary,
   Card,
@@ -68,6 +69,7 @@ export interface ProjectSlice {
 
   loadProjects: () => Promise<void>;
   createProject: (name: string, description?: string) => Promise<void>;
+  updateProject: (slug: string, updates: Partial<Pick<ProjectConfig, 'name' | 'description' | 'repoPath'>>) => Promise<void>;
   archiveProject: (slug: string) => Promise<void>;
   setActiveProject: (slug: string, skipHistory?: boolean) => void;
   loadCards: () => Promise<void>;
