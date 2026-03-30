@@ -63,6 +63,7 @@ export interface DispatchRecord {
   autoCreatePR: boolean;
   prUrl?: string;
   error?: string;
+  logPath?: string; // Absolute path to the dispatch log file
 }
 
 // ─── WebSocket event payload types ────────────────────────────────────────────

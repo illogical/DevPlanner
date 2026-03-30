@@ -18,6 +18,7 @@ import { CardService } from './card.service';
 import { TaskService } from './task.service';
 import { WebSocketService } from './websocket.service';
 import { recordAndBroadcastHistory } from '../utils/history-helper';
+import { DispatchLogger } from '../utils/dispatch-logger';
 import { GeminiCliAdapter } from './adapters/gemini-cli.adapter';
 import { ClaudeCliAdapter } from './adapters/claude-cli.adapter';
 
@@ -25,6 +26,10 @@ import { ClaudeCliAdapter } from './adapters/claude-cli.adapter';
 
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_OUTPUT_BUFFER = 500; // ring buffer size per dispatch
+
+// Logs directory inside the DevPlanner application repository (not the user workspace).
+// Derived from this file's location (src/services/ -> ../../logs)
+const APP_LOG_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'logs');
 
 // ─── DispatchService ─────────────────────────────────────────────────────────
 
@@ -49,8 +54,25 @@ export class DispatchService {
   /** Timeout handles keyed by dispatch ID */
   private timeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
-  /** Ring buffer of output events per dispatch (for late-joining clients) */
+  /**
+   * Output ring buffer kept for BOTH active and recently completed dispatches.
+   * Not deleted on completion so the frontend can read output after dispatch ends.
+   * Key: dispatchId
+   */
   private outputBuffers = new Map<string, CardDispatchOutputData[]>();
+
+  /** Per-dispatch file logger */
+  private loggers = new Map<string, DispatchLogger>();
+
+  /**
+   * Tracks the most recent dispatch ID for each card so the output endpoint
+   * can locate the buffer after the active record is removed.
+   * Key: "projectSlug:cardSlug"
+   */
+  private lastDispatchId = new Map<string, string>();
+
+  /** Absolute path to the dispatch log directory (inside the DevPlanner repo). */
+  public readonly logDir: string = APP_LOG_DIR;
 
   private readonly worktreeService: WorktreeService;
   private readonly promptService: PromptService;
@@ -177,21 +199,38 @@ export class DispatchService {
     const dispatchId = crypto.randomUUID();
     const adapter = getAdapter(request.adapter);
 
-    const process_ = await adapter.spawn({
-      workingDirectory: worktreePath,
-      systemPrompt,
-      userPrompt,
-      mcpConfigPath,
-      model: request.model,
-      env: {
-        DEVPLANNER_WORKSPACE: workspacePath,
-        DEVPLANNER_PROJECT: projectSlug,
-        DEVPLANNER_CARD: cardSlug,
-      },
-      onOutput: (chunk: string) => {
-        this.handleOutputChunk(dispatchId, projectSlug, cardSlug, chunk);
-      },
-    });
+    // Create a logger before spawning so failures during spawn are captured
+    const logger = new DispatchLogger(this.logDir, dispatchId);
+    await logger.log('start', `Dispatching card "${cardSlug}" (project: ${projectSlug}) via ${request.adapter}${request.model ? ` model=${request.model}` : ''}`);
+    await logger.log('worktree', `Path: ${worktreePath}  Branch: ${branch}`);
+    await logger.log('mcp-config', `MCP config written to: ${mcpConfigPath}  bun: ${process.execPath}`);
+    await logger.logPrompts(systemPrompt, userPrompt);
+
+    let process_: Awaited<ReturnType<typeof adapter.spawn>>;
+    try {
+      process_ = await adapter.spawn({
+        workingDirectory: worktreePath,
+        systemPrompt,
+        userPrompt,
+        mcpConfigPath,
+        model: request.model,
+        env: {
+          DEVPLANNER_WORKSPACE: workspacePath,
+          DEVPLANNER_PROJECT: projectSlug,
+          DEVPLANNER_CARD: cardSlug,
+        },
+        onOutput: (chunk: string) => {
+          this.handleOutputChunk(dispatchId, projectSlug, cardSlug, chunk);
+          // Fire-and-forget — logging errors must not crash the dispatch
+          logger.logOutput(chunk).catch(() => {});
+        },
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await logger.log('spawn-error', msg);
+      throw err;
+    }
+    await logger.log('spawn', `Agent process started  pid=${process_.pid ?? 'unknown'}`);
 
     // ── 9. Update card frontmatter ──────────────────────────────────────────
     await cardService.updateCard(projectSlug, cardSlug, {
@@ -224,10 +263,13 @@ export class DispatchService {
       status: 'running',
       startedAt: new Date().toISOString(),
       autoCreatePR: request.autoCreatePR,
+      logPath: logger.logPath,
     };
 
     this.activeDispatches.set(dispatchId, record);
     this.outputBuffers.set(dispatchId, []);
+    this.loggers.set(dispatchId, logger);
+    this.lastDispatchId.set(`${projectSlug}:${cardSlug}`, dispatchId);
 
     // ── 11. Record history + broadcast ─────────────────────────────────────
     recordAndBroadcastHistory(projectSlug, 'card:dispatched', `Card dispatched to ${request.adapter}`, {
@@ -317,10 +359,22 @@ export class DispatchService {
   }
 
   /**
-   * Get buffered output events for an active dispatch (for late-joining clients).
+   * Get buffered output events for a dispatch.
+   * Works for both active and recently completed dispatches (buffer is not
+   * deleted on completion so the frontend can read output after dispatch ends).
    */
   getOutputBuffer(dispatchId: string): CardDispatchOutputData[] {
     return this.outputBuffers.get(dispatchId) ?? [];
+  }
+
+  /**
+   * Get the output buffer for the most recent dispatch of a card, even if it
+   * has already completed. Returns null if no dispatch has been run for this card.
+   */
+  getCardOutputBuffer(projectSlug: string, cardSlug: string): { dispatchId: string; events: CardDispatchOutputData[] } | null {
+    const dispatchId = this.lastDispatchId.get(`${projectSlug}:${cardSlug}`);
+    if (!dispatchId) return null;
+    return { dispatchId, events: this.outputBuffers.get(dispatchId) ?? [] };
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
@@ -399,9 +453,13 @@ export class DispatchService {
     const { projectSlug, cardSlug, worktreePath, branch } = record;
     const wsService = WebSocketService.getInstance();
     const cardService = new CardService(workspacePath);
+    const logger = this.loggers.get(dispatchId);
 
     record.exitCode = result.exitCode;
     record.completedAt = new Date().toISOString();
+
+    // Log full completion details (including full stderr — not truncated)
+    await logger?.logCompletion(result);
 
     // ── Handle Gemini turn-limit (exit 53) as 'review' ─────────────────────
     const isTurnLimit =
@@ -409,8 +467,9 @@ export class DispatchService {
 
     if (result.exitCode !== 0 && !isTurnLimit) {
       // ── FAILURE ──────────────────────────────────────────────────────────
-      const stderrSnippet = result.stderr.slice(0, 300);
-      const errorMsg = `Dispatch agent failed (exit code ${result.exitCode}): ${stderrSnippet}`;
+      const stderrSnippet = result.stderr.slice(0, 1000);
+      const logHint = record.logPath ? ` (full log: ${record.logPath})` : '';
+      const errorMsg = `Dispatch agent failed (exit code ${result.exitCode}): ${stderrSnippet}${logHint}`;
 
       record.status = 'failed';
       record.error = errorMsg;
@@ -448,8 +507,9 @@ export class DispatchService {
       });
 
       // Keep worktree for debugging on failure
+      // outputBuffers intentionally kept — frontend reads output after completion
       this.activeDispatches.delete(dispatchId);
-      this.outputBuffers.delete(dispatchId);
+      this.loggers.delete(dispatchId);
       return;
     }
 
@@ -546,8 +606,9 @@ export class DispatchService {
       // Best-effort cleanup
     }
 
+    // outputBuffers intentionally kept — frontend reads output after completion
     this.activeDispatches.delete(dispatchId);
-    this.outputBuffers.delete(dispatchId);
+    this.loggers.delete(dispatchId);
   }
 
   private setupTimeout(

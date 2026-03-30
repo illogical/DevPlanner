@@ -38,6 +38,7 @@ export class ClaudeCliAdapter implements DispatchAdapter {
       'claude',
       '-p',
       config.userPrompt,
+      '--verbose',
       '--output-format',
       'stream-json',
       '--allowedTools',
@@ -61,6 +62,15 @@ export class ClaudeCliAdapter implements DispatchAdapter {
       args.push('--model', config.model);
     }
 
+    // Resolve claude binary — prefer PATH; on Windows also try claude.cmd
+    const claudeBin = Bun.which('claude') ?? (process.platform === 'win32' ? Bun.which('claude.cmd') : null);
+    if (!claudeBin) {
+      throw new Error(
+        'claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code, then ensure it is in your PATH.'
+      );
+    }
+    args[0] = claudeBin;
+
     let proc: ReturnType<typeof Bun.spawn>;
     try {
       proc = Bun.spawn(args, {
@@ -71,12 +81,9 @@ export class ClaudeCliAdapter implements DispatchAdapter {
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('ENOENT') || msg.includes('not found')) {
-        throw new Error(
-          'Claude Code CLI not found — install with: npm install -g @anthropic-ai/claude-code'
-        );
-      }
-      throw err;
+      throw new Error(
+        `Failed to start claude CLI at "${claudeBin}": ${msg}. Check that it is executable and your PATH is correct.`
+      );
     }
 
     const stdoutChunks: string[] = [];
@@ -126,12 +133,22 @@ export class ClaudeCliAdapter implements DispatchAdapter {
   /**
    * Build the MCP config object for DevPlanner.
    * Written to .mcp.json in the worktree root.
+   *
+   * @param mcpServerPath  Absolute path to mcp-server.ts
+   * @param workspacePath  DevPlanner workspace root
+   * @param bunPath        Absolute path to the bun binary (default: process.execPath).
+   *                       Must be absolute so that Claude Code can locate it regardless
+   *                       of the PATH it inherits when spawning the MCP subprocess.
    */
-  static buildMcpConfig(mcpServerPath: string, workspacePath: string): object {
+  static buildMcpConfig(
+    mcpServerPath: string,
+    workspacePath: string,
+    bunPath: string = process.execPath
+  ): object {
     return {
       mcpServers: {
         devplanner: {
-          command: 'bun',
+          command: bunPath,
           args: [mcpServerPath],
           env: {
             DEVPLANNER_WORKSPACE: workspacePath,

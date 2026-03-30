@@ -6,7 +6,7 @@
 
 ## Why DevPlanner?
 
-Modern development increasingly involves AI agents — tools like Claude Code, GitHub Copilot, and custom automation — working alongside human developers. Most project management tools are built exclusively for humans: they hide data behind opaque APIs, require GUIs to interact with, and make it hard for agents to read or update task state.
+Modern development increasingly involves AI agents working alongside human developers. Most project management tools are built exclusively for humans: they hide data behind opaque APIs, require GUIs to interact with, and make it hard for agents to read or update task state.
 
 DevPlanner is designed from the ground up for **human + agent collaboration**:
 

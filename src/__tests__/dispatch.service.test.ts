@@ -40,7 +40,9 @@ describe('ClaudeCliAdapter', () => {
     expect(config).toMatchObject({
       mcpServers: {
         devplanner: {
-          command: 'bun',
+          // defaults to process.execPath so the MCP subprocess can find bun
+          // regardless of the PATH Claude Code inherits
+          command: process.execPath,
           args: ['/path/to/mcp.ts'],
           env: {
             DEVPLANNER_WORKSPACE: '/path/to/workspace',
@@ -48,6 +50,12 @@ describe('ClaudeCliAdapter', () => {
         },
       },
     });
+  });
+
+  test('buildMcpConfig accepts an explicit bunPath', () => {
+    const config = ClaudeCliAdapter.buildMcpConfig('/path/to/mcp.ts', '/path/to/workspace', '/usr/local/bin/bun');
+
+    expect((config as { mcpServers: { devplanner: { command: string } } }).mcpServers.devplanner.command).toBe('/usr/local/bin/bun');
   });
 
   test('writeMcpConfig writes file to disk', async () => {
@@ -62,7 +70,7 @@ describe('ClaudeCliAdapter', () => {
       const content = await Bun.file(mcpPath).text();
       const json = JSON.parse(content);
 
-      expect(json.mcpServers.devplanner.command).toBe('bun');
+      expect(json.mcpServers.devplanner.command).toBe(process.execPath);
       expect(json.mcpServers.devplanner.args).toEqual(['/path/to/mcp.ts']);
       expect(json.mcpServers.devplanner.env.DEVPLANNER_WORKSPACE).toBe('/path/to/workspace');
     } finally {

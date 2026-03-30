@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { DispatchService } from '../services/dispatch.service';
 import { isValidAdapterName } from '../services/adapters/adapter.interface';
+import { DispatchLogger } from '../utils/dispatch-logger';
 import type { DispatchRequest } from '../types/dispatch';
 
 export const dispatchRoutes = (workspacePath: string) => {
@@ -128,16 +129,51 @@ export const dispatchRoutes = (workspacePath: string) => {
       '/api/projects/:projectSlug/cards/:cardSlug/dispatch/output',
       ({ params }) => {
         const { projectSlug, cardSlug } = params;
-        const record = dispatchService.getCardDispatch(projectSlug, cardSlug);
-        if (!record) {
-          return { events: [] };
-        }
-        return { events: dispatchService.getOutputBuffer(record.id) };
+        // getCardOutputBuffer works for both active and completed dispatches
+        const result = dispatchService.getCardOutputBuffer(projectSlug, cardSlug);
+        return { events: result?.events ?? [] };
       }
     )
 
     // ── GET /api/dispatches (all active dispatches) ───────────────────────────
     .get('/api/dispatches', () => {
       return { dispatches: dispatchService.listActive() };
-    });
+    })
+
+    // ── GET /api/projects/:projectSlug/cards/:cardSlug/dispatch/log ───────────
+    .get(
+      '/api/projects/:projectSlug/cards/:cardSlug/dispatch/log',
+      async ({ params, query, set }) => {
+        const { projectSlug, cardSlug } = params;
+
+        // Prefer the logPath on the active in-memory record; fall back to
+        // a caller-supplied dispatchId query param for completed dispatches.
+        let logPath: string | undefined;
+
+        const activeRecord = dispatchService.getCardDispatch(projectSlug, cardSlug);
+        if (activeRecord?.logPath) {
+          logPath = activeRecord.logPath;
+        } else if (query.dispatchId) {
+          logPath = DispatchLogger.logPath(dispatchService.logDir, query.dispatchId as string);
+        }
+
+        if (!logPath) {
+          set.status = 404;
+          return { error: 'LOG_NOT_FOUND', message: 'No dispatch log found. Provide ?dispatchId= for a completed dispatch.' };
+        }
+
+        const content = await DispatchLogger.read(logPath);
+        if (content === null) {
+          set.status = 404;
+          return { error: 'LOG_NOT_FOUND', message: `Log file not found at: ${logPath}` };
+        }
+
+        return { logPath, content };
+      },
+      {
+        query: t.Object({
+          dispatchId: t.Optional(t.String()),
+        }),
+      }
+    );
 };

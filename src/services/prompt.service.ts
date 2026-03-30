@@ -101,49 +101,84 @@ export class PromptService {
 
   /**
    * Build the "Reference Artifacts" section by fetching linked vault content.
+   *
+   * For dispatch, raw URLs are never passed to the agent — only resolved
+   * document content is included. Two URL patterns are resolved:
+   *   1. URLs matching ARTIFACT_BASE_URL (the configured vault prefix)
+   *   2. Any URL carrying a `path=` query parameter (VaultPad's URL format)
+   *
+   * External links with no resolvable local path are passed through as-is,
+   * since they may be genuinely useful external references (e.g. GitHub issues,
+   * design docs). Internal artifact URLs that fail to resolve are noted without
+   * the URL since the URL itself is not useful to a coding agent.
    */
   private async buildArtifactSection(card: Card): Promise<string> {
     const links = card.frontmatter.links ?? [];
+    if (links.length === 0) return '';
+
     const artifactBasePath =
       process.env.ARTIFACT_BASE_PATH ?? process.env.OBSIDIAN_VAULT_PATH;
     const artifactBaseUrl =
       process.env.ARTIFACT_BASE_URL ?? process.env.OBSIDIAN_BASE_URL;
 
-    if (links.length === 0 || !artifactBasePath || !artifactBaseUrl) {
-      return '';
-    }
-
     const sections: string[] = ['## Reference Artifacts'];
 
     for (const link of links) {
-      if (!artifactBaseUrl || !link.url.startsWith(artifactBaseUrl)) {
-        sections.push(`### ${link.label}\n_External link: ${link.url}_`);
-        continue;
-      }
+      // Determine whether this looks like a local artifact / VaultPad link.
+      // Strategy: try to parse the URL and extract a relative path either from
+      // the `path=` query parameter (VaultPad format) or from the pathname when
+      // the URL matches the configured artifact base.
+      let relativePath: string | null = null;
+      let isArtifactUrl = false;
 
       try {
         const urlObj = new URL(link.url);
-        const pathParam =
-          urlObj.searchParams.get('path') ??
-          urlObj.pathname.replace(/^\//, '');
-        const relativePath = decodeURIComponent(pathParam);
-        const filePath = join(artifactBasePath, '..', relativePath);
+        const pathParam = urlObj.searchParams.get('path');
 
-        if (existsSync(filePath)) {
-          const content = await readFile(filePath, 'utf-8');
-          sections.push(`### ${link.label} (artifact)\n${content}`);
-        } else {
-          sections.push(
-            `### ${link.label}\n_Artifact file not found at: ${filePath}_`
-          );
+        if (pathParam) {
+          // VaultPad-style: ?path=10-Projects%2Fhex%2Fcard%2Ffile.md
+          relativePath = decodeURIComponent(pathParam);
+          isArtifactUrl = true;
+        } else if (artifactBaseUrl && link.url.startsWith(artifactBaseUrl)) {
+          // Pathname-suffix style matching the configured base URL
+          relativePath = decodeURIComponent(urlObj.pathname.replace(/^\//, ''));
+          isArtifactUrl = true;
         }
       } catch {
+        // Unparseable URL — treat as opaque external link
+      }
+
+      if (isArtifactUrl && artifactBasePath && relativePath) {
+        // Resolve the path relative to the artifact vault root and read content.
+        try {
+          const filePath = join(artifactBasePath, '..', relativePath);
+          if (existsSync(filePath)) {
+            const content = await readFile(filePath, 'utf-8');
+            sections.push(`### ${link.label}\n${content}`);
+          } else {
+            // File not found — note it without exposing the internal URL
+            sections.push(
+              `### ${link.label}\n_Referenced document — content not available in dispatch context._`
+            );
+          }
+        } catch {
+          sections.push(
+            `### ${link.label}\n_Referenced document — content not available in dispatch context._`
+          );
+        }
+      } else if (isArtifactUrl && !artifactBasePath) {
+        // Detected an artifact URL but vault path not configured — note without URL
         sections.push(
-          `### ${link.label}\n_Could not fetch artifact: ${link.url}_`
+          `### ${link.label}\n_Referenced document — ARTIFACT_BASE_PATH not configured on this server._`
         );
+      } else {
+        // Genuinely external URL (GitHub, Jira, external docs, etc.)
+        // Pass through — the agent may find the reference useful.
+        sections.push(`### ${link.label}\n_Reference: ${link.url}_`);
       }
     }
 
+    if (sections.length === 1) return ''; // Only the header — nothing to include
     return sections.join('\n\n');
   }
 }

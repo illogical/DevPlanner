@@ -1,10 +1,67 @@
 import { join } from 'path';
-import { mkdir } from 'fs/promises';
+import { mkdir, access } from 'fs/promises';
 import type {
   DispatchAdapter,
   DispatchConfig,
   DispatchProcess,
 } from '../../types/dispatch';
+
+// Homebrew installs binaries into one of two locations depending on CPU arch
+const HOMEBREW_BIN_PATHS = [
+  '/opt/homebrew/bin/gemini', // Apple Silicon
+  '/usr/local/bin/gemini',    // Intel Mac / Linux Linuxbrew
+];
+
+/** Resolve the `gemini` binary to an absolute path, or return null. */
+async function resolveGeminiBin(): Promise<string | null> {
+  // 1. Prefer PATH resolution via Bun.which (bare name)
+  const fromPath = Bun.which('gemini');
+  if (fromPath) return fromPath;
+
+  if (process.platform === 'win32') {
+    // 2. Windows: npm creates a gemini.cmd wrapper; Bun.which may not find it
+    //    when searching the bare name due to PATHEXT handling.
+    const cmdPath = Bun.which('gemini.cmd');
+    if (cmdPath) return cmdPath;
+
+    // 3. Check well-known npm global locations on Windows
+    const candidates: string[] = [];
+    const appData = process.env['APPDATA'];
+    if (appData) {
+      candidates.push(
+        join(appData, 'npm', 'gemini.cmd'),
+        join(appData, 'npm', 'gemini'),
+      );
+    }
+    const userProfile = process.env['USERPROFILE'];
+    if (userProfile) {
+      candidates.push(
+        join(userProfile, 'AppData', 'Roaming', 'npm', 'gemini.cmd'),
+        join(userProfile, 'AppData', 'Roaming', 'npm', 'gemini'),
+      );
+    }
+    for (const candidate of candidates) {
+      try {
+        await access(candidate);
+        return candidate;
+      } catch {
+        // not found at this location
+      }
+    }
+  } else {
+    // 2. Unix fallback: check known homebrew locations
+    for (const candidate of HOMEBREW_BIN_PATHS) {
+      try {
+        await access(candidate);
+        return candidate;
+      } catch {
+        // not found at this location
+      }
+    }
+  }
+
+  return null;
+}
 
 /**
  * Adapter for Gemini CLI (`gemini -p`).
@@ -35,14 +92,39 @@ export class GeminiCliAdapter implements DispatchAdapter {
       const mcpContent = await Bun.file(config.mcpConfigPath).text();
       const mcpJson = JSON.parse(mcpContent);
 
+      // Gemini requires "trust: true" on each MCP server for non-TTY / headless
+      // mode — without it, every tool call surfaces a confirmation dialog that
+      // silently hangs when stdout is not a terminal.
+      if (mcpJson.mcpServers && typeof mcpJson.mcpServers === 'object') {
+        for (const server of Object.values(mcpJson.mcpServers) as Record<string, unknown>[]) {
+          server['trust'] = true;
+        }
+      }
+
       // Gemini uses the same mcpServers format as Claude's .mcp.json
       await Bun.write(settingsPath, JSON.stringify(mcpJson, null, 2));
     }
 
-    // Gemini CLI doesn't have a separate system prompt flag — combine both
-    const fullPrompt = `${config.systemPrompt}\n\n---\n\n${config.userPrompt}`;
+    // Gemini CLI doesn't have a separate system prompt flag — combine both.
+    // Append an explicit action trigger: without it Gemini reads the combined
+    // prompt as introductory context and responds conversationally rather than
+    // executing the tasks immediately.
+    const ACTION_TRIGGER = `\n\n---\n\n**Working directory: ${config.workingDirectory}**\n\n` +
+      `**BEGIN NOW.** Do not ask for clarification or confirmation. ` +
+      `Your first action must be to call \`mcp__devplanner__get_card\` to read the current task ` +
+      `indices, then implement each task in order and toggle it complete immediately after finishing. ` +
+      `If MCP tools are unavailable, use the curl REST fallback described above.`;
+    const fullPrompt = `${config.systemPrompt}\n\n---\n\n${config.userPrompt}${ACTION_TRIGGER}`;
 
-    const args = ['gemini', '-p', fullPrompt];
+    // Resolve the gemini binary — prefer PATH, fall back to homebrew locations
+    const geminiBin = await resolveGeminiBin();
+    if (!geminiBin) {
+      throw new Error(
+        'gemini CLI not found. Install via homebrew (`brew install gemini`) or npm (`npm install -g @google/gemini-cli`), then ensure it is in your PATH.'
+      );
+    }
+
+    const args = [geminiBin, '-p', fullPrompt, '--yolo'];
 
     if (config.model) {
       args.push('--model', config.model);
@@ -58,12 +140,9 @@ export class GeminiCliAdapter implements DispatchAdapter {
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('ENOENT') || msg.includes('not found')) {
-        throw new Error(
-          'Gemini CLI not found — install with: npm install -g @google/gemini-cli'
-        );
-      }
-      throw err;
+      throw new Error(
+        `Failed to start gemini CLI at "${geminiBin}": ${msg}. Check that it is executable and your PATH is correct.`
+      );
     }
 
     const stdoutChunks: string[] = [];
