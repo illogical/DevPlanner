@@ -383,6 +383,26 @@ export const ARCHIVE_CARD_SCHEMA = {
   required: ['projectSlug', 'cardSlug'],
 } as const;
 
+// Card Context Tool Schema
+
+export const GET_CARD_CONTEXT_SCHEMA = {
+  type: 'object',
+  properties: {
+    cardId: {
+      type: 'string',
+      description: 'Card ID (e.g. "DEV-42"). Use this when given a card ID by the user. Takes precedence over projectSlug + cardSlug.',
+    },
+    projectSlug: {
+      type: 'string',
+      description: 'Project slug. Required if cardId is not provided.',
+    },
+    cardSlug: {
+      type: 'string',
+      description: 'Card slug (filename without .md). Required if cardId is not provided.',
+    },
+  },
+} as const;
+
 // Vault Artifact Tool Schema
 
 export const CREATE_VAULT_ARTIFACT_SCHEMA = {

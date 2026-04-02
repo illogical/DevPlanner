@@ -276,6 +276,14 @@ export interface ArchiveCardOutput {
   card: Card;
 }
 
+// Card Context Tool
+
+export interface GetCardContextInput {
+  cardId?: string;
+  projectSlug?: string;
+  cardSlug?: string;
+}
+
 // Vault Artifact Tool
 
 export interface CreateVaultArtifactInput {

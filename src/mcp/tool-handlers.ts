@@ -48,10 +48,14 @@ import type {
   ArchiveCardOutput,
   CreateVaultArtifactInput,
   CreateVaultArtifactOutput,
+  GetCardContextInput,
   LaneOverview,
   NextTask,
   ProjectProgress,
 } from './types.js';
+
+import { buildCardContext } from '../utils/card-context.js';
+import type { CardContextResult } from '../utils/card-context.js';
 
 import {
   projectNotFoundError,
@@ -670,6 +674,74 @@ async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promi
 }
 
 // ============================================================================
+// Card Context Tool Handler
+// ============================================================================
+
+async function handleGetCardContext(input: GetCardContextInput): Promise<CardContextResult> {
+  const { cardService, projectService } = getServices();
+  const config = ConfigService.getInstance();
+
+  let resolvedProjectSlug: string;
+  let resolvedCardSlug: string;
+
+  if (input.cardId) {
+    // Resolve cardId (e.g. "DEV-42") by scanning all projects
+    const projects = await projectService.listProjects();
+    let found = false;
+
+    for (const project of projects) {
+      const cards = await cardService.listCards(project.slug);
+      const match = cards.find(c => c.cardId === input.cardId);
+      if (match) {
+        resolvedProjectSlug = project.slug;
+        resolvedCardSlug = match.slug;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      throw new MCPError(
+        'CARD_NOT_FOUND',
+        `No card found with ID "${input.cardId}". Use list_cards or get_board_overview to find valid card IDs.`,
+        [
+          { action: 'Call list_projects to see available projects', reason: 'You may be searching in the wrong workspace' },
+          { action: 'Call list_cards with a projectSlug to see card IDs', reason: 'The card ID may be incorrect' },
+        ]
+      );
+    }
+  } else if (input.projectSlug && input.cardSlug) {
+    resolvedProjectSlug = input.projectSlug;
+    resolvedCardSlug = input.cardSlug;
+  } else {
+    throw new MCPError(
+      'INVALID_INPUT',
+      'Provide either cardId (e.g. "DEV-42") or both projectSlug and cardSlug.',
+      [
+        { action: 'Call get_card_context with cardId: "DEV-42"', reason: 'cardId is the preferred way to reference a card' },
+        { action: 'Call get_card_context with projectSlug and cardSlug', reason: 'Use this if you already know the project and card slugs' },
+      ]
+    );
+  }
+
+  let card;
+  try {
+    card = await cardService.getCard(resolvedProjectSlug!, resolvedCardSlug!);
+  } catch (error) {
+    const allCards = await cardService.listCards(resolvedProjectSlug!);
+    throw cardNotFoundError(resolvedCardSlug!, resolvedProjectSlug!, allCards.map(c => c.slug));
+  }
+
+  const { artifactBaseUrl, artifactBasePath, workspacePath } = config;
+  const vaultService =
+    artifactBasePath && artifactBaseUrl
+      ? new VaultService(workspacePath, artifactBasePath, artifactBaseUrl)
+      : null;
+
+  return await buildCardContext(card, vaultService, artifactBaseUrl ?? null);
+}
+
+// ============================================================================
 // Export tool handlers map
 // ============================================================================
 
@@ -692,4 +764,5 @@ export const toolHandlers: Record<string, (input: any) => Promise<any>> = {
   get_project_progress: handleGetProjectProgress,
   archive_card: handleArchiveCard,
   create_vault_artifact: handleCreateVaultArtifact,
+  get_card_context: handleGetCardContext,
 };

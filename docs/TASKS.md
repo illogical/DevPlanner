@@ -801,3 +801,30 @@ After Doc Manager features are implemented, update:
 - [x] 24.5.4 Create `src/__tests__/worktree.service.test.ts`
 - [x] 24.5.5 Create `src/__tests__/prompt.service.test.ts`
 - [x] 24.5.6 Create `src/__tests__/dispatch.service.test.ts`
+
+---
+
+## Phase 25: Card Context Endpoint
+
+**Feature doc:** `docs/features/card-context/card-context_plan.md`
+
+Provides a single "pull" endpoint for AI coding agents to retrieve everything needed to implement a card: ID, slug, description, task checklist, and full contents of linked vault artifact files. Agents reference cards by card ID (e.g. `DEV-42`).
+
+### Backend — REST
+
+- [x] 25.1 Create `src/utils/card-context.ts` — shared `buildCardContext()` helper: detects vault artifact links by `ARTIFACT_BASE_URL` prefix, reads file content via `VaultService`, formats `contextText` markdown, returns structured `CardContextResult`
+- [x] 25.2 Create `src/routes/card-context.ts` — `GET /api/projects/:projectSlug/cards/:cardSlug/context`
+- [x] 25.3 Register `cardContextRoutes` in `src/server.ts`
+
+### MCP
+
+- [x] 25.4 Add `GET_CARD_CONTEXT_SCHEMA` to `src/mcp/schemas.ts` — accepts `cardId` (preferred) or `projectSlug` + `cardSlug`
+- [x] 25.5 Add `GetCardContextInput` to `src/mcp/types.ts`
+- [x] 25.6 Add `handleGetCardContext` to `src/mcp/tool-handlers.ts` — resolves `cardId` by scanning all projects
+- [x] 25.7 Register `get_card_context` tool in `src/mcp-server.ts`
+
+### Documentation
+
+- [x] 25.8 Create `docs/features/card-context/card-context_plan.md`
+- [ ] 25.9 Update `README.md` — add `get_card_context` to MCP tools list and REST API overview
+- [ ] 25.10 Update `docs/SPECIFICATION.md` — add `GET /api/projects/:slug/cards/:card/context` contract

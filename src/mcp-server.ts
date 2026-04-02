@@ -130,6 +130,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: 'Write a Markdown file to the artifact vault and attach it as a link on a card. The filename is auto-generated from the label and timestamp. Requires ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env.',
         inputSchema: (await import('./mcp/schemas.js')).CREATE_VAULT_ARTIFACT_SCHEMA,
       },
+      // Card Context Tool
+      {
+        name: 'get_card_context',
+        description: 'Get a complete implementation context for a card: ID, slug, description, task checklist, and full contents of any linked vault artifact files. Use this when told to implement a card (e.g. "implement DEV-42") — provide the cardId to resolve it automatically.',
+        inputSchema: (await import('./mcp/schemas.js')).GET_CARD_CONTEXT_SCHEMA,
+      },
     ],
   };
 });
