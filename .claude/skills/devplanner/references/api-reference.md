@@ -20,8 +20,9 @@ All requests/responses: `Content-Type: application/json`
 | GET | `/projects/{slug}/cards` | — (`?lane=02-in-progress`) | List cards (summary only) |
 | POST | `/projects/{slug}/cards` | `{title, lane?, priority?, assignee?, tags?, content?, status?}` | Create |
 | GET | `/projects/{slug}/cards/{card}` | — | Full card with content + tasks array |
+| GET | `/projects/{slug}/cards/{card}/context` | — | Full card context: description, tasks, artifact file contents, links, contextText |
 | PATCH | `/projects/{slug}/cards/{card}` | `{title?, status?, priority?, assignee?, tags?, content?}` | Update metadata/content |
-| **PATCH** | **`/projects/{slug}/cards/{card}/move`** | **`{lane, position?}`** | **Move between lanes** |
+| **PATCH** | **`/projects/{slug}/cards/{card}/move`** | **`{lane, position?}`** | **Move between lanes (position is optional 0-based index)** |
 | DELETE | `/projects/{slug}/cards/{card}` | — (`?hard=true` permanent) | Archive or delete |
 | GET | `/projects/{slug}/cards/search` | — (`?q=query`) | Search by title/tasks/tags |
 
@@ -30,7 +31,21 @@ All requests/responses: `Content-Type: application/json`
 | Method | Path | Body | Purpose |
 |--------|------|------|---------|
 | POST | `/projects/{slug}/cards/{card}/tasks` | `{text}` | Add task — plain text, no `- [ ]` prefix |
-| PATCH | `/projects/{slug}/cards/{card}/tasks/{index}` | `{checked: true\|false}` | Toggle (0-based index) |
+| PATCH | `/projects/{slug}/cards/{card}/tasks/{index}` | `{checked?: true\|false, text?: string}` | Toggle and/or edit text (0-based index) |
+
+## Links
+
+| Method | Path | Body | Purpose |
+|--------|------|------|---------|
+| POST | `/projects/{slug}/cards/{card}/links` | `{label, url, kind}` | Add URL link to card |
+| PATCH | `/projects/{slug}/cards/{card}/links/{linkId}` | `{label?, kind?}` | Update link metadata (url is immutable) |
+| DELETE | `/projects/{slug}/cards/{card}/links/{linkId}` | — | Remove link |
+
+## Artifacts
+
+| Method | Path | Body | Purpose |
+|--------|------|------|---------|
+| POST | `/projects/{slug}/cards/{card}/artifacts` | `{label, content, kind}` | Write vault artifact + auto-attach link |
 
 ## Files
 
@@ -47,6 +62,8 @@ All requests/responses: `Content-Type: application/json`
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/projects/{slug}/history` | Activity log (`?limit=N`, default 50) |
+| GET | `/activity` | Cross-project activity feed |
+| GET | `/projects/{slug}/stats` | Project health metrics (completion rates, WIP, blocked counts) |
 | GET | `/projects/{slug}/tags` | All tags used across project cards |
 | PATCH | `/projects/{slug}/lanes/{lane}/order` | Reorder cards: `{order: ["a.md","b.md"]}` |
 
@@ -75,10 +92,12 @@ Status codes: `200` OK · `201` Created · `400` Bad Request · `404` Not Found 
   "cardId": "MM-1",
   "frontmatter": {
     "title": "User Authentication",
+    "description": "Implement JWT-based user authentication for the API.",
     "priority": "high",
     "assignee": "user",
     "status": null,
     "tags": ["feature"],
+    "links": [],
     "created": "2026-02-04T10:00:00Z",
     "updated": "2026-02-04T14:30:00Z"
   },

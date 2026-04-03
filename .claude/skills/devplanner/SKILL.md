@@ -1,6 +1,6 @@
 ---
 name: devplanner
-description: "API client for managing DevPlanner Kanban boards — cards, tasks, URL links, and artifact files tracked in real time. Default board is Hex; project boards specified by name. Use when: adding a new card, claiming existing work, toggling tasks complete, setting blocked status, moving cards between lanes, attaching reference files, or adding URL links to cards. Triggers for: create a card for, mark this done, add this to DevPlanner, claim this task, update my progress, I'm blocked on, add tasks for, begin working on, track this work, move to in-progress, link that to a card, add that link to a card, attach this URL to a card."
+description: "API client for managing DevPlanner Kanban boards — cards, tasks, URL links, and artifact files tracked in real time. Default board is Hex; project boards specified by name. Use when: adding a new card, claiming existing work, implementing a card by ID (e.g. 'implement HE-4'), fetching full card context with artifact contents, toggling tasks complete, setting blocked status, moving cards between lanes, attaching reference files, or adding URL links to cards. Triggers for: create a card for, mark this done, add this to DevPlanner, claim this task, update my progress, I'm blocked on, add tasks for, begin working on, implement card, work on HE-4, pick up DE-12, track this work, move to in-progress, link that to a card, add that link to a card, attach this URL to a card."
 ---
 
 # DevPlanner
@@ -19,11 +19,75 @@ Project boards are only used when the user names a specific project.
 GET /projects     → lists all boards; use this if uncertain which slug to use
 ```
 
+## Card Context
+
+When asked to implement a specific card (e.g., "implement HE-4"), always start by
+fetching its full context. This single call returns everything needed — description,
+task checklist, full contents of linked vault artifact files, and external links —
+so the agent can understand the work without making multiple API calls.
+
+```
+GET /projects/{slug}/cards/{card}/context
+```
+
+**Response:**
+
+```json
+{
+  "cardId": "HE-4",
+  "slug": "implement-auth",
+  "title": "Implement Auth",
+  "description": "Add JWT-based authentication to the API.",
+  "tasks": "- [ ] Set up JWT middleware\n- [x] Create user model",
+  "artifacts": [
+    {
+      "label": "Implementation Spec",
+      "kind": "spec",
+      "path": "hex/implement-auth/2026-03-28_10-00-00_IMPLEMENTATION-SPEC.md",
+      "content": "# Implementation Spec\n\nFull file contents here..."
+    }
+  ],
+  "links": [
+    { "label": "GitHub Issue #42", "kind": "ticket", "url": "https://github.com/..." }
+  ],
+  "contextText": "# Card HE-4: Implement Auth\n\n**Lane:** 02-in-progress\n\n## Description\n...\n\n## Tasks\n...\n\n## Artifact: Implementation Spec (spec)\n\n---\n[full file content]\n---\n\n## Links\n- [GitHub Issue #42](https://...) (ticket)"
+}
+```
+
+- **`artifacts`** — vault-linked documents with **full file contents** already inlined. These contain implementation specs, research notes, plans — everything the human author attached to prepare the card for work.
+- **`links`** — external URLs (metadata only, no file content). These are references like GitHub issues, docs, or repos.
+- **`contextText`** — a pre-formatted markdown summary of the entire card. Can be used directly as a context block.
+
+**Resolving a `cardId` to a slug:** API endpoints use `cardSlug`, not `cardId`.
+To call this endpoint when you only have a `cardId` (e.g., "HE-4"):
+1. `GET /projects` → list all projects
+2. `GET /projects/{slug}/cards` → for each project, find the card where `cardId` matches
+3. Use the matched `slug` and `projectSlug` to call `/context`
+
 ## Workflow
 
+**Asked to implement a specific card?** → [Implementing a Card](#implementing-a-card)
 **Finding work to do?** → [Claiming Existing Work](#claiming-existing-work)
 **Starting fresh work?** → [Creating a Card](#creating-a-card)
 **Resuming in-progress work?** → Skip to step 4 of whichever path started it
+
+### Implementing a Card
+
+Use this workflow when the user references a specific card by ID (e.g., "implement HE-4",
+"work on HE-4", "pick up DE-12"). The context endpoint gives you everything in one call.
+
+```
+1. GET /projects/{slug}/cards/{card}/context   → full context: description, tasks, artifact contents, links
+2. Read contextText + artifacts to understand the work scope
+3. PATCH /projects/{slug}/cards/{card}         → claim: {"assignee":"agent","status":"in-progress"}
+4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
+5. [Work — toggle EACH task complete immediately as you finish it]
+6. POST /projects/{slug}/cards/{card}/artifacts → {"label":"Summary","content":"# Summary\n\n...","kind":"doc"}
+7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}
+```
+
+The artifacts from step 1 contain the human's implementation plans and specs.
+Read them carefully — they define what "done" looks like for this card.
 
 ### Claiming Existing Work
 
@@ -32,14 +96,14 @@ When choosing what to claim, prefer cards near position 0 of `01-upcoming`.
 
 ```
 1. GET /projects/hex/cards?lane=01-upcoming    → find candidates (filter: no assignee or assignee:"user")
-2. GET /projects/{slug}/cards/{card}           → [REQUIRED] read full card before claiming (tasks, links, context)
+2. GET /projects/{slug}/cards/{card}/context   → [REQUIRED] read full card context (tasks, artifact contents, links)
 3. PATCH /projects/{slug}/cards/{card}         → claim: {"assignee":"agent","status":"in-progress"}
 4. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"02-in-progress"}
 5. [Work — toggle EACH task complete immediately as you finish it]
 6. Ensure card has spec + summary artifacts via `/artifacts` (minimum 2 links on completion)
 7. PATCH /projects/{slug}/cards/{card}/move    → {"lane":"03-complete"}   ```
 
-Do not skip step 2 — existing tasks and context on the card inform the work.
+Do not skip step 2 — artifact contents and existing tasks on the card inform the work.
 
 ### Creating a Card
 
@@ -64,7 +128,10 @@ Toggle tasks IMMEDIATELY as each completes — do not batch them at the end.
 ```
 GET /projects/{slug}/cards/{card}                  → inspect tasks[] array (index, text, checked)
 PATCH /projects/{slug}/cards/{card}/tasks/{index}  → {"checked": true}
+PATCH /projects/{slug}/cards/{card}/tasks/{index}  → {"text": "Updated task description"}   (edit text)
 ```
+
+The task PATCH endpoint accepts `{checked}`, `{text}`, or both in the same call.
 
 ## Managing Links
 
@@ -128,6 +195,7 @@ identifier useful as **conversation shorthand** between the agent and the user
 | `priority`      | `"low"\|"medium"\|"high"\|null`                       | Urgency level                                                                                      |
 | `assignee`      | `"user"\|"agent"\|null`                               | Who owns the card                                                                                  |
 | `links`         | `CardLink[]`                                          | URL references attached to the card. Each has `id`, `label`, `url`, `kind`. Add via POST `/links`. |
+| `version`       | `number`                                              | Optimistic locking counter. Incremented on each update.                                            |
 
 **Setting a blocked reason:**
 
@@ -144,16 +212,17 @@ PATCH /projects/{slug}/cards/{card}
 
 ## Creating Vault Artifacts
 
-Write Markdown files directly to the Obsidian Vault. The API automatically writes the file to the vault and attaches a link to your card.
+Write Markdown files directly to the artifact vault. The API automatically writes the file and attaches a link to your card.
 
-**Requires** `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in server `.env`.
+**Requires** `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`.
+(Legacy names `OBSIDIAN_BASE_URL` / `OBSIDIAN_VAULT_PATH` still work but are deprecated.)
 
 ### Canonical Workflow
 
 ```
 POST /projects/{slug}/cards/{card}/artifacts
   → {"label":"...", "content":"...", "kind":"doc"}
-  → API writes file to {OBSIDIAN_VAULT_PATH}/{project}/{card}/{TIMESTAMP}_{LABEL-SLUG}.md
+  → API writes file to {ARTIFACT_BASE_PATH}/{project}/{card}/{TIMESTAMP}_{LABEL-SLUG}.md
   → API auto-attaches link to card
   → Response: { "link": { ... }, "filePath": "..." }
 ```
@@ -197,7 +266,7 @@ POST /projects/{slug}/cards/{card}/artifacts
 
 The `link.url` is portable and shareable. Use it in references, messages, and cross-references.
 
-**Error 400 `OBSIDIAN_NOT_CONFIGURED`**: Set `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in `.env`.
+**Error 400 `OBSIDIAN_NOT_CONFIGURED`**: Set `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in `.env`.
 
 ## NEVER
 
@@ -224,7 +293,7 @@ The `link.url` is portable and shareable. Use it in references, messages, and cr
 | 409 DUPLICATE_LINK            | URL already on this card           | GET card, find existing link in `frontmatter.links`, PATCH label/kind only — never include `url` in recovery body |
 | 400 INVALID_URL               | URL missing or not http/https      | Ensure URL starts with `http://` or `https://`                             |
 | 400 INVALID_LABEL             | Label is empty or whitespace       | Provide a meaningful display label                                         |
-| 400 OBSIDIAN_NOT_CONFIGURED   | Missing env vars for vault         | Set `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in server `.env`         |
+| 400 OBSIDIAN_NOT_CONFIGURED   | Missing env vars for vault         | Set `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`          |
 | API unreachable               | Server not running                 | Ask user to run `bun run dev` in DevPlanner directory                      |
 
 ## Lanes
