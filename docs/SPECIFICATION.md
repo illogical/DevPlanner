@@ -512,7 +512,7 @@ Get full card details.
 }
 ```
 
-**Note:** The `cardSlug` parameter matches against the filename without the `.md` extension. The API searches across all lanes to find the card.
+**Note:** The `cardSlug` parameter accepts either the card slug (filename without `.md`, e.g. `feature-auth`) or a card ID (e.g. `DEV-42`, `dev42`, `dev-42`). Card IDs are matched case-insensitively by card number within the project. When a card ID is supplied the API resolves it to the canonical slug automatically.
 
 #### `DELETE /api/projects/:projectSlug/cards/:cardSlug`
 

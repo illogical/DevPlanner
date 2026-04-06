@@ -5,6 +5,7 @@ import { MarkdownService } from './markdown.service';
 import { slugify } from '../utils/slug';
 import { ALL_LANES, LANE_NAMES } from '../constants';
 import { resourceLock } from '../utils/resource-lock';
+import { resolveCardRef, slugExists, type CardLaneResult } from '../utils/card-resolver';
 
 /**
  * Service for managing cards within projects.
@@ -17,25 +18,15 @@ export class CardService {
   }
 
   /**
-   * Find which lane a card is in by searching all lanes
+   * Find which lane a card is in by searching all lanes.
+   * Accepts either a slug (filename without .md) or a card ID (e.g. DEV-42, dev42).
+   * Returns { lane, slug } where slug is always the canonical filename-based slug.
    */
   private async findCardLane(
     projectSlug: string,
-    cardSlug: string
-  ): Promise<string | null> {
-    const projectPath = join(this.workspacePath, projectSlug);
-
-    for (const laneName of ALL_LANES) {
-      const cardPath = join(projectPath, laneName, `${cardSlug}.md`);
-      try {
-        await readFile(cardPath);
-        return laneName;
-      } catch {
-        continue;
-      }
-    }
-
-    return null;
+    cardRef: string
+  ): Promise<CardLaneResult | null> {
+    return resolveCardRef(this.workspacePath, projectSlug, cardRef);
   }
 
   /**
@@ -137,7 +128,7 @@ export class CardService {
     let slug = baseSlug;
     let counter = 2;
 
-    while ((await this.findCardLane(projectSlug, slug)) !== null) {
+    while (await slugExists(this.workspacePath, projectSlug, slug)) {
       slug = `${baseSlug}-${counter}`;
       counter++;
     }
@@ -214,21 +205,22 @@ export class CardService {
   /**
    * Get a single card with full content
    */
-  async getCard(projectSlug: string, cardSlug: string): Promise<Card> {
-    const lane = await this.findCardLane(projectSlug, cardSlug);
-    if (!lane) {
-      throw new Error(`Card not found: ${cardSlug}`);
+  async getCard(projectSlug: string, cardRef: string): Promise<Card> {
+    const result = await this.findCardLane(projectSlug, cardRef);
+    if (!result) {
+      throw new Error(`Card '${cardRef}' not found in project '${projectSlug}'`);
     }
 
-    const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+    const { lane, slug } = result;
+    const cardPath = join(this.workspacePath, projectSlug, lane, `${slug}.md`);
     const content = await readFile(cardPath, 'utf-8');
     const { frontmatter, content: body, tasks } = MarkdownService.parse(content);
 
     const prefix = await this.readProjectPrefix(projectSlug);
 
     return {
-      slug: cardSlug,
-      filename: `${cardSlug}.md`,
+      slug,
+      filename: `${slug}.md`,
       lane,
       cardId: this.computeCardId(prefix, frontmatter.cardNumber),
       frontmatter,
@@ -324,18 +316,19 @@ export class CardService {
    */
   async updateCard(
     projectSlug: string,
-    cardSlug: string,
+    cardRef: string,
     updates: UpdateCardInput
   ): Promise<Card> {
     // Find which lane the card lives in before acquiring the lock.
-    const lane = await this.findCardLane(projectSlug, cardSlug);
-    if (!lane) {
-      throw new Error(`Card not found: ${cardSlug}`);
+    const result = await this.findCardLane(projectSlug, cardRef);
+    if (!result) {
+      throw new Error(`Card '${cardRef}' not found in project '${projectSlug}'`);
     }
 
-    const release = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
+    const { lane, slug } = result;
+    const release = await resourceLock.acquire(`${projectSlug}:card:${slug}`);
     try {
-      const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+      const cardPath = join(this.workspacePath, projectSlug, lane, `${slug}.md`);
       const cardContent = await readFile(cardPath, 'utf-8');
       const { frontmatter, content } = MarkdownService.parse(cardContent);
 
@@ -423,8 +416,8 @@ export class CardService {
       const prefix = await this.readProjectPrefix(projectSlug);
 
       return {
-        slug: cardSlug,
-        filename: `${cardSlug}.md`,
+        slug,
+        filename: `${slug}.md`,
         lane,
         cardId: this.computeCardId(prefix, frontmatter.cardNumber),
         frontmatter,
@@ -439,22 +432,23 @@ export class CardService {
   /**
    * Archive a card (move to archive lane)
    */
-  async archiveCard(projectSlug: string, cardSlug: string): Promise<void> {
-    await this.moveCard(projectSlug, cardSlug, LANE_NAMES.ARCHIVE);
+  async archiveCard(projectSlug: string, cardRef: string): Promise<void> {
+    await this.moveCard(projectSlug, cardRef, LANE_NAMES.ARCHIVE);
   }
 
   /**
    * Permanently delete a card from disk
    */
-  async deleteCard(projectSlug: string, cardSlug: string): Promise<void> {
-    const lane = await this.findCardLane(projectSlug, cardSlug);
-    if (!lane) {
-      throw new Error(`Card not found: ${cardSlug}`);
+  async deleteCard(projectSlug: string, cardRef: string): Promise<void> {
+    const result = await this.findCardLane(projectSlug, cardRef);
+    if (!result) {
+      throw new Error(`Card '${cardRef}' not found in project '${projectSlug}'`);
     }
 
-    const filename = `${cardSlug}.md`;
+    const { lane, slug } = result;
+    const filename = `${slug}.md`;
     const release = await resourceLock.acquireMultiple([
-      `${projectSlug}:card:${cardSlug}`,
+      `${projectSlug}:card:${slug}`,
       `${projectSlug}:order:${lane}`,
     ]);
     try {
@@ -474,18 +468,20 @@ export class CardService {
    */
   async moveCard(
     projectSlug: string,
-    cardSlug: string,
+    cardRef: string,
     targetLane: string,
     position?: number
   ): Promise<Card> {
-    const sourceLane = await this.findCardLane(projectSlug, cardSlug);
-    if (!sourceLane) {
-      throw new Error(`Card not found: ${cardSlug}`);
+    const result = await this.findCardLane(projectSlug, cardRef);
+    if (!result) {
+      throw new Error(`Card '${cardRef}' not found in project '${projectSlug}'`);
     }
+
+    const { lane: sourceLane, slug } = result;
 
     // Acquire all required locks in sorted order to prevent deadlocks.
     const lockKeys = [
-      `${projectSlug}:card:${cardSlug}`,
+      `${projectSlug}:card:${slug}`,
       `${projectSlug}:order:${sourceLane}`,
     ];
     if (targetLane !== sourceLane) {
@@ -494,7 +490,7 @@ export class CardService {
     const release = await resourceLock.acquireMultiple(lockKeys);
 
     try {
-      const filename = `${cardSlug}.md`;
+      const filename = `${slug}.md`;
       const sourcePath = join(this.workspacePath, projectSlug, sourceLane, filename);
       const targetPath = join(this.workspacePath, projectSlug, targetLane, filename);
 
@@ -549,7 +545,7 @@ export class CardService {
       const prefix = await this.readProjectPrefix(projectSlug);
 
       return {
-        slug: cardSlug,
+        slug,
         filename,
         lane: targetLane,
         cardId: this.computeCardId(prefix, frontmatter.cardNumber),

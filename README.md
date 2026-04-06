@@ -278,6 +278,8 @@ DEVPLANNER_WORKSPACE=$(pwd)/workspace bun run mcp
 
 The server communicates via stdin/stdout and provides:
 
+> **Card references:** All tools and REST endpoints that accept a card slug (`:card` in URLs, `cardSlug` in MCP tools) also accept a card ID (e.g. `DEV-42`, `dev42`, `dev-42`). The API resolves IDs to the canonical slug automatically. IDs are matched case-insensitively by card number within the project.
+
 **Tools** for project management:
 - Core CRUD: `list_projects`, `get_project`, `create_project`, `list_cards`, `get_card`, `create_card`, `update_card`, `move_card`, `add_task`, `toggle_task`
 - Smart/Workflow: `get_board_overview`, `get_next_tasks`, `batch_update_tasks`, `search_cards`, `update_card_content`, `get_project_progress`, `archive_card`

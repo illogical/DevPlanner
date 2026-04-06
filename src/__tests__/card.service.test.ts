@@ -204,7 +204,7 @@ describe('CardService', () => {
 
     test('throws error for non-existent card', async () => {
       await expect(cardService.getCard(projectSlug, 'non-existent')).rejects.toThrow(
-        'Card not found'
+        'not found in project'
       );
     });
   });
@@ -275,7 +275,7 @@ describe('CardService', () => {
     test('throws error for non-existent card', async () => {
       await expect(
         cardService.moveCard(projectSlug, 'non-existent', '02-in-progress')
-      ).rejects.toThrow('Card not found');
+      ).rejects.toThrow('not found in project');
     });
   });
 
@@ -482,7 +482,7 @@ describe('CardService', () => {
     test('throws error if card not found', async () => {
       await expect(
         cardService.updateCard(projectSlug, 'non-existent', { title: 'Test' })
-      ).rejects.toThrow('Card not found');
+      ).rejects.toThrow('not found in project');
     });
   });
 
@@ -582,6 +582,89 @@ describe('CardService', () => {
 
       expect(card.tasks.length).toBe(2);
       expect(card.tasks[1].checked).toBe(true);
+    });
+  });
+
+  describe('ID-based card lookup', () => {
+    // 'Test Project' with no prefix collisions generates prefix 'TP'
+    // The first card created gets cardNumber 1, so cardId = 'TP-1'
+
+    test('getCard by slug still works (regression)', async () => {
+      await cardService.createCard(projectSlug, { title: 'Alpha Card' });
+      const card = await cardService.getCard(projectSlug, 'alpha-card');
+      expect(card.slug).toBe('alpha-card');
+      expect(card.frontmatter.title).toBe('Alpha Card');
+    });
+
+    test('getCard by exact card ID with dash (TP-1)', async () => {
+      await cardService.createCard(projectSlug, { title: 'Alpha Card' });
+      const card = await cardService.getCard(projectSlug, 'TP-1');
+      expect(card.slug).toBe('alpha-card');
+      expect(card.frontmatter.title).toBe('Alpha Card');
+      expect(card.cardId).toBe('TP-1');
+    });
+
+    test('getCard by lowercase card ID without dash (tp1)', async () => {
+      await cardService.createCard(projectSlug, { title: 'Alpha Card' });
+      const card = await cardService.getCard(projectSlug, 'tp1');
+      expect(card.slug).toBe('alpha-card');
+    });
+
+    test('getCard by uppercase card ID without dash (TP1)', async () => {
+      await cardService.createCard(projectSlug, { title: 'Alpha Card' });
+      const card = await cardService.getCard(projectSlug, 'TP1');
+      expect(card.slug).toBe('alpha-card');
+    });
+
+    test('getCard by card ID resolves correct card when multiple cards exist', async () => {
+      await cardService.createCard(projectSlug, { title: 'First Card' });
+      await cardService.createCard(projectSlug, { title: 'Second Card' });
+      const card = await cardService.getCard(projectSlug, 'TP-2');
+      expect(card.slug).toBe('second-card');
+      expect(card.cardId).toBe('TP-2');
+    });
+
+    test('getCard throws for non-existent card ID', async () => {
+      await cardService.createCard(projectSlug, { title: 'Only Card' });
+      await expect(cardService.getCard(projectSlug, 'TP-999')).rejects.toThrow(
+        `Card 'TP-999' not found in project '${projectSlug}'`
+      );
+    });
+
+    test('getCard throws for non-existent slug', async () => {
+      await expect(cardService.getCard(projectSlug, 'does-not-exist')).rejects.toThrow(
+        `Card 'does-not-exist' not found in project '${projectSlug}'`
+      );
+    });
+
+    test('updateCard with card ID returns card with canonical slug', async () => {
+      await cardService.createCard(projectSlug, { title: 'Alpha Card' });
+      const updated = await cardService.updateCard(projectSlug, 'TP-1', { priority: 'high' });
+      expect(updated.slug).toBe('alpha-card');
+      expect(updated.frontmatter.priority).toBe('high');
+    });
+
+    test('moveCard with card ID succeeds', async () => {
+      await cardService.createCard(projectSlug, { title: 'Alpha Card' });
+      const moved = await cardService.moveCard(projectSlug, 'TP-1', '02-in-progress');
+      expect(moved.slug).toBe('alpha-card');
+      expect(moved.lane).toBe('02-in-progress');
+    });
+
+    test('deleteCard with card ID succeeds', async () => {
+      await cardService.createCard(projectSlug, { title: 'Alpha Card' });
+      await cardService.deleteCard(projectSlug, 'TP-1');
+      await expect(cardService.getCard(projectSlug, 'alpha-card')).rejects.toThrow();
+    });
+
+    test('generateUniqueSlug is not confused by ID-shaped slug', async () => {
+      // Create a card whose slug happens to look like a card ID pattern
+      // A card titled "TP 1" slugifies to "tp-1"
+      await cardService.createCard(projectSlug, { title: 'TP 1' });
+      // Now create another card with the same title — it should get "tp-1-2",
+      // NOT resolve "tp-1" as card ID TP-1 and cause issues
+      const second = await cardService.createCard(projectSlug, { title: 'TP 1' });
+      expect(second.slug).toBe('tp-1-2');
     });
   });
 });

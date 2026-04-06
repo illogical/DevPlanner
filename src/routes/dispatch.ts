@@ -1,10 +1,12 @@
 import { Elysia, t } from 'elysia';
 import { DispatchService } from '../services/dispatch.service';
+import { CardService } from '../services/card.service';
 import { isValidAdapterName } from '../services/adapters/adapter.interface';
 import type { DispatchRequest } from '../types/dispatch';
 
 export const dispatchRoutes = (workspacePath: string) => {
   const dispatchService = DispatchService.getInstance();
+  const cardService = new CardService(workspacePath);
 
   return new Elysia()
     // ── POST /api/projects/:projectSlug/cards/:cardSlug/dispatch ─────────────
@@ -90,9 +92,12 @@ export const dispatchRoutes = (workspacePath: string) => {
     // ── GET /api/projects/:projectSlug/cards/:cardSlug/dispatch ─────────────
     .get(
       '/api/projects/:projectSlug/cards/:cardSlug/dispatch',
-      ({ params }) => {
+      async ({ params }) => {
         const { projectSlug, cardSlug } = params;
-        const record = dispatchService.getCardDispatch(projectSlug, cardSlug);
+        // Resolve card ID or slug to canonical slug so lookup matches stored records
+        const resolved = await cardService.getCard(projectSlug, cardSlug).catch(() => null);
+        const slug = resolved?.slug ?? cardSlug;
+        const record = dispatchService.getCardDispatch(projectSlug, slug);
         return { dispatch: record ?? null };
       }
     )
@@ -102,7 +107,10 @@ export const dispatchRoutes = (workspacePath: string) => {
       '/api/projects/:projectSlug/cards/:cardSlug/dispatch/cancel',
       async ({ params, set }) => {
         const { projectSlug, cardSlug } = params;
-        const record = dispatchService.getCardDispatch(projectSlug, cardSlug);
+        // Resolve card ID or slug to canonical slug so lookup matches stored records
+        const resolved = await cardService.getCard(projectSlug, cardSlug).catch(() => null);
+        const slug = resolved?.slug ?? cardSlug;
+        const record = dispatchService.getCardDispatch(projectSlug, slug);
 
         if (!record) {
           set.status = 404;
@@ -126,9 +134,12 @@ export const dispatchRoutes = (workspacePath: string) => {
     // ── GET /api/projects/:projectSlug/cards/:cardSlug/dispatch/output ────────
     .get(
       '/api/projects/:projectSlug/cards/:cardSlug/dispatch/output',
-      ({ params }) => {
+      async ({ params }) => {
         const { projectSlug, cardSlug } = params;
-        const record = dispatchService.getCardDispatch(projectSlug, cardSlug);
+        // Resolve card ID or slug to canonical slug so lookup matches stored records
+        const resolved = await cardService.getCard(projectSlug, cardSlug).catch(() => null);
+        const slug = resolved?.slug ?? cardSlug;
+        const record = dispatchService.getCardDispatch(projectSlug, slug);
         if (!record) {
           return { events: [] };
         }

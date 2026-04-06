@@ -425,4 +425,42 @@ describe('LinkService', () => {
       expect(card.tasks[0].text).toBe('Existing task');
     });
   });
+
+  describe('ID-based card lookup', () => {
+    // 'Test Project' generates prefix 'TP'; the card created in beforeEach is card #1 → TP-1
+
+    test('addLink with card ID (TP-1) adds link successfully', async () => {
+      const link = await linkService.addLink(projectSlug, 'TP-1', {
+        label: 'Via ID',
+        url: 'https://example.com/via-id',
+      });
+      expect(link.label).toBe('Via ID');
+      const card = await cardService.getCard(projectSlug, cardSlug);
+      expect(card.frontmatter.links).toHaveLength(1);
+    });
+
+    test('addLink with lowercase id without dash (tp1) adds link successfully', async () => {
+      const link = await linkService.addLink(projectSlug, 'tp1', {
+        label: 'Via lowercase ID',
+        url: 'https://example.com/lowercase',
+      });
+      expect(link.label).toBe('Via lowercase ID');
+    });
+
+    test('deleteLink with card ID removes link successfully', async () => {
+      const link = await linkService.addLink(projectSlug, cardSlug, {
+        label: 'To delete',
+        url: 'https://example.com/to-delete',
+      });
+      await linkService.deleteLink(projectSlug, 'TP-1', link.id);
+      const card = await cardService.getCard(projectSlug, cardSlug);
+      expect((card.frontmatter.links ?? []).length).toBe(0);
+    });
+
+    test('addLink with non-existent card ID throws informative error', async () => {
+      await expect(
+        linkService.addLink(projectSlug, 'TP-999', { label: 'X', url: 'https://example.com' })
+      ).rejects.toThrow(`Card 'TP-999' not found in project '${projectSlug}'`);
+    });
+  });
 });

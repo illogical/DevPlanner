@@ -118,6 +118,9 @@ export class DispatchService {
 
     // ── 3. Load + validate card ─────────────────────────────────────────────
     const card = await cardService.getCard(projectSlug, cardSlug);
+    // Use the canonical slug (card.slug) for all subsequent operations.
+    // If cardSlug was a card ID (e.g. DEV-42), card.slug is the resolved filename slug.
+    const resolvedSlug = card.slug;
 
     if (card.frontmatter.dispatchStatus === 'running') {
       throw Object.assign(
@@ -134,7 +137,7 @@ export class DispatchService {
     }
 
     // ── 4. Check branch availability ────────────────────────────────────────
-    const branch = `card/${cardSlug}`;
+    const branch = `card/${resolvedSlug}`;
     const branchAlreadyExists = await this.worktreeService.branchExists(
       project.repoPath,
       branch
@@ -152,7 +155,7 @@ export class DispatchService {
     const { worktreePath } = await this.worktreeService.create(
       project.repoPath,
       projectSlug,
-      cardSlug
+      resolvedSlug
     );
 
     // ── 6. Build prompts ────────────────────────────────────────────────────
@@ -186,21 +189,21 @@ export class DispatchService {
       env: {
         DEVPLANNER_WORKSPACE: workspacePath,
         DEVPLANNER_PROJECT: projectSlug,
-        DEVPLANNER_CARD: cardSlug,
+        DEVPLANNER_CARD: resolvedSlug,
       },
       onOutput: (chunk: string) => {
-        this.handleOutputChunk(dispatchId, projectSlug, cardSlug, chunk);
+        this.handleOutputChunk(dispatchId, projectSlug, resolvedSlug, chunk);
       },
     });
 
     // ── 9. Update card frontmatter ──────────────────────────────────────────
-    await cardService.updateCard(projectSlug, cardSlug, {
+    await cardService.updateCard(projectSlug, resolvedSlug, {
       assignee: 'agent',
       status: 'in-progress',
     });
 
     // Write dispatch-specific frontmatter directly (updateCard doesn't support these fields)
-    await this.writeDispatchFrontmatter(workspacePath, projectSlug, cardSlug, {
+    await this.writeDispatchFrontmatter(workspacePath, projectSlug, resolvedSlug, {
       dispatchStatus: 'running',
       dispatchedAt: new Date().toISOString(),
       dispatchAgent: request.adapter,
@@ -209,14 +212,14 @@ export class DispatchService {
 
     // Move to in-progress if not already there
     if (card.lane === '01-upcoming') {
-      await cardService.moveCard(projectSlug, cardSlug, '02-in-progress');
+      await cardService.moveCard(projectSlug, resolvedSlug, '02-in-progress');
     }
 
     // ── 10. Store record ────────────────────────────────────────────────────
     const record: DispatchRecord = {
       id: dispatchId,
       projectSlug,
-      cardSlug,
+      cardSlug: resolvedSlug,
       adapter: request.adapter,
       model: request.model,
       branch,
@@ -231,7 +234,7 @@ export class DispatchService {
 
     // ── 11. Record history + broadcast ─────────────────────────────────────
     recordAndBroadcastHistory(projectSlug, 'card:dispatched', `Card dispatched to ${request.adapter}`, {
-      cardSlug,
+      cardSlug: resolvedSlug,
       cardTitle: card.frontmatter.title,
       dispatchId,
       dispatchAdapter: request.adapter,
@@ -239,7 +242,7 @@ export class DispatchService {
     });
 
     const dispatchedData: CardDispatchedData = {
-      cardSlug,
+      cardSlug: resolvedSlug,
       dispatchId,
       adapter: request.adapter,
       branch,

@@ -1037,7 +1037,7 @@ components:
       required: true
       schema:
         type: string
-      description: Card slug (filename without .md)
+      description: "Card slug (filename without .md, e.g. 'feature-auth') or card ID (e.g. 'DEV-42', 'dev42', 'dev-42'). Case-insensitive for card IDs."
       example: "user-authentication"
 
   responses:

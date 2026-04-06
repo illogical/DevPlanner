@@ -86,7 +86,7 @@ export const GET_CARD_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier (slug)',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
   },
   required: ['projectSlug', 'cardSlug'],
@@ -145,7 +145,7 @@ export const UPDATE_CARD_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
     title: {
       type: 'string',
@@ -184,7 +184,7 @@ export const MOVE_CARD_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
     targetLane: {
       type: 'string',
@@ -207,7 +207,7 @@ export const ADD_TASK_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
     text: {
       type: 'string',
@@ -227,7 +227,7 @@ export const TOGGLE_TASK_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
     taskIndex: {
       type: 'number',
@@ -289,7 +289,7 @@ export const BATCH_UPDATE_TASKS_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
     updates: {
       type: 'array',
@@ -347,7 +347,7 @@ export const UPDATE_CARD_CONTENT_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
     content: {
       type: 'string',
@@ -377,7 +377,7 @@ export const ARCHIVE_CARD_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
     },
   },
   required: ['projectSlug', 'cardSlug'],
@@ -414,7 +414,7 @@ export const CREATE_VAULT_ARTIFACT_SCHEMA = {
     },
     cardSlug: {
       type: 'string',
-      description: 'Card identifier to attach the artifact link to',
+      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42") to attach the artifact link to.',
     },
     label: {
       type: 'string',

@@ -81,7 +81,7 @@ describe('TaskService', () => {
     test('throws error for non-existent card', async () => {
       await expect(
         taskService.addTask(projectSlug, 'non-existent', 'Task')
-      ).rejects.toThrow('Card not found');
+      ).rejects.toThrow('not found in project');
     });
 
     test('adds task to card with no existing tasks', async () => {
@@ -144,7 +144,7 @@ describe('TaskService', () => {
     test('throws error for non-existent card', async () => {
       await expect(
         taskService.setTaskChecked(projectSlug, 'non-existent', 0, true)
-      ).rejects.toThrow('Card not found');
+      ).rejects.toThrow('not found in project');
     });
 
     test('preserves other tasks', async () => {
@@ -227,6 +227,34 @@ describe('TaskService', () => {
       expect(card.tasks[1].checked).toBe(true);
       expect(card.tasks[2].text).toBe('Task Two');
       expect(card.tasks[2].checked).toBe(false);
+    });
+  });
+
+  describe('ID-based card lookup', () => {
+    // 'Test Project' generates prefix 'TP'; the card created in beforeEach is card #1 → TP-1
+
+    test('addTask with card ID (TP-1) adds task successfully', async () => {
+      const task = await taskService.addTask(projectSlug, 'TP-1', 'New task via ID');
+      expect(task.text).toBe('New task via ID');
+      const card = await cardService.getCard(projectSlug, cardSlug);
+      expect(card.tasks.some((t) => t.text === 'New task via ID')).toBe(true);
+    });
+
+    test('addTask with lowercase id without dash (tp1) adds task successfully', async () => {
+      const task = await taskService.addTask(projectSlug, 'tp1', 'Another task');
+      expect(task.text).toBe('Another task');
+    });
+
+    test('setTaskChecked with card ID resolves correctly', async () => {
+      await taskService.setTaskChecked(projectSlug, 'TP-1', 0, true);
+      const card = await cardService.getCard(projectSlug, cardSlug);
+      expect(card.tasks[0].checked).toBe(true);
+    });
+
+    test('addTask with non-existent card ID throws informative error', async () => {
+      await expect(taskService.addTask(projectSlug, 'TP-999', 'Task')).rejects.toThrow(
+        `Card 'TP-999' not found in project '${projectSlug}'`
+      );
     });
   });
 });

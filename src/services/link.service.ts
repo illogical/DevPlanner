@@ -2,8 +2,8 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { CardLink, CreateLinkInput, UpdateLinkInput } from '../types';
 import { MarkdownService } from './markdown.service';
-import { ALL_LANES } from '../constants';
 import { resourceLock } from '../utils/resource-lock';
+import { resolveCardRef, type CardLaneResult } from '../utils/card-resolver';
 
 /**
  * Service for managing URL links within cards.
@@ -20,26 +20,14 @@ export class LinkService {
 
   /**
    * Find which lane a card is in by searching all lanes.
+   * Accepts either a slug (filename without .md) or a card ID (e.g. DEV-42, dev42).
+   * Returns { lane, slug } where slug is always the canonical filename-based slug.
    */
   private async findCardLane(
     projectSlug: string,
-    cardSlug: string
-  ): Promise<string | null> {
-    for (const laneName of ALL_LANES) {
-      const cardPath = join(
-        this.workspacePath,
-        projectSlug,
-        laneName,
-        `${cardSlug}.md`
-      );
-      try {
-        await readFile(cardPath);
-        return laneName;
-      } catch {
-        continue;
-      }
-    }
-    return null;
+    cardRef: string
+  ): Promise<CardLaneResult | null> {
+    return resolveCardRef(this.workspacePath, projectSlug, cardRef);
   }
 
   /**
@@ -87,15 +75,16 @@ export class LinkService {
     // Validate and normalise URL
     const normalizedUrl = this.validateUrl(input.url);
 
-    const lane = await this.findCardLane(projectSlug, cardSlug);
-    if (!lane) {
-      throw new Error(`Card not found: ${cardSlug}`);
+    const result = await this.findCardLane(projectSlug, cardSlug);
+    if (!result) {
+      throw new Error(`Card '${cardSlug}' not found in project '${projectSlug}'`);
     }
 
-    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
+    const { lane, slug } = result;
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${slug}`);
 
     try {
-      const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+      const cardPath = join(this.workspacePath, projectSlug, lane, `${slug}.md`);
       const fileContent = await readFile(cardPath, 'utf-8');
       const { frontmatter, content } = MarkdownService.parse(fileContent);
 
@@ -145,22 +134,23 @@ export class LinkService {
     linkId: string,
     input: UpdateLinkInput
   ): Promise<CardLink> {
-    const lane = await this.findCardLane(projectSlug, cardSlug);
-    if (!lane) {
-      throw new Error(`Card not found: ${cardSlug}`);
+    const result = await this.findCardLane(projectSlug, cardSlug);
+    if (!result) {
+      throw new Error(`Card '${cardSlug}' not found in project '${projectSlug}'`);
     }
 
-    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
+    const { lane, slug } = result;
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${slug}`);
 
     try {
-      const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+      const cardPath = join(this.workspacePath, projectSlug, lane, `${slug}.md`);
       const fileContent = await readFile(cardPath, 'utf-8');
       const { frontmatter, content } = MarkdownService.parse(fileContent);
 
       const links = (frontmatter.links ?? []) as CardLink[];
       const idx = links.findIndex((l) => l.id === linkId);
       if (idx === -1) {
-        throw { error: 'LINK_NOT_FOUND', message: `Link "${linkId}" not found on card "${cardSlug}".` };
+        throw { error: 'LINK_NOT_FOUND', message: `Link "${linkId}" not found on card "${slug}".` };
       }
 
       const existing = { ...links[idx] };
@@ -216,22 +206,23 @@ export class LinkService {
     cardSlug: string,
     linkId: string
   ): Promise<void> {
-    const lane = await this.findCardLane(projectSlug, cardSlug);
-    if (!lane) {
-      throw new Error(`Card not found: ${cardSlug}`);
+    const result = await this.findCardLane(projectSlug, cardSlug);
+    if (!result) {
+      throw new Error(`Card '${cardSlug}' not found in project '${projectSlug}'`);
     }
 
-    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${cardSlug}`);
+    const { lane, slug } = result;
+    const releaseLock = await resourceLock.acquire(`${projectSlug}:card:${slug}`);
 
     try {
-      const cardPath = join(this.workspacePath, projectSlug, lane, `${cardSlug}.md`);
+      const cardPath = join(this.workspacePath, projectSlug, lane, `${slug}.md`);
       const fileContent = await readFile(cardPath, 'utf-8');
       const { frontmatter, content } = MarkdownService.parse(fileContent);
 
       const links = (frontmatter.links ?? []) as CardLink[];
       const idx = links.findIndex((l) => l.id === linkId);
       if (idx === -1) {
-        throw { error: 'LINK_NOT_FOUND', message: `Link "${linkId}" not found on card "${cardSlug}".` };
+        throw { error: 'LINK_NOT_FOUND', message: `Link "${linkId}" not found on card "${slug}".` };
       }
 
       links.splice(idx, 1);

@@ -828,3 +828,33 @@ Provides a single "pull" endpoint for AI coding agents to retrieve everything ne
 - [x] 25.8 Create `docs/features/card-context/card-context_plan.md`
 - [ ] 25.9 Update `README.md` — add `get_card_context` to MCP tools list and REST API overview
 - [ ] 25.10 Update `docs/SPECIFICATION.md` — add `GET /api/projects/:slug/cards/:card/context` contract
+
+---
+
+## Phase 26: Flexible Card Lookup — Slug or Card ID
+
+**Feature doc:** `docs/features/flexible-card-lookup/flexible-card-lookup_plan.md`
+
+Allows all card endpoints and MCP tools to accept either a card slug (e.g. `feature-auth`) or a card ID (e.g. `DEV-42`, `dev42`, `dev-42`). Improves AI agent ergonomics — agents can reference the card by the ID they see on the board without needing to know the slug.
+
+### Core
+
+- [x] 26.1 Create `src/utils/card-resolver.ts` — `resolveCardRef()` (slug-first then ID-based scan) and `slugExists()` (pure file existence for slug uniqueness checking)
+- [x] 26.2 Update `src/services/card.service.ts` — `findCardLane` delegates to `resolveCardRef`, returns `{ lane, slug }`; all 4 callers use resolved slug; `generateUniqueSlug` uses `slugExists`; improved error messages
+- [x] 26.3 Update `src/services/task.service.ts` — replace private `findCardLane` with `resolveCardRef`; update 4 callers
+- [x] 26.4 Update `src/services/link.service.ts` — replace private `findCardLane` with `resolveCardRef`; update 3 callers
+- [x] 26.5 Fix `src/services/dispatch.service.ts` — use `card.slug` (resolved canonical slug) for branch name, worktree creation, env var, stored record
+- [x] 26.6 Fix `src/routes/dispatch.ts` — GET/cancel/output handlers resolve `cardRef` via `cardService.getCard` before dispatch record lookup
+
+### Documentation
+
+- [x] 26.7 Update `src/mcp/schemas.ts` — all `cardSlug` field descriptions note ID acceptance
+- [x] 26.8 Update `docs/openapi.yaml` — `cardSlug` parameter description updated
+- [x] 26.9 Update `docs/SPECIFICATION.md` — slug-matching note updated to cover card IDs
+- [x] 26.10 Update `README.md` — note added to MCP Server section
+
+### Tests
+
+- [x] 26.11 Add `describe('ID-based card lookup')` to `src/__tests__/card.service.test.ts` (10 cases)
+- [x] 26.12 Add `describe('ID-based card lookup')` to `src/__tests__/task.service.test.ts` (4 cases)
+- [x] 26.13 Add `describe('ID-based card lookup')` to `src/__tests__/link.service.test.ts` (4 cases)
