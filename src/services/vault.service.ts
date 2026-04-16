@@ -15,23 +15,23 @@ export interface CreateArtifactResult {
 }
 
 /**
- * Service for writing Markdown artifacts to the Obsidian Vault and registering
+ * Service for writing Markdown artifacts to the artifact vault and registering
  * them as links on the corresponding card.
  *
  * Files are written to: {vaultPath}/{projectSlug}/{cardSlug}/{TIMESTAMP}_{LABEL-SLUG}.md
- * Links are constructed using OBSIDIAN_BASE_URL as the base.
+ * Links are constructed using ARTIFACT_BASE_URL as the base.
  *
  * workspacePath: kanban workspace — used by LinkService to locate card files
- * vaultPath: Obsidian vault root (OBSIDIAN_VAULT_PATH) — where artifact files are written
+ * vaultPath: artifact vault root (ARTIFACT_BASE_PATH) — where artifact files are written
  */
 export class VaultService {
   private vaultPath: string;
-  private obsidianBaseUrl: string;
+  private artifactBaseUrl: string;
   private linkService: LinkService;
 
-  constructor(workspacePath: string, vaultPath: string, obsidianBaseUrl: string) {
+  constructor(workspacePath: string, vaultPath: string, artifactBaseUrl: string) {
     this.vaultPath = vaultPath;
-    this.obsidianBaseUrl = obsidianBaseUrl;
+    this.artifactBaseUrl = artifactBaseUrl;
     this.linkService = new LinkService(workspacePath);
   }
 
@@ -190,9 +190,12 @@ export class VaultService {
     // Write file content
     await Bun.write(filePath, content);
 
-    // Compute vault URL: base%2Frelative%2Fpath
+    // Compute artifact URL by appending the relative path to the base URL's path param
     const relativePath = path.relative(this.vaultPath, filePath).replace(/\\/g, '/');
-    const url = `${this.obsidianBaseUrl}%2F${encodeURIComponent(relativePath)}`;
+    const urlObj = new URL(this.artifactBaseUrl);
+    const basePath = urlObj.searchParams.get('path') ?? '';
+    urlObj.searchParams.set('path', basePath ? `${basePath}/${relativePath}` : relativePath);
+    const url = urlObj.toString();
 
     // Add link to card (in kanban workspace)
     const link = await this.linkService.addLink(projectSlug, cardSlug, {
