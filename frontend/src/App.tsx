@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Routes, Route, useSearchParams } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { AppShell } from './components/layout/AppShell';
@@ -20,6 +20,10 @@ function KanbanApp() {
   } = useStore();
 
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Card slug to open once the project finishes loading (handles full-page reloads
+  // where activeProjectSlug is null when the URL→State effect first fires).
+  const pendingCardSlug = useRef<string | null>(null);
 
   // Global Ctrl+K / Cmd+K shortcut to open/close the search palette
   useEffect(() => {
@@ -49,14 +53,30 @@ function KanbanApp() {
       ? activeProjectSlug === projectInUrl
       : activeProjectSlug != null;
 
+    if (cardInUrl && !projectReady) {
+      // Project still loading — remember the card and open it once the project is ready
+      pendingCardSlug.current = cardInUrl;
+      return;
+    }
+
     if (projectReady) {
-      if (cardInUrl && cardInUrl !== activeCard?.slug) {
+      // Open the card if it isn't already showing (handles browser back after in-app navigation)
+      if (cardInUrl && (cardInUrl !== activeCard?.slug || !isDetailPanelOpen)) {
         openCardDetail(cardInUrl, true);
+        pendingCardSlug.current = null;
       } else if (!cardInUrl && isDetailPanelOpen) {
         closeCardDetail(true);
       }
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open the pending card once the project becomes ready (full-page reload path)
+  useEffect(() => {
+    if (!activeProjectSlug || !pendingCardSlug.current) return;
+    const cardSlug = pendingCardSlug.current;
+    pendingCardSlug.current = null;
+    openCardDetail(cardSlug, true);
+  }, [activeProjectSlug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // State → URL: push a browser history entry when the active project or card changes
   useEffect(() => {
