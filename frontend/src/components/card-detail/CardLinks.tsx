@@ -424,8 +424,6 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                 {/* Clickable label */}
                 <a
                   href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="flex-1 text-sm text-blue-400 hover:text-blue-300 hover:underline truncate"
                   title={link.url}
                 >
@@ -483,7 +481,7 @@ export function CardLinks({ links, cardSlug }: CardLinksProps) {
                             </svg>
                           </button>
                           <button
-                            onClick={() => window.open(buildDiffUrl(link.url, artifactBaseUrl), '_blank')}
+                            onClick={() => navigate(buildDiffUrl(link.url, artifactBaseUrl))}
                             title="Open in Diff Viewer"
                             className="p-1 rounded text-gray-400 hover:text-teal-300 hover:bg-gray-700 transition-colors"
                           >
