@@ -3,7 +3,7 @@ import { HistoryService } from '../services/history.service';
 
 const historyService = HistoryService.getInstance();
 
-export const historyRoutes = new Elysia({ prefix: '/api' }).get(
+export const historyRoutes = new Elysia({ prefix: '/api', detail: { tags: ['History'] } }).get(
   '/projects/:projectSlug/history',
   async ({ params, query }) => {
     const { projectSlug } = params;
@@ -20,6 +20,7 @@ export const historyRoutes = new Elysia({ prefix: '/api' }).get(
     };
   },
   {
+    detail: { summary: 'Get project history', description: 'Returns recent history events for a project.' },
     params: t.Object({
       projectSlug: t.String(),
     }),

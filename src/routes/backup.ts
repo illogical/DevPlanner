@@ -4,12 +4,14 @@ import { BackupService } from '../services/backup.service';
 export const backupRoutes = (workspacePath: string, backupDir: string) => {
   const backupService = new BackupService(workspacePath, backupDir);
 
-  return new Elysia({ prefix: '/api/backup' })
+  return new Elysia({ prefix: '/api/backup', detail: { tags: ['Backup'] } })
 
     // GET /api/backup/status
     // Lightweight: reads state file + walks project/card updated timestamps (no zipping)
     .get('/status', async () => {
       return await backupService.getStatus();
+    }, {
+      detail: { summary: 'Get backup status', description: 'Returns the current backup status and workspace change timestamps.' },
     })
 
     // GET /api/backup/log
@@ -17,6 +19,8 @@ export const backupRoutes = (workspacePath: string, backupDir: string) => {
     .get('/log', async () => {
       const log = await backupService.getLog();
       return { log };
+    }, {
+      detail: { summary: 'Get backup log', description: 'Returns backup log entries, newest first.' },
     })
 
     // POST /api/backup
@@ -29,6 +33,8 @@ export const backupRoutes = (workspacePath: string, backupDir: string) => {
         set.status = 201;
       }
       return result;
+    }, {
+      detail: { summary: 'Create a backup', description: 'Creates a zip backup of the workspace if changes are detected.' },
     })
 
     // GET /api/backup
@@ -36,6 +42,8 @@ export const backupRoutes = (workspacePath: string, backupDir: string) => {
     .get('/', async () => {
       const backups = await backupService.listBackups();
       return { backups };
+    }, {
+      detail: { summary: 'List backups', description: 'Lists existing backup zip files with metadata.' },
     })
 
     // GET /api/backup/:filename/download
@@ -49,6 +57,7 @@ export const backupRoutes = (workspacePath: string, backupDir: string) => {
         return Bun.file(absPath);
       },
       {
+        detail: { summary: 'Download a backup', description: 'Streams a backup zip file as an attachment download.' },
         params: t.Object({
           filename: t.String(),
         }),

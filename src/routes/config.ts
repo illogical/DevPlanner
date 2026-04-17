@@ -14,10 +14,12 @@ import { ConfigService } from '../services/config.service';
  * Exposing this via an API endpoint keeps configuration centralised on the backend
  * and avoids baking env vars into the frontend bundle at build time.
  */
-export const configRoutes = new Elysia()
+export const configRoutes = new Elysia({ detail: { tags: ['Config'] } })
   .get('/api/config/public', () => {
     const config = ConfigService.getInstance();
     return {
       artifactBaseUrl: config.artifactBaseUrl ?? null,
     };
+  }, {
+    detail: { summary: 'Get public config', description: 'Returns safe public configuration values for the frontend.' },
   });

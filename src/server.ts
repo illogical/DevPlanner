@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia';
+import { openapi } from '@elysiajs/openapi';
 import { resolve, join, sep } from 'path';
 import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
@@ -37,6 +38,42 @@ const fileWatcher = FileWatcherService.getInstance();
 fileWatcher.start();
 
 const app = new Elysia()
+  .use(openapi({
+    path: '/swagger',
+    documentation: {
+      info: {
+        title: 'DevPlanner API',
+        description:
+          'File-based Kanban board API. All project data is stored as plain-text Markdown ' +
+          'and JSON files — no database. Provides CRUD for projects, cards, tasks, links, ' +
+          'vault artifacts, and more. A separate MCP server (stdio transport) exposes the ' +
+          'same functionality to AI agents — run `bun run mcp` for details.',
+        version: '1.0.0',
+      },
+      tags: [
+        { name: 'Projects', description: 'Project CRUD and management' },
+        { name: 'Cards', description: 'Card CRUD, search, and lane management' },
+        { name: 'Tasks', description: 'Checklist item management within cards' },
+        { name: 'Links', description: 'URL link management on cards' },
+        { name: 'Artifacts', description: 'Vault artifact creation and linking' },
+        { name: 'History', description: 'Per-project activity log' },
+        { name: 'Activity', description: 'Cross-project activity feed' },
+        { name: 'Stats', description: 'Project health statistics' },
+        { name: 'Search', description: 'Full-text search across projects and cards' },
+        { name: 'Preferences', description: 'Global workspace preferences' },
+        { name: 'Backup', description: 'Workspace backup management' },
+        { name: 'Vault', description: 'Vault artifact file operations' },
+        { name: 'Vault Git', description: 'Git operations on vault artifacts' },
+        { name: 'Config', description: 'Public configuration' },
+        { name: 'Dispatch', description: 'AI agent dispatch (Claude CLI / Gemini CLI)' },
+        { name: 'Card Context', description: 'Full card context for AI agents' },
+      ],
+    },
+    exclude: {
+      paths: [/^\/swagger/, /^\/openapi/],
+      methods: ['OPTIONS'],
+    },
+  }))
   .onError(({ code, error, set }) => {
     console.error('Error:', error);
 

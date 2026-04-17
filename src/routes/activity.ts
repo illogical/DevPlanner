@@ -7,7 +7,7 @@ const historyService = HistoryService.getInstance();
 export const activityRoutes = (workspacePath: string) => {
   const projectService = new ProjectService(workspacePath);
 
-  return new Elysia({ prefix: '/api' }).get(
+  return new Elysia({ prefix: '/api', detail: { tags: ['Activity'] } }).get(
     '/activity',
     async ({ query }) => {
       const parsedLimit = parseInt((query.limit as string) || '50');
@@ -26,6 +26,7 @@ export const activityRoutes = (workspacePath: string) => {
       };
     },
     {
+      detail: { summary: 'Get activity feed', description: 'Returns a cross-project activity feed of recent events.' },
       query: t.Object({
         limit: t.Optional(t.String()),
         since: t.Optional(t.String()),

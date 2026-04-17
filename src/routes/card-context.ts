@@ -26,6 +26,9 @@ export const cardContextRoutes = (workspacePath: string) => {
             : null;
 
         return await buildCardContext(card, vaultService, config.artifactBaseUrl ?? null);
+      },
+      {
+        detail: { tags: ['Card Context'], summary: 'Get card context', description: 'Returns full card context including linked artifact contents for AI dispatch.' },
       }
     );
 };

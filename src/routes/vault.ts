@@ -53,6 +53,7 @@ export const vaultRoutes = new Elysia()
       }
     },
     {
+      detail: { tags: ['Vault'], summary: 'Read vault file content', description: 'Returns the content of a vault artifact file by relative path.' },
       query: t.Object({
         path: t.Optional(t.String()),
       }),
@@ -84,6 +85,7 @@ export const vaultRoutes = new Elysia()
       }
     },
     {
+      detail: { tags: ['Vault'], summary: 'Write vault file', description: 'Creates or overwrites a vault artifact file.' },
       body: t.Object({
         path: t.String(),
         content: t.String(),
@@ -116,6 +118,7 @@ export const vaultRoutes = new Elysia()
       }
     },
     {
+      detail: { tags: ['Vault'], summary: 'Delete vault file', description: 'Deletes a vault artifact file by relative path.' },
       body: t.Object({ path: t.String() }),
     }
   )
@@ -141,5 +144,8 @@ export const vaultRoutes = new Elysia()
         }
         throw err;
       }
+    },
+    {
+      detail: { tags: ['Vault'], summary: 'List vault file tree', description: 'Returns a tree listing of all files in the vault.' },
     }
   );

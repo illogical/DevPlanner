@@ -81,6 +81,7 @@ export const dispatchRoutes = (workspacePath: string) => {
         }
       },
       {
+        detail: { tags: ['Dispatch'], summary: 'Dispatch a card to AI', description: 'Dispatches a card to an AI coding agent via the specified adapter.' },
         body: t.Object({
           adapter: t.String(),
           model: t.Optional(t.String()),
@@ -99,6 +100,9 @@ export const dispatchRoutes = (workspacePath: string) => {
         const slug = resolved?.slug ?? cardSlug;
         const record = dispatchService.getCardDispatch(projectSlug, slug);
         return { dispatch: record ?? null };
+      },
+      {
+        detail: { tags: ['Dispatch'], summary: 'Get card dispatch status', description: 'Returns the active dispatch record for a card, if any.' },
       }
     )
 
@@ -128,6 +132,9 @@ export const dispatchRoutes = (workspacePath: string) => {
           }
           throw err;
         }
+      },
+      {
+        detail: { tags: ['Dispatch'], summary: 'Cancel a dispatch', description: 'Cancels the active AI dispatch for a card.' },
       }
     )
 
@@ -144,11 +151,16 @@ export const dispatchRoutes = (workspacePath: string) => {
           return { events: [] };
         }
         return { events: dispatchService.getOutputBuffer(record.id) };
+      },
+      {
+        detail: { tags: ['Dispatch'], summary: 'Get dispatch output', description: 'Returns the output event buffer for an active card dispatch.' },
       }
     )
 
     // ── GET /api/dispatches (all active dispatches) ───────────────────────────
     .get('/api/dispatches', () => {
       return { dispatches: dispatchService.listActive() };
+    }, {
+      detail: { tags: ['Dispatch'], summary: 'List active dispatches', description: 'Returns all currently active AI dispatches across all projects.' },
     });
 };

@@ -30,7 +30,7 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { query: t.Object({ path: t.String() }) }
+    { detail: { tags: ['Vault Git'], summary: 'Get file git status', description: 'Returns the git status of a single vault file.' }, query: t.Object({ path: t.String() }) }
   )
   .post(
     '/api/vault/git/statuses',
@@ -45,7 +45,7 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { body: t.Object({ paths: t.Array(t.String()) }) }
+    { detail: { tags: ['Vault Git'], summary: 'Get batch file statuses', description: 'Returns git statuses for multiple vault files at once.' }, body: t.Object({ paths: t.Array(t.String()) }) }
   )
   .post(
     '/api/vault/git/stage',
@@ -60,7 +60,7 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { body: t.Object({ path: t.String() }) }
+    { detail: { tags: ['Vault Git'], summary: 'Stage a file', description: 'Stages a vault file for git commit.' }, body: t.Object({ path: t.String() }) }
   )
   .post(
     '/api/vault/git/unstage',
@@ -75,7 +75,7 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { body: t.Object({ path: t.String() }) }
+    { detail: { tags: ['Vault Git'], summary: 'Unstage a file', description: 'Unstages a vault file from the git index.' }, body: t.Object({ path: t.String() }) }
   )
   .post(
     '/api/vault/git/discard',
@@ -90,7 +90,7 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { body: t.Object({ path: t.String() }) }
+    { detail: { tags: ['Vault Git'], summary: 'Discard unstaged changes', description: 'Discards unstaged changes for a vault file.' }, body: t.Object({ path: t.String() }) }
   )
   .post(
     '/api/vault/git/commit',
@@ -105,7 +105,7 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { body: t.Object({ path: t.String(), message: t.String() }) }
+    { detail: { tags: ['Vault Git'], summary: 'Commit a file', description: 'Commits a staged vault file with the given message.' }, body: t.Object({ path: t.String(), message: t.String() }) }
   )
   .get(
     '/api/vault/git/diff',
@@ -121,7 +121,7 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { query: t.Object({ path: t.String(), mode: t.Union([t.Literal('working'), t.Literal('staged')]) }) }
+    { detail: { tags: ['Vault Git'], summary: 'Get file diff', description: 'Returns the git diff of a vault file in working or staged mode.' }, query: t.Object({ path: t.String(), mode: t.Union([t.Literal('working'), t.Literal('staged')]) }) }
   )
   .get(
     '/api/vault/git/show',
@@ -142,5 +142,5 @@ export const vaultGitRoutes = new Elysia()
         return err;
       }
     },
-    { query: t.Object({ path: t.String(), ref: t.String() }) }
+    { detail: { tags: ['Vault Git'], summary: 'Show file at ref', description: 'Returns the content of a vault file at a specific git ref.' }, query: t.Object({ path: t.String(), ref: t.String() }) }
   );

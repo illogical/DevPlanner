@@ -12,12 +12,14 @@ export const projectRoutes = (workspacePath: string) => {
   const worktreeService = new WorktreeService();
   const wsService = WebSocketService.getInstance();
 
-  return new Elysia({ prefix: '/api/projects' })
+  return new Elysia({ prefix: '/api/projects', detail: { tags: ['Projects'] } })
     .get('/', async ({ query }) => {
       const includeArchived = query.includeArchived === 'true';
       const projects = await projectService.listProjects(includeArchived);
 
       return { projects };
+    }, {
+      detail: { summary: 'List all projects', description: 'Returns all projects in the workspace. Archived projects are excluded by default.' },
     })
     .post(
       '/',
@@ -52,6 +54,7 @@ export const projectRoutes = (workspacePath: string) => {
         };
       },
       {
+        detail: { summary: 'Create a project', description: 'Creates a new project with default lane configuration.' },
         body: t.Object({
           name: t.String({ minLength: 1, maxLength: 100 }),
           description: t.Optional(t.String({ maxLength: 500 })),
@@ -61,6 +64,8 @@ export const projectRoutes = (workspacePath: string) => {
     .get('/:projectSlug', async ({ params }) => {
       const project = await projectService.getProject(params.projectSlug);
       return project;
+    }, {
+      detail: { summary: 'Get a project', description: 'Returns detailed information about a single project by slug.' },
     })
     .patch(
       '/:projectSlug',
@@ -112,6 +117,7 @@ export const projectRoutes = (workspacePath: string) => {
         return project;
       },
       {
+        detail: { summary: 'Update a project', description: 'Partially updates project configuration such as name, description, archived status, or repository path.' },
         body: t.Object({
           name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
           description: t.Optional(t.String({ maxLength: 500 })),
@@ -183,5 +189,7 @@ export const projectRoutes = (workspacePath: string) => {
           archived: true,
         };
       }
+    }, {
+      detail: { summary: 'Delete or archive a project', description: 'Soft-deletes (archives) a project by default. Use ?hard=true to permanently remove the project from disk.' },
     });
 };

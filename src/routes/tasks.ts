@@ -67,6 +67,7 @@ export const taskRoutes = (workspacePath: string) => {
         };
       },
       {
+        detail: { tags: ['Tasks'], summary: 'Add a task', description: 'Adds a new task to a card.' },
         body: t.Object({
           text: t.String({ minLength: 1, maxLength: 500 }),
         }),
@@ -177,6 +178,7 @@ export const taskRoutes = (workspacePath: string) => {
         };
       },
       {
+        detail: { tags: ['Tasks'], summary: 'Update or toggle a task', description: 'Updates a task text or toggles its checked state.' },
         body: t.Object({
           checked: t.Optional(t.Boolean()),
           text: t.Optional(t.String({ minLength: 1, maxLength: 500 })),
@@ -233,5 +235,8 @@ export const taskRoutes = (workspacePath: string) => {
         );
 
         return { tasks, taskProgress };
+      },
+      {
+        detail: { tags: ['Tasks'], summary: 'Delete a task', description: 'Removes a task from a card by index.' },
       }
     );};
