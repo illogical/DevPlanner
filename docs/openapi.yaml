@@ -737,11 +737,11 @@ paths:
         - Label slug: `slugify(label).toUpperCase()`
         - Result: `{timestamp}_{label-slug}.md`
 
-        File is written to: `{OBSIDIAN_VAULT_PATH}/{projectSlug}/{cardSlug}/{filename}`
+        File is written to: `{ARTIFACT_BASE_PATH}/{projectSlug}/{cardSlug}/{filename}`
 
-        A link is auto-created with the computed Obsidian viewer URL.
+        A link is auto-created with the computed artifact viewer URL.
 
-        **Requires** `OBSIDIAN_BASE_URL` and `OBSIDIAN_VAULT_PATH` in server `.env`.
+        **Requires** `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`.
       requestBody:
         required: true
         content:
@@ -802,8 +802,8 @@ paths:
                 notConfigured:
                   summary: Vault configuration missing
                   value:
-                    error: "OBSIDIAN_NOT_CONFIGURED"
-                    message: "Set OBSIDIAN_BASE_URL and OBSIDIAN_VAULT_PATH in .env to enable vault artifact creation."
+                    error: "ARTIFACT_NOT_CONFIGURED"
+                    message: "Set ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env to enable vault artifact creation."
                 invalidLabel:
                   summary: Label is empty
                   value:

@@ -478,7 +478,7 @@ Enable multiple named agents and users to identify themselves as assignees. An a
 
 ### Follow-up: Generic naming
 
-- [x] 21.24 Rename env vars `OBSIDIAN_BASE_URL`/`OBSIDIAN_VAULT_PATH` → `ARTIFACT_BASE_URL`/`ARTIFACT_BASE_PATH` across all code and docs (old names still accepted as deprecated fallback)
+- [x] 21.24 Rename env vars `OBSIDIAN_BASE_URL`/`OBSIDIAN_VAULT_PATH` → `ARTIFACT_BASE_URL`/`ARTIFACT_BASE_PATH` across all code and docs
 
 ---
 

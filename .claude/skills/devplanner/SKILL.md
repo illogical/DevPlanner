@@ -215,7 +215,6 @@ PATCH /projects/{slug}/cards/{card}
 Write Markdown files directly to the artifact vault. The API automatically writes the file and attaches a link to your card.
 
 **Requires** `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`.
-(Legacy names `OBSIDIAN_BASE_URL` / `OBSIDIAN_VAULT_PATH` still work but are deprecated.)
 
 ### Canonical Workflow
 
@@ -266,7 +265,7 @@ POST /projects/{slug}/cards/{card}/artifacts
 
 The `link.url` is portable and shareable. Use it in references, messages, and cross-references.
 
-**Error 400 `OBSIDIAN_NOT_CONFIGURED`**: Set `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in `.env`.
+**Error 400 `ARTIFACT_NOT_CONFIGURED`**: Set `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in `.env`.
 
 ## NEVER
 
@@ -293,7 +292,7 @@ The `link.url` is portable and shareable. Use it in references, messages, and cr
 | 409 DUPLICATE_LINK            | URL already on this card           | GET card, find existing link in `frontmatter.links`, PATCH label/kind only — never include `url` in recovery body |
 | 400 INVALID_URL               | URL missing or not http/https      | Ensure URL starts with `http://` or `https://`                             |
 | 400 INVALID_LABEL             | Label is empty or whitespace       | Provide a meaningful display label                                         |
-| 400 OBSIDIAN_NOT_CONFIGURED   | Missing env vars for vault         | Set `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`          |
+| 400 ARTIFACT_NOT_CONFIGURED   | Missing env vars for artifact storage | Set `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`       |
 | API unreachable               | Server not running                 | Ask user to run `bun run dev` in DevPlanner directory                      |
 
 ## Lanes

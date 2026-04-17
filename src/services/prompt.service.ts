@@ -104,10 +104,8 @@ export class PromptService {
    */
   private async buildArtifactSection(card: Card): Promise<string> {
     const links = card.frontmatter.links ?? [];
-    const artifactBasePath =
-      process.env.ARTIFACT_BASE_PATH ?? process.env.OBSIDIAN_VAULT_PATH;
-    const artifactBaseUrl =
-      process.env.ARTIFACT_BASE_URL ?? process.env.OBSIDIAN_BASE_URL;
+    const artifactBasePath = process.env.ARTIFACT_BASE_PATH;
+    const artifactBaseUrl = process.env.ARTIFACT_BASE_URL;
 
     if (links.length === 0 || !artifactBasePath || !artifactBaseUrl) {
       return '';

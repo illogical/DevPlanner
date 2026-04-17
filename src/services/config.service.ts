@@ -49,17 +49,8 @@ export class ConfigService {
     // Load optional DEVPLANNER_BACKUP_DIR, default to _backups inside workspace
     this.backupDir = process.env.DEVPLANNER_BACKUP_DIR ?? join(workspacePath, '_backups');
 
-    // Load artifact base URL and path — new names preferred, old OBSIDIAN_* names accepted as fallback
-    const artifactBaseUrl = process.env.ARTIFACT_BASE_URL || process.env.OBSIDIAN_BASE_URL;
-    const artifactBasePath = process.env.ARTIFACT_BASE_PATH || process.env.OBSIDIAN_VAULT_PATH;
-    if (process.env.OBSIDIAN_BASE_URL && !process.env.ARTIFACT_BASE_URL) {
-      console.warn('Warning: OBSIDIAN_BASE_URL is deprecated. Rename it to ARTIFACT_BASE_URL in your .env file.');
-    }
-    if (process.env.OBSIDIAN_VAULT_PATH && !process.env.ARTIFACT_BASE_PATH) {
-      console.warn('Warning: OBSIDIAN_VAULT_PATH is deprecated. Rename it to ARTIFACT_BASE_PATH in your .env file.');
-    }
-    this.artifactBaseUrl = artifactBaseUrl?.trimEnd() || undefined;
-    this.artifactBasePath = artifactBasePath?.trimEnd() || undefined;
+    this.artifactBaseUrl = process.env.ARTIFACT_BASE_URL?.trimEnd() || undefined;
+    this.artifactBasePath = process.env.ARTIFACT_BASE_PATH?.trimEnd() || undefined;
   }
 
   /**

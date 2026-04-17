@@ -33,8 +33,8 @@ export default async function globalSetup() {
   const envContent = [
     `PORT=17103`,
     `DEVPLANNER_WORKSPACE=${process.env.DEVPLANNER_WORKSPACE ?? path.join(vaultDir, '_kanban')}`,
-    `OBSIDIAN_VAULT_PATH=${vaultDir}`,
-    `OBSIDIAN_BASE_URL=http://localhost:17103/test-view`,
+    `ARTIFACT_BASE_PATH=${vaultDir}`,
+    `ARTIFACT_BASE_URL=http://localhost:17103/test-view`,
     `DISABLE_FILE_WATCHER=true`,
     `WEBSOCKET_HEARTBEAT_ENABLED=false`,
   ].join('\n');

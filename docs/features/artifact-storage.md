@@ -1,30 +1,30 @@
-# Obsidian Vault Integration
+# Artifact Storage
 
 ## Overview
 
-DevPlanner's file storage system has been replaced with Obsidian Vault integration. Instead of storing artifact files in a `_files/` directory with a JSON manifest, files are written directly to the Obsidian Vault and referenced via the existing Links system.
+DevPlanner's file storage system replaced the old `_files/` directory with an external artifact storage system. Files are written directly to a configurable path on disk and referenced via the existing Links system.
 
 ## Key Design Decisions
 
-### Separate Workspace and Vault Paths
+### Separate Workspace and Artifact Paths
 
-`DEVPLANNER_WORKSPACE` is the kanban data directory (cards, lane metadata). It remains independent of the Obsidian Vault.
+`DEVPLANNER_WORKSPACE` is the kanban data directory (cards, lane metadata). It remains independent of artifact storage.
 
-`OBSIDIAN_VAULT_PATH` is the Obsidian Vault subfolder where artifact files are written. This is the folder whose path prefix is already included in `OBSIDIAN_BASE_URL`.
+`ARTIFACT_BASE_PATH` is the folder where artifact files are written. This is the folder whose path prefix is already included in `ARTIFACT_BASE_URL`.
 
 ```
 DEVPLANNER_WORKSPACE=C:\SynologyDrive\Drive\Development\AgentKanbanWorkspace
-OBSIDIAN_VAULT_PATH=C:\SynologyDrive\OpenClaw\notes\AgentVault\10-Projects
-OBSIDIAN_BASE_URL=https://vaultpad.bangus-city.ts.net/view?path=10-Projects
+ARTIFACT_BASE_PATH=C:\SynologyDrive\OpenClaw\notes\AgentVault\10-Projects
+ARTIFACT_BASE_URL=https://vaultpad.bangus-city.ts.net/view?path=10-Projects
 ```
 
-`OBSIDIAN_BASE_URL` already includes the vault subfolder prefix (`10-Projects`) that corresponds to `OBSIDIAN_VAULT_PATH`. Links are constructed by appending the URL-encoded relative path from `OBSIDIAN_VAULT_PATH`.
+`ARTIFACT_BASE_URL` already includes the subfolder prefix (`10-Projects`) that corresponds to `ARTIFACT_BASE_PATH`. Links are constructed by appending the URL-encoded relative path from `ARTIFACT_BASE_PATH`.
 
 ### Artifact File Path Structure
 
 ```
-{OBSIDIAN_VAULT_PATH}/
-└── {project-slug}/            ← per-project folder inside vault
+{ARTIFACT_BASE_PATH}/
+└── {project-slug}/            ← per-project folder
     └── {card-slug}/           ← per-card artifact folder (created on demand)
         └── {TIMESTAMP}_{LABEL-SLUG}.md   ← artifact file (LABEL-SLUG is UPPERCASE)
 ```
@@ -33,13 +33,13 @@ OBSIDIAN_BASE_URL=https://vaultpad.bangus-city.ts.net/view?path=10-Projects
 - Project: `hex`
 - Card: `my-feature-card`
 - Label: `"Implementation Spec"`
-- Path: `{OBSIDIAN_VAULT_PATH}/hex/my-feature-card/2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md`
+- Path: `{ARTIFACT_BASE_PATH}/hex/my-feature-card/2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md`
 
 ### URL Construction
 
 ```ts
-const relativePath = path.relative(vaultPath, filePath).replace(/\\/g, '/');
-const url = `${obsidianBaseUrl}%2F${encodeURIComponent(relativePath)}`;
+const relativePath = path.relative(basePath, filePath).replace(/\\/g, '/');
+const url = `${artifactBaseUrl}%2F${encodeURIComponent(relativePath)}`;
 // → https://vaultpad.bangus-city.ts.net/view?path=10-Projects%2Fhex%2Fmy-feature-card%2F2026-03-05_14-00-00_IMPLEMENTATION-SPEC.md
 ```
 
@@ -53,7 +53,7 @@ const url = `${obsidianBaseUrl}%2F${encodeURIComponent(relativePath)}`;
 
 ### Links System
 
-Vault artifacts are tracked via the existing Links system on the card. No new link `kind` was added — callers use existing kinds (`doc`, `spec`, `ticket`, `repo`, `reference`, `other`).
+Artifacts are tracked via the existing Links system on the card. No new link `kind` was added — callers use existing kinds (`doc`, `spec`, `ticket`, `repo`, `reference`, `other`).
 
 ---
 
@@ -61,11 +61,11 @@ Vault artifacts are tracked via the existing Links system on the card. No new li
 
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
-| `DEVPLANNER_WORKSPACE` | Yes | `C:\...\AgentKanbanWorkspace` | Kanban data directory (cards, lane metadata). Separate from the vault. |
-| `OBSIDIAN_VAULT_PATH` | Optional* | `C:\...\AgentVault\10-Projects` | Obsidian vault subfolder where artifact files are written. *Required for vault artifact creation. |
-| `OBSIDIAN_BASE_URL` | Optional* | `https://vaultpad.../view?path=10-Projects` | Base URL including vault subfolder prefix. *Required for vault artifact creation. |
+| `DEVPLANNER_WORKSPACE` | Yes | `C:\...\AgentKanbanWorkspace` | Kanban data directory (cards, lane metadata). Separate from artifact storage. |
+| `ARTIFACT_BASE_PATH` | Optional* | `C:\...\AgentVault\10-Projects` | Folder where artifact files are written. *Required for artifact creation. |
+| `ARTIFACT_BASE_URL` | Optional* | `https://vaultpad.../view?path=10-Projects` | Base URL including subfolder prefix. *Required for artifact creation. |
 
-Both `OBSIDIAN_VAULT_PATH` and `OBSIDIAN_BASE_URL` must be set together. The path segment in `OBSIDIAN_BASE_URL` must correspond to the final folder segment of `OBSIDIAN_VAULT_PATH` — they both reference the same vault subfolder from different perspectives (filesystem vs HTTP).
+Both `ARTIFACT_BASE_PATH` and `ARTIFACT_BASE_URL` must be set together. The path segment in `ARTIFACT_BASE_URL` must correspond to the final folder segment of `ARTIFACT_BASE_PATH` — they both reference the same folder from different perspectives (filesystem vs HTTP).
 
 ---
 
@@ -73,7 +73,7 @@ Both `OBSIDIAN_VAULT_PATH` and `OBSIDIAN_BASE_URL` must be set together. The pat
 
 ### POST /api/projects/:projectSlug/cards/:cardSlug/artifacts
 
-Creates a Markdown file in the Obsidian Vault and attaches a link to the card.
+Creates a Markdown file in the artifact storage path and attaches a link to the card.
 
 **Request body:**
 ```json
@@ -104,7 +104,7 @@ Creates a Markdown file in the Obsidian Vault and attaches a link to the card.
 ```
 
 **Error responses:**
-- `400 OBSIDIAN_NOT_CONFIGURED` — `OBSIDIAN_BASE_URL` or `OBSIDIAN_VAULT_PATH` is not set
+- `400 ARTIFACT_NOT_CONFIGURED` — `ARTIFACT_BASE_URL` or `ARTIFACT_BASE_PATH` is not set
 - `400 INVALID_LABEL` — Label is empty or whitespace
 - `404` — Project or card not found
 - `409 DUPLICATE_LINK` — A link with this URL already exists on the card
@@ -115,7 +115,7 @@ Creates a Markdown file in the Obsidian Vault and attaches a link to the card.
 
 ### create_vault_artifact
 
-Writes a Markdown file to the Obsidian Vault and attaches a link to the card.
+Writes a Markdown file to the artifact storage path and attaches a link to the card.
 
 **Replaces:** `add_file_to_card`, `list_project_files`, `list_card_files`, `read_file_content`
 
@@ -143,7 +143,7 @@ The Links section (`CardLinks`) now includes an "Upload File" button alongside "
 - Label field (pre-filled from filename without extension, editable)
 - Kind selector (same options as the URL link form)
 
-On save, the file content is read client-side and sent to `POST /artifacts`. If `OBSIDIAN_BASE_URL` is not configured, a friendly error message is shown.
+On save, the file content is read client-side and sent to `POST /artifacts`. If `ARTIFACT_BASE_URL` is not configured, a friendly error message is shown.
 
 ---
 

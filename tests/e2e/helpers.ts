@@ -1,6 +1,6 @@
 /**
  * Thin wrappers around the backend API for use in Playwright tests.
- * All paths are relative to OBSIDIAN_VAULT_PATH on the server.
+ * All paths are relative to ARTIFACT_BASE_PATH on the server.
  */
 
 const API = 'http://localhost:17103/api/vault';
