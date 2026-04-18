@@ -187,17 +187,39 @@ async function handleListCards(input: ListCardsInput): Promise<ListCardsOutput> 
   };
 }
 
+async function resolveCardRef(input: { cardId?: string; projectSlug?: string; cardSlug?: string }): Promise<{ projectSlug: string; cardSlug: string }> {
+  const { cardService, projectService } = getServices();
+  if (input.cardId) {
+    const projects = await projectService.listProjects();
+    for (const project of projects) {
+      const cards = await cardService.listCards(project.slug);
+      const match = cards.find(c => c.cardId?.toLowerCase() === input.cardId!.toLowerCase());
+      if (match) return { projectSlug: project.slug, cardSlug: match.slug };
+    }
+    throw new MCPError(
+      'CARD_NOT_FOUND',
+      `No card found with ID "${input.cardId}".`,
+      [{ action: 'Call list_cards with a projectSlug to see card IDs', reason: 'The card ID may be incorrect or use a different prefix' }]
+    );
+  }
+  if (input.projectSlug && input.cardSlug) {
+    return { projectSlug: input.projectSlug, cardSlug: input.cardSlug };
+  }
+  throw new MCPError(
+    'INVALID_INPUT',
+    'Provide either cardId (e.g. "HE2-2") or both projectSlug and cardSlug.',
+    [{ action: 'Call get_card with cardId: "HE2-2"', reason: 'cardId is the preferred way to reference a card' }]
+  );
+}
+
 async function handleGetCard(input: GetCardInput): Promise<GetCardOutput> {
+  const { projectSlug, cardSlug } = await resolveCardRef(input);
   try {
-    const card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+    const card = await getServices().cardService.getCard(projectSlug, cardSlug);
     return { card };
   } catch (error) {
-    const allCards = await getServices().cardService.listCards(input.projectSlug);
-    throw cardNotFoundError(
-      input.cardSlug,
-      input.projectSlug,
-      allCards.map(c => c.slug)
-    );
+    const allCards = await getServices().cardService.listCards(projectSlug);
+    throw cardNotFoundError(cardSlug, projectSlug, allCards.map(c => c.slug));
   }
 }
 
@@ -215,6 +237,7 @@ async function handleCreateCard(input: CreateCardInput): Promise<CreateCardOutpu
   const card = await getServices().cardService.createCard(input.projectSlug, {
     title: input.title,
     lane: input.lane || '01-upcoming',
+    description: input.description,
     priority: input.priority,
     assignee: input.assignee,
     tags: input.tags,
@@ -226,19 +249,17 @@ async function handleCreateCard(input: CreateCardInput): Promise<CreateCardOutpu
 }
 
 async function handleUpdateCard(input: UpdateCardInput): Promise<UpdateCardOutput> {
+  const { projectSlug, cardSlug } = await resolveCardRef(input);
   try {
-    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+    await getServices().cardService.getCard(projectSlug, cardSlug);
   } catch (error) {
-    const allCards = await getServices().cardService.listCards(input.projectSlug);
-    throw cardNotFoundError(
-      input.cardSlug,
-      input.projectSlug,
-      allCards.map(c => c.slug)
-    );
+    const allCards = await getServices().cardService.listCards(projectSlug);
+    throw cardNotFoundError(cardSlug, projectSlug, allCards.map(c => c.slug));
   }
 
-  const card = await getServices().cardService.updateCard(input.projectSlug, input.cardSlug, {
+  const card = await getServices().cardService.updateCard(projectSlug, cardSlug, {
     title: input.title,
+    description: input.description,
     status: input.status,
     priority: input.priority,
     assignee: input.assignee,
@@ -691,7 +712,7 @@ async function handleGetCardContext(input: GetCardContextInput): Promise<CardCon
 
     for (const project of projects) {
       const cards = await cardService.listCards(project.slug);
-      const match = cards.find(c => c.cardId === input.cardId);
+      const match = cards.find(c => c.cardId?.toLowerCase() === input.cardId!.toLowerCase());
       if (match) {
         resolvedProjectSlug = project.slug;
         resolvedCardSlug = match.slug;

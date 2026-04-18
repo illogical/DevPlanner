@@ -80,16 +80,20 @@ export const LIST_CARDS_SCHEMA = {
 export const GET_CARD_SCHEMA = {
   type: 'object',
   properties: {
+    cardId: {
+      type: 'string',
+      description: 'Card ID (e.g. "HE2-2", "DEV-42", "dev42"). Case-insensitive, dash optional for letter-only prefixes. Scans all projects — no projectSlug needed.',
+    },
     projectSlug: {
       type: 'string',
-      description: 'Project identifier',
+      description: 'Project identifier. Required when cardSlug is used instead of cardId.',
     },
     cardSlug: {
       type: 'string',
-      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
+      description: 'Card slug (e.g. "feature-auth") or card ID within a known project.',
     },
   },
-  required: ['projectSlug', 'cardSlug'],
+  required: [],
 } as const;
 
 export const CREATE_CARD_SCHEMA = {
@@ -123,6 +127,10 @@ export const CREATE_CARD_SCHEMA = {
       items: { type: 'string' },
       description: 'Tags for categorization',
     },
+    description: {
+      type: 'string',
+      description: 'Short card summary (1–5 sentences)',
+    },
     content: {
       type: 'string',
       description: 'Markdown content for the card body',
@@ -139,17 +147,25 @@ export const CREATE_CARD_SCHEMA = {
 export const UPDATE_CARD_SCHEMA = {
   type: 'object',
   properties: {
+    cardId: {
+      type: 'string',
+      description: 'Card ID (e.g. "HE2-2", "DEV-42", "dev42"). Case-insensitive, dash optional for letter-only prefixes. Scans all projects — no projectSlug needed.',
+    },
     projectSlug: {
       type: 'string',
-      description: 'Project identifier',
+      description: 'Project identifier. Required when cardSlug is used instead of cardId.',
     },
     cardSlug: {
       type: 'string',
-      description: 'Card slug (e.g. "feature-auth") or card ID (e.g. "DEV-42", "dev42"). Case-insensitive for IDs.',
+      description: 'Card slug (e.g. "feature-auth") or card ID within a known project.',
     },
     title: {
       type: 'string',
       description: 'New card title',
+    },
+    description: {
+      type: ['string', 'null'],
+      description: 'Short card summary (1–5 sentences). Use null to clear.',
     },
     status: {
       type: ['string', 'null'],
@@ -172,7 +188,7 @@ export const UPDATE_CARD_SCHEMA = {
       description: 'Tags. Use null to clear all tags',
     },
   },
-  required: ['projectSlug', 'cardSlug'],
+  required: [],
 } as const;
 
 export const MOVE_CARD_SCHEMA = {

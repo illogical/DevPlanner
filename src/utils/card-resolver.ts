@@ -3,8 +3,13 @@ import { join } from 'path';
 import { ALL_LANES } from '../constants';
 import { MarkdownService } from '../services/markdown.service';
 
-/** Regex matching card IDs: DEV-42, dev42, dev-42, DEV42 */
-const CARD_ID_REGEX = /^([A-Za-z]+)-?(\d+)$/;
+/**
+ * Matches card IDs with optional dash and case-insensitive prefix.
+ * - With dash: prefix may include digits (e.g. HE2-2, DEV-42, dev-42)
+ * - Without dash: prefix must be letters only (e.g. DEV42, dev42)
+ * Groups: [1,2] used for dash form; [3,4] used for dashless form.
+ */
+const CARD_ID_REGEX = /^(?:([A-Za-z][A-Za-z0-9]*)-(\d+)|([A-Za-z]+)(\d+))$/;
 
 export interface CardLaneResult {
   lane: string;
@@ -45,7 +50,7 @@ export async function resolveCardRef(
     return null;
   }
 
-  const cardNumber = parseInt(idMatch[2], 10);
+  const cardNumber = parseInt(idMatch[2] ?? idMatch[4], 10);
 
   for (const laneName of ALL_LANES) {
     const lanePath = join(projectPath, laneName);

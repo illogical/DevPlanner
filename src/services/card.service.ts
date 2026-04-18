@@ -500,6 +500,9 @@ export class CardService {
 
       frontmatter.updated = new Date().toISOString();
       frontmatter.version = (frontmatter.version ?? 1) + 1;
+      if (/complete/i.test(targetLane) && frontmatter.status) {
+        delete frontmatter.status;
+      }
       const updatedContent = MarkdownService.serialize(frontmatter, content);
 
       // Ensure target lane directory exists

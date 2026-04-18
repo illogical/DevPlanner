@@ -60,7 +60,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'get_card',
-        description: 'Get full details of a specific card including content and tasks.',
+        description: 'Get full details of a specific card including content and tasks. Accepts cardId (e.g. "HE2-2") or projectSlug+cardSlug.',
         inputSchema: (await import('./mcp/schemas.js')).GET_CARD_SCHEMA,
       },
       {
@@ -70,7 +70,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'update_card',
-        description: 'Update card metadata (title, status, priority, assignee, tags).',
+        description: 'Update card metadata (title, description, status, priority, assignee, tags). Accepts cardId (e.g. "HE2-2") or projectSlug+cardSlug.',
         inputSchema: (await import('./mcp/schemas.js')).UPDATE_CARD_SCHEMA,
       },
       {

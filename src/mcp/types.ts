@@ -36,14 +36,16 @@ export interface ListCardsInput {
 }
 
 export interface GetCardInput {
-  projectSlug: string;
-  cardSlug: string;
+  cardId?: string;
+  projectSlug?: string;
+  cardSlug?: string;
 }
 
 export interface CreateCardInput {
   projectSlug: string;
   title: string;
   lane?: string;
+  description?: string;
   priority?: 'low' | 'medium' | 'high';
   assignee?: 'user' | 'agent';
   tags?: string[];
@@ -52,9 +54,11 @@ export interface CreateCardInput {
 }
 
 export interface UpdateCardInput {
-  projectSlug: string;
-  cardSlug: string;
+  cardId?: string;
+  projectSlug?: string;
+  cardSlug?: string;
   title?: string;
+  description?: string | null;
   status?: 'in-progress' | 'blocked' | 'review' | 'testing' | null;
   priority?: 'low' | 'medium' | 'high' | null;
   assignee?: 'user' | 'agent' | null;
