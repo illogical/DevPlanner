@@ -59,7 +59,7 @@ export const artifactRoutes = (workspacePath: string) => {
         try {
           const { link, filePath } = await vaultService.createArtifact(
             params.projectSlug,
-            params.cardSlug,
+            card.slug,
             body.label,
             body.kind ?? 'doc',
             body.content

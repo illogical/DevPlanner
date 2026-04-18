@@ -661,8 +661,9 @@ async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promi
     );
   }
 
+  let card;
   try {
-    await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
+    card = await getServices().cardService.getCard(input.projectSlug, input.cardSlug);
   } catch (error) {
     const allCards = await getServices().cardService.listCards(input.projectSlug);
     throw cardNotFoundError(input.cardSlug, input.projectSlug, allCards.map(c => c.slug));
@@ -673,7 +674,7 @@ async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promi
   try {
     const { link, filePath } = await vaultService.createArtifact(
       input.projectSlug,
-      input.cardSlug,
+      card.slug,
       input.label,
       input.kind ?? 'doc',
       input.content
