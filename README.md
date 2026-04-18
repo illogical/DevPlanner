@@ -300,6 +300,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
     "devplanner": {
       "command": "bun",
       "args": ["run", "mcp"],
+      "cwd": "/absolute/path/to/DevPlanner",
       "env": {
         "DEVPLANNER_WORKSPACE": "/absolute/path/to/workspace"
       }
@@ -309,6 +310,46 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 ```
 
 Then restart Claude Desktop. The AI will have access to all DevPlanner tools and can manage projects, cards, and tasks directly.
+
+> **Env var note:** The `env` block is **additive** — entries merge with the spawned process's inherited environment (think overrides). The project's `.env` file is only auto-loaded by Bun when `cwd` resolves to the DevPlanner project root, so it's best to set required variables explicitly in the `env` block rather than relying on `.env` auto-loading.
+
+### Using with Remote Agents (HTTP Gateway)
+
+If your agent runs on a separate machine, it cannot spawn a stdio process on a different host. The solution is to run **supergateway** as a sidecar on the DevPlanner server. It wraps the stdio MCP server and exposes it as an HTTP/SSE endpoint that any remote MCP client can reach.
+
+#### Start the gateway
+
+```bash
+# Locally (reads env from the current shell / .env in project root)
+bun run mcp:http
+```
+
+The gateway listens on port `17104` and exposes `/sse` (SSE transport).
+
+#### Docker Compose (recommended)
+
+The `mcp-gateway` service is included in `docker-compose.yml` and starts automatically alongside the main DevPlanner service:
+
+```bash
+docker compose up
+```
+
+Both services share the same workspace volume and environment variables from `.env`.
+
+#### Hermes agent config
+
+```yaml
+mcp_servers:
+  devplanner:
+    url: "http://<your-server-hostname>:17104/sse"
+    enabled: true
+```
+
+Replace `<your-server-hostname>` with the server's Tailscale hostname, local IP, or domain name. No `env` block is needed — variables are injected on the server side.
+
+> For the newer Streamable HTTP transport, add `--streamableHttp` to the gateway command in `docker-compose.yml` and connect to `/mcp` instead of `/sse`.
+
+See [docs/features/mcp-http-gateway.md](docs/features/mcp-http-gateway.md) for full details and verification steps.
 
 ### Example Agent Workflow
 

@@ -15,6 +15,7 @@
     "verify:concurrency": "bun scripts/verify-concurrency.ts",
     "demo:e2e": "bun scripts/e2e-demo.ts",
     "mcp": "bun src/mcp-server.ts",
+    "mcp:http": "bunx supergateway --stdio 'bun src/mcp-server.ts' --port 17104 --logLevel info",
     "migrate:card-ids": "bun scripts/migrate-card-ids.ts",
     "backup": "bun scripts/backup.ts",
     "test:e2e": "playwright test",

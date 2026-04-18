@@ -34,3 +34,17 @@ services:
       NODE_ENV: production
       DISABLE_FILE_WATCHER: "${DISABLE_FILE_WATCHER:-false}"
     restart: unless-stopped
+
+  mcp-gateway:
+    build: .
+    command: ["bunx", "supergateway", "--stdio", "bun src/mcp-server.ts", "--port", "17104", "--logLevel", "info"]
+    ports:
+      - "17104:17104"
+    volumes:
+      - "${DEVPLANNER_WORKSPACE:-./workspace}:/workspace"
+    environment:
+      DEVPLANNER_WORKSPACE: /workspace
+      NODE_ENV: production
+      ARTIFACT_BASE_URL: "${ARTIFACT_BASE_URL:-}"
+      ARTIFACT_BASE_PATH: "${ARTIFACT_BASE_PATH:-}"
+    restart: unless-stopped
