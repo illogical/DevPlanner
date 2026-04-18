@@ -104,6 +104,7 @@ export const artifactRoutes = (workspacePath: string) => {
         }
       },
       {
+        detail: { tags: ['Artifacts'], summary: 'Create a vault artifact', description: 'Creates a new vault artifact file and attaches it as a link to the card.' },
         body: t.Object({
           label: t.String({ minLength: 1 }),
           content: t.String({ minLength: 1 }),

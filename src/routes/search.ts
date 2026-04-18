@@ -36,5 +36,7 @@ export const searchRoutes = (workspacePath: string) => {
         query: searchQuery,
         projectsSearched: projectsToSearch.map(p => p.slug),
       };
+    }, {
+      detail: { tags: ['Search'], summary: 'Search across all projects', description: 'Searches cards, tasks, tags, and links across all non-archived projects.' },
     });
 };

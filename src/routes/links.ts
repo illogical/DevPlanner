@@ -86,6 +86,7 @@ export const linkRoutes = (workspacePath: string) => {
         }
       },
       {
+        detail: { tags: ['Links'], summary: 'Add a link', description: 'Adds a URL link to a card.' },
         body: t.Object({
           label: t.String({ minLength: 1, maxLength: 200 }),
           url: t.String({ minLength: 1 }),
@@ -146,6 +147,7 @@ export const linkRoutes = (workspacePath: string) => {
         }
       },
       {
+        detail: { tags: ['Links'], summary: 'Update a link', description: 'Updates an existing link on a card.' },
         body: t.Object({
           label: t.Optional(t.String({ minLength: 1, maxLength: 200 })),
           url: t.Optional(t.String({ minLength: 1 })),
@@ -197,6 +199,9 @@ export const linkRoutes = (workspacePath: string) => {
           }
           throw err;
         }
+      },
+      {
+        detail: { tags: ['Links'], summary: 'Delete a link', description: 'Removes a link from a card.' },
       }
     );
 };

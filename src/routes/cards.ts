@@ -230,6 +230,8 @@ export const cardRoutes = (workspacePath: string) => {
       const staleDays = !isNaN(parsedStaleDays) && parsedStaleDays >= 0 ? parsedStaleDays : undefined;
       const cards = await cardService.listCards(params.projectSlug, query.lane, since, staleDays);
       return { cards };
+    }, {
+      detail: { tags: ['Cards'], summary: 'List cards', description: 'Lists all cards for a project, optionally filtered by lane.' },
     })
     .post(
       '/api/projects/:projectSlug/cards',
@@ -275,6 +277,7 @@ export const cardRoutes = (workspacePath: string) => {
         return card;
       },
       {
+        detail: { tags: ['Cards'], summary: 'Create a card', description: 'Creates a new card in the specified project and lane.' },
         body: t.Object({
           title: t.String({ minLength: 1, maxLength: 200 }),
           description: t.Optional(t.String({ maxLength: 500 })),
@@ -305,6 +308,8 @@ export const cardRoutes = (workspacePath: string) => {
         }
       }
       return { tags: Array.from(tagSet).sort() };
+    }, {
+      detail: { tags: ['Cards'], summary: 'List project tags', description: 'Returns all unique tags used across cards in a project.' },
     })
     .get('/api/projects/:projectSlug/cards/search', async ({ params, query }) => {
       const searchQuery = query.q?.trim();
@@ -354,6 +359,8 @@ export const cardRoutes = (workspacePath: string) => {
       }
 
       return { results, query: searchQuery };
+    }, {
+      detail: { tags: ['Search'], summary: 'Search cards in project', description: 'Searches cards within a project by title and task text.' },
     })
     .get('/api/projects/:projectSlug/search', async ({ params, query }) => {
       const searchQuery = query.q?.trim();
@@ -366,10 +373,14 @@ export const cardRoutes = (workspacePath: string) => {
         cardService
       );
       return { results, query: searchQuery };
+    }, {
+      detail: { tags: ['Search'], summary: 'Palette search in project', description: 'Searches cards, tags, tasks, and links within a project for the command palette.' },
     })
     .get('/api/projects/:projectSlug/cards/:cardSlug', async ({ params }) => {
       const card = await cardService.getCard(params.projectSlug, params.cardSlug);
       return card;
+    }, {
+      detail: { tags: ['Cards'], summary: 'Get a card', description: 'Returns full card details including tasks, links, and content.' },
     })
     .delete('/api/projects/:projectSlug/cards/:cardSlug', async ({ params, query }) => {
       // Get card info before deletion
@@ -451,6 +462,8 @@ export const cardRoutes = (workspacePath: string) => {
           archived: true,
         };
       }
+    }, {
+      detail: { tags: ['Cards'], summary: 'Delete or archive a card', description: 'Archives a card by default, or permanently deletes it with ?hard=true.' },
     })
     .patch(
       '/api/projects/:projectSlug/cards/:cardSlug/move',
@@ -525,6 +538,7 @@ export const cardRoutes = (workspacePath: string) => {
         return card;
       },
       {
+        detail: { tags: ['Cards'], summary: 'Move a card', description: 'Moves a card to a different lane with optional position.' },
         body: t.Object({
           lane: t.String(),
           position: t.Optional(t.Number()),
@@ -560,6 +574,7 @@ export const cardRoutes = (workspacePath: string) => {
         };
       },
       {
+        detail: { tags: ['Cards'], summary: 'Reorder cards in a lane', description: 'Sets the display order of cards within a lane.' },
         body: t.Object({
           order: t.Array(t.String()),
         }),
@@ -649,6 +664,7 @@ export const cardRoutes = (workspacePath: string) => {
         return card;
       },
       {
+        detail: { tags: ['Cards'], summary: 'Update a card', description: 'Partially updates card fields such as title, description, status, priority, or lane.' },
         body: t.Object({
           title: t.Optional(t.String({ minLength: 1, maxLength: 200 })),
           description: t.Optional(t.Union([t.String({ maxLength: 500 }), t.Null()])),

@@ -63,6 +63,9 @@ export const statsRoutes = (workspacePath: string) => {
         backlogDepth,
         blockedCount,
       };
+    },
+    {
+      detail: { tags: ['Stats'], summary: 'Get project stats', description: 'Returns completion, WIP, backlog, and blocked statistics for a project.' },
     }
   );
 };

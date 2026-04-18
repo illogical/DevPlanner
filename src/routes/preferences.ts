@@ -4,10 +4,12 @@ import { PreferencesService } from '../services/preferences.service';
 export const preferencesRoutes = (workspacePath: string) => {
   const preferencesService = new PreferencesService(workspacePath);
 
-  return new Elysia({ prefix: '/api/preferences' })
+  return new Elysia({ prefix: '/api/preferences', detail: { tags: ['Preferences'] } })
     .get('/', async () => {
       const preferences = await preferencesService.getPreferences();
       return preferences;
+    }, {
+      detail: { summary: 'Get preferences', description: 'Returns the current user preferences.' },
     })
     .patch(
       '/',
@@ -16,6 +18,7 @@ export const preferencesRoutes = (workspacePath: string) => {
         return preferences;
       },
       {
+        detail: { summary: 'Update preferences', description: 'Partially updates user preferences.' },
         body: t.Object({
           lastSelectedProject: t.Optional(t.Union([t.String(), t.Null()])),
           digestAnchor: t.Optional(t.Union([t.String(), t.Null()])),
