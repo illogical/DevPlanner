@@ -9,9 +9,11 @@ DevPlanner's MCP server uses stdio transport — the MCP client must spawn it as
 | Mode | Flag | Endpoint | Clients |
 |------|------|----------|---------|
 | SSE (legacy) | _(default)_ | `/sse` | Claude Desktop, older MCP clients |
-| Streamable HTTP | `--streamableHttp` | `/mcp` | Hermes (`mcp.client.streamable_http`), modern MCP clients |
+| Streamable HTTP | `--outputTransport streamableHttp` | `/mcp` | Hermes (`mcp.client.streamable_http`), modern MCP clients |
 
-Hermes uses `mcp.client.streamable_http` internally — **SSE is not supported**. The gateway must run in `--streamableHttp` mode.
+Hermes uses `mcp.client.streamable_http` internally — **SSE is not supported**. The gateway must use `--outputTransport streamableHttp`.
+
+> **supergateway flag gotcha:** `--streamableHttp` is an *input* flag meaning "connect TO a remote streamable HTTP server". The *output* transport is set with `--outputTransport streamableHttp`.
 
 ## Implementation
 
@@ -21,10 +23,17 @@ Bun auto-loads `.env` from the project root, so `DEVPLANNER_WORKSPACE` and other
 
 ```bash
 bun run mcp:http
-# runs: bunx supergateway --stdio "bun src/mcp-server.ts" --port 17104 --streamableHttp --logLevel info
 ```
 
-The gateway starts on port `17104`. Keep the terminal open — the process must stay running for Hermes to connect.
+Expected output:
+```
+[devplanner] MCP HTTP gateway starting on port 17104
+[devplanner] Streamable HTTP endpoint: http://localhost:17104/mcp
+[devplanner] Note: supergateway may also log an SSE endpoint — use /mcp for Hermes
+[supergateway] ...
+```
+
+supergateway may log `SSE endpoint: .../sse` regardless of transport mode — ignore it. The `/mcp` endpoint is what Hermes connects to. Keep the terminal open — the process must stay running.
 
 ### Docker Compose (optional, for server deployments)
 
