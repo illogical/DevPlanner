@@ -401,7 +401,7 @@ Check **Auto-create Pull Request** in the dispatch modal to run `gh pr create` a
 
 ## API Overview
 
-All endpoints are under `/api` and return JSON.
+All endpoints are under `/api` and return JSON. Interactive API documentation is available at [`/swagger`](http://localhost:17103/swagger) when the server is running (auto-generated from route definitions via [Scalar](https://scalar.com)). The raw OpenAPI 3.0 JSON spec is served at [`/swagger/json`](http://localhost:17103/swagger/json).
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -452,7 +452,7 @@ All endpoints are under `/api` and return JSON.
 | `GET` | `/api/projects/:slug/cards/:card/dispatch/output` | Get buffered agent output for an active dispatch |
 | `GET` | `/api/dispatches` | List all currently active dispatches |
 
-See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules.
+See [SPECIFICATION.md](docs/SPECIFICATION.md) for full API contracts, request/response schemas, and validation rules. For an interactive view, visit `/swagger` when the server is running.
 
 ## Features
 

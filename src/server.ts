@@ -177,6 +177,7 @@ app.listen(port);
 
 console.log(`🚀 DevPlanner server running at http://localhost:${port}`);
 console.log(`📁 Workspace: ${workspacePath}`);
+console.log(`📖 API docs: http://localhost:${port}/swagger`);
 
 // Graceful shutdown handler
 const shutdown = () => {
