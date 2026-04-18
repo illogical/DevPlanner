@@ -338,16 +338,18 @@ Both services share the same workspace volume and environment variables from `.e
 
 #### Hermes agent config
 
+Hermes uses `mcp.client.streamable_http` internally — connect to the `/mcp` endpoint:
+
 ```yaml
 mcp_servers:
   devplanner:
-    url: "http://<your-server-hostname>:17104/sse"
+    url: "http://<your-server-hostname>:17104/mcp"
     enabled: true
 ```
 
 Replace `<your-server-hostname>` with the server's Tailscale hostname, local IP, or domain name. No `env` block is needed — variables are injected on the server side.
 
-> For the newer Streamable HTTP transport, add `--streamableHttp` to the gateway command in `docker-compose.yml` and connect to `/mcp` instead of `/sse`.
+> The gateway runs in `--streamableHttp` mode by default. If you need SSE for another client (e.g. Claude Desktop connecting remotely), remove `--streamableHttp` from the command — the endpoint becomes `/sse`.
 
 See [docs/features/mcp-http-gateway.md](docs/features/mcp-http-gateway.md) for full details and verification steps.
 

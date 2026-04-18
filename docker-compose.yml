@@ -37,7 +37,7 @@ services:
 
   mcp-gateway:
     build: .
-    command: ["bunx", "supergateway", "--stdio", "bun src/mcp-server.ts", "--port", "17104", "--logLevel", "info"]
+    command: ["bunx", "supergateway", "--stdio", "bun src/mcp-server.ts", "--port", "17104", "--streamableHttp", "--logLevel", "info"]
     ports:
       - "17104:17104"
     volumes:
