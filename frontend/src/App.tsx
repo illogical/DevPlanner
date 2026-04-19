@@ -10,6 +10,7 @@ import { DiffViewerPage } from './pages/DiffViewerPage';
 import { ViewerPage } from './pages/ViewerPage';
 import { EditorPage } from './pages/EditorPage';
 import { useStore } from './store';
+import { ToastContainer } from './components/ui/Toast';
 
 function KanbanApp() {
   const {
@@ -115,6 +116,7 @@ function App() {
         <Route path="/editor" element={<EditorPage />} />
         <Route path="*" element={<KanbanApp />} />
       </Routes>
+      <ToastContainer />
     </AppShell>
   );
 }

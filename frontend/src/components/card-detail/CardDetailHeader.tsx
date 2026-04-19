@@ -5,6 +5,7 @@ import { useStore } from '../../store';
 import { DispatchModal } from '../dispatch/DispatchModal';
 import { DispatchStatus } from '../dispatch/DispatchStatus';
 import { AgentOutputPanel } from '../dispatch/AgentOutputPanel';
+import { showToast } from '../ui/Toast';
 import type { Card } from '../../types';
 
 interface CardDetailHeaderProps {
@@ -143,7 +144,29 @@ export function CardDetailHeader({ card, onClose }: CardDetailHeaderProps) {
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             {cardId && (
-              <span className="text-sm text-gray-500 font-mono">{cardId}</span>
+              <span
+                className="text-sm text-gray-500 font-mono cursor-pointer hover:text-gray-300 transition-colors select-none"
+                title="Click to copy ID"
+                onClick={() => {
+                  const copy = (text: string) => {
+                    if (navigator.clipboard) {
+                      return navigator.clipboard.writeText(text);
+                    }
+                    const el = document.createElement('textarea');
+                    el.value = text;
+                    el.style.position = 'fixed';
+                    el.style.opacity = '0';
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    return Promise.resolve();
+                  };
+                  copy(cardId).then(() => showToast(`Copied ${cardId} to clipboard`));
+                }}
+              >
+                {cardId}
+              </span>
             )}
             {isEditingTitle ? (
               <input
