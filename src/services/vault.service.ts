@@ -28,11 +28,13 @@ export class VaultService {
   private vaultPath: string;
   private artifactBaseUrl: string;
   private linkService: LinkService;
+  private browserBasePath: string;
 
-  constructor(workspacePath: string, vaultPath: string, artifactBaseUrl: string) {
+  constructor(workspacePath: string, vaultPath: string, artifactBaseUrl: string, browserBasePath?: string) {
     this.vaultPath = vaultPath;
     this.artifactBaseUrl = artifactBaseUrl;
     this.linkService = new LinkService(workspacePath);
+    this.browserBasePath = browserBasePath ?? vaultPath;
   }
 
   /**
@@ -45,8 +47,8 @@ export class VaultService {
       throw { error: 'INVALID_PATH', message: 'Path parameter is required and must not be empty.' };
     }
 
-    const resolvedVault = resolve(this.vaultPath);
-    const resolvedFile = resolve(this.vaultPath, relativePath);
+    const resolvedVault = resolve(this.browserBasePath);
+    const resolvedFile = resolve(this.browserBasePath, relativePath);
 
     if (!resolvedFile.startsWith(resolvedVault + path.sep) && resolvedFile !== resolvedVault) {
       throw { error: 'INVALID_PATH', message: 'Path traversal detected. Path must be within the vault directory.' };
@@ -67,8 +69,8 @@ export class VaultService {
     if (!relativePath || relativePath.trim() === '') {
       throw { error: 'INVALID_PATH', message: 'Path parameter is required and must not be empty.' };
     }
-    const resolvedVault = resolve(this.vaultPath);
-    const resolvedFile = resolve(this.vaultPath, relativePath);
+    const resolvedVault = resolve(this.browserBasePath);
+    const resolvedFile = resolve(this.browserBasePath, relativePath);
     if (!resolvedFile.startsWith(resolvedVault + path.sep) && resolvedFile !== resolvedVault) {
       throw { error: 'INVALID_PATH', message: 'Path traversal detected. Path must be within the vault directory.' };
     }
@@ -86,8 +88,8 @@ export class VaultService {
     if (!relativePath || relativePath.trim() === '') {
       throw { error: 'INVALID_PATH', message: 'Path parameter is required and must not be empty.' };
     }
-    const resolvedVault = resolve(this.vaultPath);
-    const resolvedFile = resolve(this.vaultPath, relativePath);
+    const resolvedVault = resolve(this.browserBasePath);
+    const resolvedFile = resolve(this.browserBasePath, relativePath);
     if (!resolvedFile.startsWith(resolvedVault + path.sep) && resolvedFile !== resolvedVault) {
       throw { error: 'INVALID_PATH', message: 'Path traversal detected. Path must be within the vault directory.' };
     }
@@ -96,7 +98,7 @@ export class VaultService {
   }
 
   async listTree(): Promise<{ folders: TreeFolder[]; errors: TreeError[] }> {
-    const resolvedVault = resolve(this.vaultPath);
+    const resolvedVault = resolve(this.browserBasePath);
     const folders: TreeFolder[] = [];
     const errors: TreeError[] = [];
 
@@ -190,8 +192,9 @@ export class VaultService {
     // Write file content
     await Bun.write(filePath, content);
 
-    // Compute artifact URL by appending the relative path to the base URL's path param
-    const relativePath = path.relative(this.vaultPath, filePath).replace(/\\/g, '/');
+    // Compute artifact URL by appending the relative path to the base URL's path param.
+    // Use browserBasePath as the base so URLs are relative to the full vault root when set.
+    const relativePath = path.relative(this.browserBasePath, filePath).replace(/\\/g, '/');
     const urlObj = new URL(this.artifactBaseUrl);
     const basePath = urlObj.searchParams.get('path') ?? '';
     urlObj.searchParams.set('path', basePath ? `${basePath}/${relativePath}` : relativePath);

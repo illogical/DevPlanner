@@ -54,7 +54,7 @@ export const artifactRoutes = (workspacePath: string) => {
           return { error: 'not_found', message: `Card not found: ${params.cardSlug}` };
         }
 
-        const vaultService = new VaultService(workspacePath, artifactBasePath, artifactBaseUrl);
+        const vaultService = new VaultService(workspacePath, artifactBasePath, artifactBaseUrl, config.fileBrowserBasePath);
 
         try {
           const { link, filePath } = await vaultService.createArtifact(

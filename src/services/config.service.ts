@@ -1,5 +1,5 @@
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { DEFAULT_PORT } from '../constants';
 
 /**
@@ -13,6 +13,7 @@ export class ConfigService {
   public readonly backupDir: string;
   public readonly artifactBaseUrl: string | undefined;
   public readonly artifactBasePath: string | undefined;
+  public readonly fileBrowserBasePath: string | undefined;
 
   private constructor() {
     // Load and validate DEVPLANNER_WORKSPACE
@@ -51,6 +52,20 @@ export class ConfigService {
 
     this.artifactBaseUrl = process.env.ARTIFACT_BASE_URL?.trimEnd() || undefined;
     this.artifactBasePath = process.env.ARTIFACT_BASE_PATH?.trimEnd() || undefined;
+    this.fileBrowserBasePath = process.env.FILE_BROWSER_BASE_PATH?.trimEnd() || undefined;
+
+    if (this.fileBrowserBasePath && this.artifactBasePath) {
+      const browserResolved = resolve(this.fileBrowserBasePath);
+      const artifactResolved = resolve(this.artifactBasePath);
+      const isSubdir =
+        artifactResolved.startsWith(browserResolved + '/') ||
+        artifactResolved.startsWith(browserResolved + '\\');
+      if (!isSubdir) {
+        console.warn(
+          `Warning: ARTIFACT_BASE_PATH (${this.artifactBasePath}) should be a subdirectory of FILE_BROWSER_BASE_PATH (${this.fileBrowserBasePath}). Artifact creation may write outside the browseable vault.`
+        );
+      }
+    }
   }
 
   /**

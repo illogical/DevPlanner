@@ -7,7 +7,7 @@ function requireVaultPath(): string {
   if (!config.artifactBasePath) {
     throw { error: 'ARTIFACT_NOT_CONFIGURED', message: 'Set ARTIFACT_BASE_PATH in .env to enable git operations.' };
   }
-  return config.artifactBasePath;
+  return config.fileBrowserBasePath ?? config.artifactBasePath;
 }
 
 function toStatus(err: unknown): number {

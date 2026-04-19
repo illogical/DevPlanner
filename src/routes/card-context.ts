@@ -22,7 +22,7 @@ export const cardContextRoutes = (workspacePath: string) => {
         const config = ConfigService.getInstance();
         const vaultService =
           config.artifactBasePath && config.artifactBaseUrl
-            ? new VaultService(workspacePath, config.artifactBasePath, config.artifactBaseUrl)
+            ? new VaultService(workspacePath, config.artifactBasePath, config.artifactBaseUrl, config.fileBrowserBasePath)
             : null;
 
         return await buildCardContext(card, vaultService, config.artifactBaseUrl ?? null);

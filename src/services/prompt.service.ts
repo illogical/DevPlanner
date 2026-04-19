@@ -106,6 +106,8 @@ export class PromptService {
     const links = card.frontmatter.links ?? [];
     const artifactBasePath = process.env.ARTIFACT_BASE_PATH;
     const artifactBaseUrl = process.env.ARTIFACT_BASE_URL;
+    const fileBrowserBasePath = process.env.FILE_BROWSER_BASE_PATH;
+    const vaultRoot = fileBrowserBasePath ?? artifactBasePath;
 
     if (links.length === 0 || !artifactBasePath || !artifactBaseUrl) {
       return '';
@@ -125,7 +127,12 @@ export class PromptService {
           urlObj.searchParams.get('path') ??
           urlObj.pathname.replace(/^\//, '');
         const relativePath = decodeURIComponent(pathParam);
-        const filePath = join(artifactBasePath, '..', relativePath);
+        // Prefer FILE_BROWSER_BASE_PATH as root; fall back to ARTIFACT_BASE_PATH for
+        // old-format paths that were created before FILE_BROWSER_BASE_PATH was set.
+        let filePath = join(vaultRoot!, relativePath);
+        if (fileBrowserBasePath && artifactBasePath !== fileBrowserBasePath && !existsSync(filePath)) {
+          filePath = join(artifactBasePath, relativePath);
+        }
 
         if (existsSync(filePath)) {
           const content = await readFile(filePath, 'utf-8');

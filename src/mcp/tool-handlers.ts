@@ -669,7 +669,7 @@ async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promi
     throw cardNotFoundError(input.cardSlug, input.projectSlug, allCards.map(c => c.slug));
   }
 
-  const vaultService = new VaultService(workspacePath, artifactBasePath, artifactBaseUrl);
+  const vaultService = new VaultService(workspacePath, artifactBasePath, artifactBaseUrl, ConfigService.getInstance().fileBrowserBasePath);
 
   try {
     const { link, filePath } = await vaultService.createArtifact(
@@ -754,10 +754,10 @@ async function handleGetCardContext(input: GetCardContextInput): Promise<CardCon
     throw cardNotFoundError(resolvedCardSlug!, resolvedProjectSlug!, allCards.map(c => c.slug));
   }
 
-  const { artifactBaseUrl, artifactBasePath, workspacePath } = config;
+  const { artifactBaseUrl, artifactBasePath, workspacePath, fileBrowserBasePath } = config;
   const vaultService =
     artifactBasePath && artifactBaseUrl
-      ? new VaultService(workspacePath, artifactBasePath, artifactBaseUrl)
+      ? new VaultService(workspacePath, artifactBasePath, artifactBaseUrl, fileBrowserBasePath)
       : null;
 
   return await buildCardContext(card, vaultService, artifactBaseUrl ?? null);

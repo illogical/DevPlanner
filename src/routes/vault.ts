@@ -19,7 +19,7 @@ export const vaultRoutes = new Elysia()
     '/api/vault/content',
     async ({ query, set }) => {
       const config = ConfigService.getInstance();
-      const { artifactBasePath } = config;
+      const { artifactBasePath, fileBrowserBasePath } = config;
 
       if (!artifactBasePath) {
         set.status = 400;
@@ -38,13 +38,25 @@ export const vaultRoutes = new Elysia()
         };
       }
 
-      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '', fileBrowserBasePath);
 
       try {
         const content = await vaultService.readArtifactContent(relativePath);
         set.headers['Content-Type'] = 'text/plain; charset=utf-8';
         return content;
       } catch (err: any) {
+        // Fallback for old artifact links whose paths are relative to ARTIFACT_BASE_PATH
+        // rather than FILE_BROWSER_BASE_PATH (created before FILE_BROWSER_BASE_PATH was set).
+        if (err?.error === 'FILE_NOT_FOUND' && fileBrowserBasePath && fileBrowserBasePath !== artifactBasePath) {
+          try {
+            const fallback = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+            const content = await fallback.readArtifactContent(relativePath);
+            set.headers['Content-Type'] = 'text/plain; charset=utf-8';
+            return content;
+          } catch {
+            // Fall through to return the original 404
+          }
+        }
         if (err?.error) {
           set.status = toHttpStatus(err.error);
           return err;
@@ -63,7 +75,7 @@ export const vaultRoutes = new Elysia()
     '/api/vault/file',
     async ({ body, set }) => {
       const config = ConfigService.getInstance();
-      const { artifactBasePath } = config;
+      const { artifactBasePath, fileBrowserBasePath } = config;
 
       if (!artifactBasePath) {
         set.status = 400;
@@ -71,7 +83,7 @@ export const vaultRoutes = new Elysia()
       }
 
       const { path: relativePath, content } = body;
-      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '', fileBrowserBasePath);
 
       try {
         await vaultService.writeArtifactContent(relativePath, content);
@@ -96,7 +108,7 @@ export const vaultRoutes = new Elysia()
     '/api/vault/file',
     async ({ body, set }) => {
       const config = ConfigService.getInstance();
-      const { artifactBasePath } = config;
+      const { artifactBasePath, fileBrowserBasePath } = config;
 
       if (!artifactBasePath) {
         set.status = 400;
@@ -104,7 +116,7 @@ export const vaultRoutes = new Elysia()
       }
 
       const { path: relativePath } = body;
-      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '', fileBrowserBasePath);
 
       try {
         await vaultService.deleteArtifactFile(relativePath);
@@ -126,14 +138,14 @@ export const vaultRoutes = new Elysia()
     '/api/vault/tree',
     async ({ set }) => {
       const config = ConfigService.getInstance();
-      const { artifactBasePath } = config;
+      const { artifactBasePath, fileBrowserBasePath } = config;
 
       if (!artifactBasePath) {
         set.status = 400;
         return { error: 'ARTIFACT_NOT_CONFIGURED', message: 'Set ARTIFACT_BASE_PATH in .env to enable vault tree listing.' };
       }
 
-      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '');
+      const vaultService = new VaultService('', artifactBasePath, config.artifactBaseUrl ?? '', fileBrowserBasePath);
 
       try {
         return await vaultService.listTree();
