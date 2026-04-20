@@ -60,6 +60,7 @@ export const createDocSlice: StateCreator<DevPlannerStore, [], [], DocSlice> = (
         docSaveState: 'saved',
       });
       get().refreshGitStatus(docFilePath);
+      get().loadFileTree(); // refresh mtime-based recent files list
       setTimeout(() => {
         if (get().docSaveState === 'saved') set({ docSaveState: 'idle' });
       }, 2000);

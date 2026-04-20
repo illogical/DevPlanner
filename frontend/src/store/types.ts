@@ -229,6 +229,7 @@ export interface FileBrowserSlice {
   fbActivePath: string;
   fbIsLoading: boolean;
   fbError: string | null;
+  recentFilesOpen: boolean;
 
   toggleFileBrowser: () => void;
   openFileBrowser: () => void;
@@ -237,6 +238,7 @@ export interface FileBrowserSlice {
   setFbActiveRoot: (root: string | null) => void;
   setFbActivePath: (path: string) => void;
   focusCurrentFile: () => void;
+  toggleRecentFiles: () => void;
 }
 
 // ─── Git Slice ───────────────────────────────────────────────────────────────

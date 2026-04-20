@@ -71,6 +71,7 @@ export function AppNavBar() {
   const {
     docFilePath,
     lastDocMode, setLastDocMode, toggleSidebar, isSidebarOpen,
+    recentFilesOpen, toggleRecentFiles,
   } = useStore();
 
   const getDocPath = () => {
@@ -161,6 +162,26 @@ export function AppNavBar() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Recent Files toggle — visible on Viewer/Editor, not Diff */}
+      {isDocView && !location.pathname.startsWith('/diff') && (
+        <button
+          onClick={toggleRecentFiles}
+          title={recentFilesOpen ? 'Hide recent files' : 'Show recent files'}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-2 text-sm rounded transition-colors mr-2',
+            recentFilesOpen
+              ? 'text-blue-400 bg-blue-900/20'
+              : 'text-gray-400 hover:text-gray-200'
+          )}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs">Recent</span>
+        </button>
+      )}
     </nav>
   );
 }

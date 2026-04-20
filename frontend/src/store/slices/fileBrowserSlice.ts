@@ -2,6 +2,16 @@ import type { StateCreator } from 'zustand';
 import type { DevPlannerStore, FileBrowserSlice } from '../types';
 import { vaultApi } from '../../api/client';
 
+const RECENT_FILES_STORAGE_KEY = 'devplanner.recentFilesOpen';
+
+function loadRecentFilesOpen(): boolean {
+  try {
+    const stored = localStorage.getItem(RECENT_FILES_STORAGE_KEY);
+    if (stored !== null) return stored === 'true';
+  } catch { /* ignore storage errors */ }
+  return true; // default: open
+}
+
 export const createFileBrowserSlice: StateCreator<DevPlannerStore, [], [], FileBrowserSlice> = (set, get) => ({
   fbIsOpen: false,
   fbFolders: [],
@@ -9,6 +19,7 @@ export const createFileBrowserSlice: StateCreator<DevPlannerStore, [], [], FileB
   fbActivePath: '',
   fbIsLoading: false,
   fbError: null,
+  recentFilesOpen: loadRecentFilesOpen(),
 
   toggleFileBrowser: () => set((s) => ({ fbIsOpen: !s.fbIsOpen })),
   openFileBrowser: () => set({ fbIsOpen: true }),
@@ -42,5 +53,11 @@ export const createFileBrowserSlice: StateCreator<DevPlannerStore, [], [], FileB
         return;
       }
     }
+  },
+
+  toggleRecentFiles: () => {
+    const next = !get().recentFilesOpen;
+    try { localStorage.setItem(RECENT_FILES_STORAGE_KEY, String(next)); } catch { /* ignore */ }
+    set({ recentFilesOpen: next });
   },
 });

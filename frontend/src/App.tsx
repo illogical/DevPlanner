@@ -11,14 +11,19 @@ import { ViewerPage } from './pages/ViewerPage';
 import { EditorPage } from './pages/EditorPage';
 import { useStore } from './store';
 import { ToastContainer } from './components/ui/Toast';
+import { useDocumentTitle } from './hooks/useDocumentTitle';
 
 function KanbanApp() {
   const {
+    projects,
     isActivityPanelOpen, setActivityPanelOpen,
     isPaletteOpen, openPalette, closePalette,
     activeProjectSlug, activeCard, isDetailPanelOpen,
     setActiveProject, openCardDetail, closeCardDetail,
   } = useStore();
+
+  const activeProjectName = projects.find(p => p.slug === activeProjectSlug)?.name ?? null;
+  useDocumentTitle(activeProjectName);
 
   const [searchParams, setSearchParams] = useSearchParams();
 

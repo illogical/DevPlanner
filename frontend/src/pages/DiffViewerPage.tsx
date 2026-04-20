@@ -10,6 +10,7 @@ import { vaultApi, gitApi } from '../api/client';
 import type { GitState } from '../api/client';
 import type { DiffLineData } from '../components/diff/DiffContent';
 import { useStore } from '../store';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 interface DiffViewerState {
   leftContent: string;
@@ -180,6 +181,13 @@ export function DiffViewerPage() {
 
   const { leftRef, rightRef, onScroll } = useSyncScroll(state.syncScroll);
   const { refreshGitStatus } = useStore();
+
+  // Dynamic tab title
+  const gitPath = searchParams.get('gitPath');
+  const manualFile = state.rightFilename || state.leftFilename;
+  const baseFile = gitPath ?? manualFile;
+  const diffFileName = baseFile ? baseFile.split('/').pop() ?? null : null;
+  useDocumentTitle(diffFileName);
   
   // Load left pane from ?left= URL param (manual mode)
   useEffect(() => {
@@ -320,7 +328,6 @@ export function DiffViewerPage() {
   }, [searchParams, setSearchParams]);
 
   // Derived git mode state
-  const gitPath = searchParams.get('gitPath');
   const availableModes = getAvailableModes(gitFileState, hasHead);
   const activeMode = getModeFromRefs(searchParams.get('leftRef'), searchParams.get('rightRef'));
   const showNoHeadBanner = !!gitPath && !hasHead && gitFileState !== null;
