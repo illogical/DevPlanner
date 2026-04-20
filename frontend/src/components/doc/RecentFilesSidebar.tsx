@@ -3,6 +3,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../../store';
 import { GitStatusDot } from './GitStatusDot';
 import { cn } from '../../utils/cn';
+import type { TreeFolder } from '../../store/types';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Return the top 10 most recently modified files across all folders. */
+function deriveRecentFiles(folders: TreeFolder[]) {
+  return folders
+    .flatMap((f) => f.files)
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 10);
+}
 
 // ─── Relative time formatting ────────────────────────────────────────────────
 
@@ -70,12 +81,7 @@ export function RecentFilesSidebar() {
   } = useStore();
 
   // Derive top 10 most recently modified files
-  const recentFiles = useMemo(() => {
-    const allFiles = fbFolders.flatMap((f) => f.files);
-    return allFiles
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 10);
-  }, [fbFolders]);
+  const recentFiles = useMemo(() => deriveRecentFiles(fbFolders), [fbFolders]);
 
   // Batch-refresh git statuses for all recent files when the list changes
   useEffect(() => {
@@ -94,7 +100,7 @@ export function RecentFilesSidebar() {
   // Refresh handler: reload file tree + git statuses
   const handleRefresh = useCallback(() => {
     loadFileTree().then(() => {
-      const paths = useStore.getState().fbFolders.flatMap((f) => f.files).map((f) => f.path).slice(0, 10);
+      const paths = deriveRecentFiles(useStore.getState().fbFolders).map((f) => f.path);
       if (paths.length > 0) refreshGitStatuses(paths);
     });
   }, [loadFileTree, refreshGitStatuses]);
