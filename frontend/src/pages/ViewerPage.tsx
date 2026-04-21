@@ -3,11 +3,15 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { MarkdownPreview } from '../components/doc/MarkdownPreview';
 import { DocEmptyState } from '../components/doc/DocEmptyState';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function ViewerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const filePath = searchParams.get('path');
+
+  const fileName = filePath ? filePath.split('/').pop() ?? null : null;
+  useDocumentTitle(fileName);
 
   const {
     docFilePath,

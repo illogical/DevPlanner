@@ -3,10 +3,14 @@ import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { EditorLayout } from '../components/doc/EditorLayout';
 import { DocEmptyState } from '../components/doc/DocEmptyState';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export function EditorPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const filePath = searchParams.get('path');
+
+  const fileName = filePath ? filePath.split('/').pop() ?? null : null;
+  useDocumentTitle(fileName);
 
   const {
     docFilePath,

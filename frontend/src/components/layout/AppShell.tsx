@@ -5,6 +5,7 @@ import { useStore } from '../../store';
 import { Header } from './Header';
 import { AppNavBar } from './AppNavBar';
 import { FileBrowserDrawer } from '../doc/FileBrowserDrawer';
+import { RecentFilesSidebar } from '../doc/RecentFilesSidebar';
 import { BottomBar } from './BottomBar';
 
 interface AppShellProps {
@@ -14,12 +15,16 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const { connectionState } = useWebSocket();
   const location = useLocation();
-  const { fbIsOpen, closeFileBrowser } = useStore();
+  const { fbIsOpen, closeFileBrowser, recentFilesOpen } = useStore();
 
   const isKanban =
     !location.pathname.startsWith('/viewer') &&
     !location.pathname.startsWith('/editor') &&
     !location.pathname.startsWith('/diff');
+
+  const isDocPage =
+    location.pathname.startsWith('/viewer') ||
+    location.pathname.startsWith('/editor');
 
   useEffect(() => {
     if (isKanban && fbIsOpen) {
@@ -31,8 +36,11 @@ export function AppShell({ children }: AppShellProps) {
     <div className="h-screen flex flex-col bg-gray-950 text-gray-100 overflow-hidden">
       <Header connectionState={connectionState} />
       <AppNavBar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {children}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+          {children}
+        </div>
+        {isDocPage && recentFilesOpen && <RecentFilesSidebar />}
       </div>
       {!isKanban && <BottomBar />}
       {!isKanban && <FileBrowserDrawer />}
