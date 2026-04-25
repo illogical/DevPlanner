@@ -40,6 +40,49 @@ function formatRelativeTime(isoString: string): string {
   return `${month} ${day}`;
 }
 
+type ParsedFileName = {
+  displayTitle: string;
+  readableTimestamp: string | null;
+};
+
+function parseTimestampedFileName(fileName: string): ParsedFileName {
+  const match = fileName.match(
+    /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})(?:-(\d{2}))?_(.+)$/
+  );
+
+  if (!match) {
+    return {
+      displayTitle: fileName,
+      readableTimestamp: null,
+    };
+  }
+
+  const [, year, month, day, hour, minute, second = '00', rawTitle] = match;
+  const parsedDate = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  );
+
+  const readableTimestamp = Number.isNaN(parsedDate.getTime())
+    ? `${year}-${month}-${day} ${hour}:${minute}`
+    : parsedDate.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+  return {
+    displayTitle: rawTitle.replace(/[_-]+/g, ' ').trim(),
+    readableTimestamp,
+  };
+}
+
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
 function CloseIcon() {
@@ -106,7 +149,7 @@ export function RecentFilesSidebar() {
   }, [loadFileTree, refreshGitStatuses]);
 
   return (
-    <aside className="w-60 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden shrink-0">
+    <aside className="w-80 lg:w-96 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700/50">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
@@ -144,6 +187,9 @@ export function RecentFilesSidebar() {
             ? file.path.substring(0, file.path.lastIndexOf('/'))
             : '';
           const gitState = gitStatuses[file.path];
+          const displayFolderPath = folderPath || '(root)';
+          const { displayTitle, readableTimestamp } = parseTimestampedFileName(file.name);
+          const fallbackTimestamp = `Updated ${formatRelativeTime(file.updatedAt)}`;
 
           return (
             <div
@@ -157,33 +203,30 @@ export function RecentFilesSidebar() {
               onClick={() => openFile(file.path)}
               title={file.path}
             >
-              {/* File name row — most visual weight */}
-              <div className="flex items-center gap-1.5">
-                <GitStatusDot state={gitState} className="shrink-0" />
-                <a
-                  href={`/viewer?path=${encodeURIComponent(file.path)}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    openFile(file.path);
-                  }}
-                  className={cn(
-                    'text-sm truncate font-medium',
-                    isActive ? 'text-blue-400' : 'text-gray-200 hover:text-blue-300'
-                  )}
-                  title={file.name}
-                >
-                  {file.name}
-                </a>
-              </div>
-
-              {/* Folder path + relative time — less visual weight */}
-              <div className="flex items-center justify-between mt-0.5 pl-3.5">
-                <span className="text-xs text-gray-500 truncate mr-2" title={folderPath}>
-                  {folderPath}
-                </span>
-                <span className="text-xs text-gray-500 shrink-0">
-                  {formatRelativeTime(file.updatedAt)}
-                </span>
+              <div className="flex gap-2">
+                <GitStatusDot state={gitState} className="shrink-0 self-center" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] text-gray-400 leading-snug">
+                    {readableTimestamp ?? fallbackTimestamp}
+                  </div>
+                  <a
+                    href={`/viewer?path=${encodeURIComponent(file.path)}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openFile(file.path);
+                    }}
+                    className={cn(
+                      'mt-0.5 block text-sm font-medium leading-snug break-all whitespace-normal',
+                      isActive ? 'text-blue-400' : 'text-gray-200 hover:text-blue-300'
+                    )}
+                    title={file.name}
+                  >
+                    {displayTitle}
+                  </a>
+                  <div className="mt-1 text-xs text-gray-500 leading-snug break-all whitespace-normal" title={displayFolderPath}>
+                    {displayFolderPath}
+                  </div>
+                </div>
               </div>
             </div>
           );
