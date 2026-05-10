@@ -283,7 +283,8 @@ The server communicates via stdin/stdout and provides:
 **Tools** for project management:
 - Core CRUD: `list_projects`, `get_project`, `create_project`, `list_cards`, `get_card`, `create_card`, `update_card`, `move_card`, `add_task`, `toggle_task`
 - Smart/Workflow: `get_board_overview`, `get_next_tasks`, `batch_update_tasks`, `search_cards`, `update_card_content`, `get_project_progress`, `archive_card`
-- Vault: `create_vault_artifact` — writes a Markdown file to the Obsidian Vault and attaches it as a link
+- Card Artifacts: `create_card_artifact` — writes a Markdown file and attaches it as a link; `resolve_card_artifact` — resolves any identifier to metadata; `read_card_artifact` — fetches content + hash; `update_card_artifact` — updates content/label/kind in place (viewer URL preserved; supports optimistic concurrency via `expectedHash`)
+- Context: `get_card_context` — full card context including linked artifact content
 
 **3 Resources** for read-only access:
 - `devplanner://projects` - List all projects

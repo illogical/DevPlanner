@@ -9,6 +9,8 @@ import { ProjectService } from '../services/project.service.js';
 import { CardService } from '../services/card.service.js';
 import { TaskService } from '../services/task.service.js';
 import { VaultService } from '../services/vault.service.js';
+import { LinkService } from '../services/link.service.js';
+import { CardArtifactService } from '../services/card-artifact.service.js';
 import { ConfigService } from '../services/config.service.js';
 
 import type {
@@ -48,6 +50,14 @@ import type {
   ArchiveCardOutput,
   CreateVaultArtifactInput,
   CreateVaultArtifactOutput,
+  CreateCardArtifactInput,
+  CreateCardArtifactOutput,
+  ResolveCardArtifactInput,
+  ResolveCardArtifactOutput,
+  ReadCardArtifactInput,
+  ReadCardArtifactOutput,
+  UpdateCardArtifactInput,
+  UpdateCardArtifactOutput,
   GetCardContextInput,
   LaneOverview,
   NextTask,
@@ -644,7 +654,7 @@ async function handleArchiveCard(input: ArchiveCardInput): Promise<ArchiveCardOu
 // Vault Artifact Tool Handler
 // ============================================================================
 
-async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promise<CreateVaultArtifactOutput> {
+async function handleCreateCardArtifact(input: CreateCardArtifactInput): Promise<CreateCardArtifactOutput> {
   const config = ConfigService.getInstance();
   const { artifactBaseUrl, artifactBasePath, workspacePath } = config;
 
@@ -693,6 +703,143 @@ async function handleCreateVaultArtifact(input: CreateVaultArtifactInput): Promi
     }
     throw err;
   }
+}
+
+/** @deprecated Use handleCreateCardArtifact */
+const handleCreateVaultArtifact = handleCreateCardArtifact;
+
+// ============================================================================
+// resolve_card_artifact, read_card_artifact, update_card_artifact
+// ============================================================================
+
+function makeCardArtifactService(config: ConfigService): CardArtifactService {
+  const { artifactBaseUrl, artifactBasePath, workspacePath, fileBrowserBasePath } = config;
+  if (!artifactBaseUrl || !artifactBasePath) {
+    throw new MCPError(
+      'ARTIFACT_NOT_CONFIGURED',
+      'Set ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env to enable artifact operations.',
+      [{ action: 'Add ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH to your .env file', reason: 'Both env vars are required' }]
+    );
+  }
+  const { cardService, projectService } = getServices();
+  const vaultService = new VaultService(workspacePath, artifactBasePath, artifactBaseUrl, fileBrowserBasePath);
+  const linkService = new LinkService(workspacePath);
+  return new CardArtifactService(vaultService, linkService, cardService, projectService, artifactBaseUrl);
+}
+
+function wrapArtifactError(err: any): never {
+  if (!err?.error) throw err;
+  const code: string = err.error;
+  const msg: string = err.message ?? code;
+  const suggestions: { action: string; reason: string }[] = [];
+
+  switch (code) {
+    case 'ARTIFACT_NOT_FOUND':
+      suggestions.push({ action: 'Call get_card_context to see attached links', reason: 'The artifact may not be attached to the expected card' });
+      if (err.available?.length) {
+        suggestions.push({ action: `Available artifact refs: ${(err.available as any[]).map((a: any) => a.linkId ?? a.label).join(', ')}`, reason: 'Use one of these as artifactRef' });
+      }
+      break;
+    case 'AMBIGUOUS_ARTIFACT_REF':
+      suggestions.push({ action: 'Use a link ID (UUID) as artifactRef for unambiguous resolution', reason: 'Multiple artifacts match the given label' });
+      if (err.candidates?.length) {
+        suggestions.push({ action: `Candidates: ${(err.candidates as any[]).map((c: any) => `${c.label} (${c.linkId})`).join(', ')}`, reason: 'Pick the correct link ID and retry' });
+      }
+      break;
+    case 'ARTIFACT_CONFLICT':
+      suggestions.push({ action: 'Call read_card_artifact to get the current content and hash', reason: 'The file was modified since you last read it' });
+      if (err.currentHash) suggestions.push({ action: `Current hash: ${err.currentHash}`, reason: 'Use this as expectedHash in your next update call' });
+      break;
+    case 'UNSUPPORTED_ARTIFACT_SOURCE':
+      suggestions.push({ action: 'Only local card artifacts (hosted via ARTIFACT_BASE_URL) are supported for read/update', reason: 'External URLs cannot be read or written by DevPlanner' });
+      break;
+    default:
+      suggestions.push({ action: 'Check the error details', reason: msg });
+  }
+
+  throw new MCPError(code, msg, suggestions);
+}
+
+async function handleResolveCardArtifact(input: ResolveCardArtifactInput): Promise<ResolveCardArtifactOutput> {
+  const config = ConfigService.getInstance();
+  const svc = makeCardArtifactService(config);
+  let resolved;
+  try {
+    resolved = await svc.resolveCardArtifact(input, false);
+  } catch (err) {
+    wrapArtifactError(err);
+  }
+  return {
+    card: { projectSlug: resolved!.projectSlug, cardSlug: resolved!.cardSlug, cardId: resolved!.cardId, title: resolved!.cardTitle },
+    link: { id: resolved!.link.id, label: resolved!.link.label, kind: resolved!.link.kind, url: resolved!.link.url, createdAt: resolved!.link.createdAt, updatedAt: resolved!.link.updatedAt },
+    artifact: { path: resolved!.relativePath, hash: resolved!.hash, sizeBytes: resolved!.sizeBytes, lineCount: resolved!.lineCount },
+  };
+}
+
+async function handleReadCardArtifact(input: ReadCardArtifactInput): Promise<ReadCardArtifactOutput> {
+  const config = ConfigService.getInstance();
+  const svc = makeCardArtifactService(config);
+  let resolved;
+  try {
+    resolved = await svc.resolveCardArtifact(input, true);
+  } catch (err) {
+    wrapArtifactError(err);
+  }
+  return {
+    card: { projectSlug: resolved!.projectSlug, cardSlug: resolved!.cardSlug, cardId: resolved!.cardId, title: resolved!.cardTitle },
+    link: { id: resolved!.link.id, label: resolved!.link.label, kind: resolved!.link.kind, url: resolved!.link.url, createdAt: resolved!.link.createdAt, updatedAt: resolved!.link.updatedAt },
+    artifact: { path: resolved!.relativePath, hash: resolved!.hash, sizeBytes: resolved!.sizeBytes, lineCount: resolved!.lineCount, content: resolved!.content! },
+  };
+}
+
+async function handleUpdateCardArtifact(input: UpdateCardArtifactInput): Promise<UpdateCardArtifactOutput> {
+  const config = ConfigService.getInstance();
+  const svc = makeCardArtifactService(config);
+
+  if (!input.content && !input.label && !input.kind) {
+    throw new MCPError(
+      'INVALID_INPUT',
+      'Provide at least one of: content, label, kind.',
+      [{ action: 'Add content, label, or kind to your input', reason: 'Nothing to update' }]
+    );
+  }
+
+  let resolved;
+  try {
+    resolved = await svc.resolveCardArtifact({
+      url: input.url,
+      cardId: input.cardId,
+      projectSlug: input.projectSlug,
+      cardSlug: input.cardSlug,
+      artifactRef: input.artifactRef,
+    }, false);
+  } catch (err) {
+    wrapArtifactError(err);
+  }
+
+  let result;
+  try {
+    result = await svc.updateCardArtifact({
+      projectSlug: resolved!.projectSlug,
+      cardSlug: resolved!.cardSlug,
+      cardId: resolved!.cardId,
+      link: resolved!.link,
+      relativePath: resolved!.relativePath,
+      content: input.content,
+      label: input.label,
+      kind: input.kind,
+      expectedHash: input.expectedHash,
+    });
+  } catch (err) {
+    wrapArtifactError(err);
+  }
+
+  return {
+    ok: true,
+    card: { projectSlug: result!.projectSlug, cardSlug: result!.cardSlug, cardId: result!.cardId },
+    link: { id: result!.link.id, label: result!.link.label, kind: result!.link.kind, url: result!.link.url, updatedAt: result!.link.updatedAt },
+    artifact: { path: result!.relativePath, hash: result!.hash, updatedAt: result!.updatedAt },
+  };
 }
 
 // ============================================================================
@@ -785,6 +932,10 @@ export const toolHandlers: Record<string, (input: any) => Promise<any>> = {
   update_card_content: handleUpdateCardContent,
   get_project_progress: handleGetProjectProgress,
   archive_card: handleArchiveCard,
-  create_vault_artifact: handleCreateVaultArtifact,
+  create_card_artifact: handleCreateCardArtifact,
+  create_vault_artifact: handleCreateVaultArtifact, // deprecated alias
+  resolve_card_artifact: handleResolveCardArtifact,
+  read_card_artifact: handleReadCardArtifact,
+  update_card_artifact: handleUpdateCardArtifact,
   get_card_context: handleGetCardContext,
 };

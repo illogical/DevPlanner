@@ -5,6 +5,7 @@ import { projectRoutes } from './routes/projects';
 import { cardRoutes } from './routes/cards';
 import { taskRoutes } from './routes/tasks'; // task edit/delete support
 import { artifactRoutes } from './routes/artifacts';
+import { cardArtifactRoutes } from './routes/card-artifacts';
 import { linkRoutes } from './routes/links';
 import { preferencesRoutes } from './routes/preferences';
 import { websocketRoutes } from './routes/websocket';
@@ -136,6 +137,7 @@ const app = new Elysia()
   .use(taskRoutes(workspacePath))
   .use(linkRoutes(workspacePath))
   .use(artifactRoutes(workspacePath))
+  .use(cardArtifactRoutes(workspacePath))
   .use(preferencesRoutes(workspacePath))
   .use(websocketRoutes)
   .use(historyRoutes)

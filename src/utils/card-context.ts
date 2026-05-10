@@ -34,8 +34,10 @@ export interface CardContextResult {
  * Extracts the relative vault path from a vault artifact URL.
  * Vault URLs are constructed as: `${artifactBaseUrl}%2F${encodeURIComponent(relativePath)}`
  * Returns null if the URL doesn't start with the base URL.
+ *
+ * Exported for use by CardArtifactService — do not duplicate this logic elsewhere.
  */
-function extractVaultPath(url: string, artifactBaseUrl: string): string | null {
+export function extractVaultPath(url: string, artifactBaseUrl: string): string | null {
   if (!url.startsWith(artifactBaseUrl)) return null;
   const suffix = url.slice(artifactBaseUrl.length);
   const decoded = decodeURIComponent(suffix);

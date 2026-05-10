@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, stat, unlink } from 'fs/promises';
 import { join, resolve } from 'path';
 import * as path from 'path';
+import { createHash } from 'crypto';
 import { slugify } from '../utils/slug';
 import { LinkService } from './link.service';
 import type { CardLink } from '../types';
@@ -156,6 +157,31 @@ export class VaultService {
     await scanDir(resolvedVault, null);
     folders.sort((a, b) => a.path.localeCompare(b.path));
     return { folders, errors };
+  }
+
+  /**
+   * Compute a SHA-256 hash of UTF-8 content. Returns "sha256:{hex}".
+   * Used for optional optimistic concurrency checks on artifact updates.
+   */
+  computeContentHash(content: string): string {
+    return 'sha256:' + createHash('sha256').update(content, 'utf-8').digest('hex');
+  }
+
+  /**
+   * Return file metadata for a vault artifact without necessarily returning the full content.
+   * Reads the file once, so use readArtifactContent directly if you also need the content.
+   */
+  async getArtifactMetadata(relativePath: string): Promise<{
+    hash: string;
+    sizeBytes: number;
+    lineCount: number;
+  }> {
+    const content = await this.readArtifactContent(relativePath);
+    return {
+      hash: this.computeContentHash(content),
+      sizeBytes: Buffer.byteLength(content, 'utf-8'),
+      lineCount: content.split('\n').length,
+    };
   }
 
   /**

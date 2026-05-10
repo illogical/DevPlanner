@@ -419,9 +419,9 @@ export const GET_CARD_CONTEXT_SCHEMA = {
   },
 } as const;
 
-// Vault Artifact Tool Schema
+// Card Artifact Tool Schemas
 
-export const CREATE_VAULT_ARTIFACT_SCHEMA = {
+export const CREATE_CARD_ARTIFACT_SCHEMA = {
   type: 'object',
   properties: {
     projectSlug: {
@@ -448,4 +448,102 @@ export const CREATE_VAULT_ARTIFACT_SCHEMA = {
     },
   },
   required: ['projectSlug', 'cardSlug', 'label', 'content'],
+} as const;
+
+/** @deprecated Use create_card_artifact */
+export const CREATE_VAULT_ARTIFACT_SCHEMA = CREATE_CARD_ARTIFACT_SCHEMA;
+
+export const RESOLVE_CARD_ARTIFACT_SCHEMA = {
+  type: 'object',
+  properties: {
+    url: {
+      type: 'string',
+      description: 'Viewer/editor URL for the artifact (most precise identifier).',
+    },
+    cardId: {
+      type: 'string',
+      description: 'Card identifier (e.g. "HE-42"). Scans all projects.',
+    },
+    projectSlug: {
+      type: 'string',
+      description: 'Project slug. Use with cardSlug.',
+    },
+    cardSlug: {
+      type: 'string',
+      description: 'Card slug or card ID. Use with projectSlug.',
+    },
+    artifactRef: {
+      type: 'string',
+      description: 'Disambiguator when the card has multiple artifacts: link ID (UUID, most stable), vault path, or unique label.',
+    },
+  },
+} as const;
+
+export const READ_CARD_ARTIFACT_SCHEMA = {
+  type: 'object',
+  properties: {
+    url: {
+      type: 'string',
+      description: 'Viewer/editor URL for the artifact (most precise identifier).',
+    },
+    cardId: {
+      type: 'string',
+      description: 'Card identifier (e.g. "HE-42"). Scans all projects.',
+    },
+    projectSlug: {
+      type: 'string',
+      description: 'Project slug. Use with cardSlug.',
+    },
+    cardSlug: {
+      type: 'string',
+      description: 'Card slug or card ID. Use with projectSlug.',
+    },
+    artifactRef: {
+      type: 'string',
+      description: 'Disambiguator when the card has multiple artifacts: link ID (UUID, most stable), vault path, or unique label.',
+    },
+  },
+} as const;
+
+export const UPDATE_CARD_ARTIFACT_SCHEMA = {
+  type: 'object',
+  properties: {
+    url: {
+      type: 'string',
+      description: 'Viewer/editor URL for the artifact (most precise identifier).',
+    },
+    cardId: {
+      type: 'string',
+      description: 'Card identifier (e.g. "HE-42"). Scans all projects.',
+    },
+    projectSlug: {
+      type: 'string',
+      description: 'Project slug. Use with cardSlug.',
+    },
+    cardSlug: {
+      type: 'string',
+      description: 'Card slug or card ID. Use with projectSlug.',
+    },
+    artifactRef: {
+      type: 'string',
+      description: 'Disambiguator when the card has multiple artifacts: link ID (UUID, most stable), vault path, or unique label.',
+    },
+    content: {
+      type: 'string',
+      description: 'New UTF-8 markdown content for the artifact file. The viewer URL is preserved.',
+    },
+    label: {
+      type: 'string',
+      description: 'New display label for the link.',
+    },
+    kind: {
+      type: 'string',
+      enum: ['doc', 'spec', 'ticket', 'repo', 'reference', 'other'],
+      description: 'New link kind.',
+    },
+    expectedHash: {
+      type: 'string',
+      description: 'Optimistic concurrency: the sha256:... hash from the prior read_card_artifact call. If the file has changed since, the update is rejected with ARTIFACT_CONFLICT.',
+    },
+  },
 } as const;

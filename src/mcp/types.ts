@@ -288,9 +288,9 @@ export interface GetCardContextInput {
   cardSlug?: string;
 }
 
-// Vault Artifact Tool
+// Card Artifact Tools
 
-export interface CreateVaultArtifactInput {
+export interface CreateCardArtifactInput {
   projectSlug: string;
   cardSlug: string;
   label: string;
@@ -298,7 +298,7 @@ export interface CreateVaultArtifactInput {
   kind?: 'doc' | 'spec' | 'ticket' | 'repo' | 'reference' | 'other';
 }
 
-export interface CreateVaultArtifactOutput {
+export interface CreateCardArtifactOutput {
   link: {
     id: string;
     label: string;
@@ -308,6 +308,107 @@ export interface CreateVaultArtifactOutput {
     updatedAt: string;
   };
   filePath: string;
+}
+
+/** @deprecated Use CreateCardArtifactInput */
+export type CreateVaultArtifactInput = CreateCardArtifactInput;
+/** @deprecated Use CreateCardArtifactOutput */
+export type CreateVaultArtifactOutput = CreateCardArtifactOutput;
+
+export interface ResolveCardArtifactInput {
+  url?: string;
+  cardId?: string;
+  projectSlug?: string;
+  cardSlug?: string;
+  artifactRef?: string;
+}
+
+export interface ResolveCardArtifactOutput {
+  card: {
+    projectSlug: string;
+    cardSlug: string;
+    cardId: string | null;
+    title: string;
+  };
+  link: {
+    id: string;
+    label: string;
+    kind: string;
+    url: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  artifact: {
+    path: string;
+    hash: string;
+    sizeBytes: number;
+    lineCount: number;
+  };
+}
+
+export interface ReadCardArtifactInput {
+  url?: string;
+  cardId?: string;
+  projectSlug?: string;
+  cardSlug?: string;
+  artifactRef?: string;
+}
+
+export interface ReadCardArtifactOutput {
+  card: {
+    projectSlug: string;
+    cardSlug: string;
+    cardId: string | null;
+    title: string;
+  };
+  link: {
+    id: string;
+    label: string;
+    kind: string;
+    url: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  artifact: {
+    path: string;
+    hash: string;
+    sizeBytes: number;
+    lineCount: number;
+    content: string;
+  };
+}
+
+export interface UpdateCardArtifactInput {
+  url?: string;
+  cardId?: string;
+  projectSlug?: string;
+  cardSlug?: string;
+  artifactRef?: string;
+  content?: string;
+  label?: string;
+  kind?: 'doc' | 'spec' | 'ticket' | 'repo' | 'reference' | 'other';
+  expectedHash?: string;
+}
+
+export interface UpdateCardArtifactOutput {
+  ok: true;
+  card: {
+    projectSlug: string;
+    cardSlug: string;
+    cardId: string | null;
+  };
+  link: {
+    id: string;
+    label: string;
+    kind: string;
+    url: string;
+    updatedAt: string;
+  };
+  artifact: {
+    path: string;
+    hash: string;
+    updatedAt: string;
+  };
 }
 
 // ============================================================================

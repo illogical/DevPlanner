@@ -124,11 +124,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: 'Move a card to the archive lane.',
         inputSchema: (await import('./mcp/schemas.js')).ARCHIVE_CARD_SCHEMA,
       },
-      // Vault Artifact Tool
+      // Card Artifact Tools
       {
-        name: 'create_vault_artifact',
-        description: 'Write a Markdown file to the artifact vault and attach it as a link on a card. The filename is auto-generated from the label and timestamp. Requires ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env.',
-        inputSchema: (await import('./mcp/schemas.js')).CREATE_VAULT_ARTIFACT_SCHEMA,
+        name: 'create_card_artifact',
+        description: 'Write a Markdown file to the artifact vault and attach it as a link on a card. The filename is auto-generated from the label and timestamp. Requires ARTIFACT_BASE_URL and ARTIFACT_BASE_PATH in .env. After creating, use update_card_artifact to modify the content without changing the viewer URL.',
+        inputSchema: (await import('./mcp/schemas.js')).CREATE_CARD_ARTIFACT_SCHEMA,
+      },
+      {
+        name: 'resolve_card_artifact',
+        description: 'Resolve any artifact identifier (URL, cardId, projectSlug+cardSlug) to its full metadata (link ID, path, hash, size, line count). Use this when you have a URL and need the card and link context. Does NOT fetch file content — use read_card_artifact for that.',
+        inputSchema: (await import('./mcp/schemas.js')).RESOLVE_CARD_ARTIFACT_SCHEMA,
+      },
+      {
+        name: 'read_card_artifact',
+        description: 'Fetch the full content of a card artifact. Accepts URL, cardId, or projectSlug+cardSlug, with an optional artifactRef disambiguator (link ID preferred). Returns content, hash, sizeBytes, and lineCount. Store the hash and use it as expectedHash when calling update_card_artifact to detect conflicts.',
+        inputSchema: (await import('./mcp/schemas.js')).READ_CARD_ARTIFACT_SCHEMA,
+      },
+      {
+        name: 'update_card_artifact',
+        description: 'Update a card artifact\'s content and/or link metadata (label, kind). The viewer URL is preserved — only the backing file content changes. Pass expectedHash (from a prior read_card_artifact call) to enable optimistic concurrency control. Returns the new hash.',
+        inputSchema: (await import('./mcp/schemas.js')).UPDATE_CARD_ARTIFACT_SCHEMA,
       },
       // Card Context Tool
       {

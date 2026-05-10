@@ -554,3 +554,213 @@ describe('MCP Tool Handlers', () => {
     });
   });
 });
+
+// ============================================================================
+// Card Artifact Tool Tests
+// ============================================================================
+
+describe('Card Artifact MCP Tools', () => {
+  let testWorkspace: string;
+  let vaultDir: string;
+  let projectService: ProjectService;
+  let cardService: CardService;
+  const projectSlug = 'artifact-project';
+  const BASE_URL = 'http://tiny-tower:5173/viewer?path=';
+
+  beforeEach(async () => {
+    testWorkspace = await mkdtemp(join(tmpdir(), 'devplanner-artifact-test-'));
+    vaultDir = join(testWorkspace, '_vault');
+
+    process.env.DEVPLANNER_WORKSPACE = testWorkspace;
+    process.env.ARTIFACT_BASE_URL = BASE_URL;
+    process.env.ARTIFACT_BASE_PATH = vaultDir;
+    process.env.FILE_BROWSER_BASE_PATH = testWorkspace;
+
+    ConfigService._resetInstance();
+    _resetServicesCache();
+
+    projectService = new ProjectService(testWorkspace);
+    cardService = new CardService(testWorkspace);
+
+    await projectService.createProject('Artifact Project', 'Tests for artifact tools');
+    await cardService.createCard(projectSlug, {
+      title: 'My Card',
+      lane: '01-upcoming',
+    });
+  });
+
+  afterEach(async () => {
+    try {
+      await rm(testWorkspace, { recursive: true, force: true });
+      delete process.env.DEVPLANNER_WORKSPACE;
+      delete process.env.ARTIFACT_BASE_URL;
+      delete process.env.ARTIFACT_BASE_PATH;
+      delete process.env.FILE_BROWSER_BASE_PATH;
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
+  // Helper: create an artifact via the MCP create_card_artifact tool
+  async function createArtifact(label: string, content: string): Promise<{ linkId: string; url: string }> {
+    const result = await toolHandlers.create_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      label,
+      content,
+      kind: 'doc',
+    });
+    return { linkId: result.link.id, url: result.link.url };
+  }
+
+  test('create_card_artifact creates an artifact and returns a link', async () => {
+    const result = await toolHandlers.create_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      label: 'Spec Doc',
+      content: '# Spec\nLine 1\nLine 2',
+      kind: 'spec',
+    });
+
+    expect(result.link.id).toBeTruthy();
+    expect(result.link.label).toBe('Spec Doc');
+    expect(result.link.url).toContain(BASE_URL);
+    expect(result.filePath).toBeTruthy();
+  });
+
+  test('resolve_card_artifact resolves by cardId + label', async () => {
+    // Get the card's cardId
+    const card = await cardService.getCard(projectSlug, 'my-card');
+    await createArtifact('Design Doc', '# Design');
+
+    const result = await toolHandlers.resolve_card_artifact({
+      cardId: card.cardId,
+      artifactRef: 'Design Doc',
+    });
+
+    expect(result.card.cardId).toBe(card.cardId);
+    expect(result.link.label).toBe('Design Doc');
+    expect(result.artifact.path).toBeTruthy();
+    expect(result.artifact.hash).toMatch(/^sha256:/);
+    expect(result.artifact.lineCount).toBeGreaterThan(0);
+  });
+
+  test('resolve_card_artifact resolves by URL', async () => {
+    const { url } = await createArtifact('Plan', '# Plan\nContent');
+
+    const result = await toolHandlers.resolve_card_artifact({ url });
+
+    expect(result.link.url).toBe(url);
+    expect(result.card.projectSlug).toBe(projectSlug);
+  });
+
+  test('read_card_artifact returns content', async () => {
+    const { linkId } = await createArtifact('Impl Notes', '# Notes\nLine A\nLine B');
+
+    const result = await toolHandlers.read_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      artifactRef: linkId,
+    });
+
+    expect(result.artifact.content).toContain('# Notes');
+    expect(result.artifact.hash).toMatch(/^sha256:/);
+    expect(result.artifact.lineCount).toBe(3);
+  });
+
+  test('read_card_artifact resolves by link ID (UUID)', async () => {
+    const { linkId } = await createArtifact('Lookup By ID', 'Some content');
+
+    const result = await toolHandlers.read_card_artifact({ artifactRef: linkId, projectSlug, cardSlug: 'my-card' });
+    expect(result.link.id).toBe(linkId);
+    expect(result.artifact.content).toBe('Some content');
+  });
+
+  test('resolve_card_artifact throws AMBIGUOUS_ARTIFACT_REF when multiple artifacts share a label', async () => {
+    // Create two artifacts with the same label (not possible via normal flow, simulate with two distinct labels then use projectSlug+cardSlug with no ref)
+    await createArtifact('Artifact A', 'Content A');
+    await createArtifact('Artifact B', 'Content B');
+
+    await expect(toolHandlers.resolve_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      // No artifactRef — card has 2 artifacts, should be ambiguous
+    })).rejects.toMatchObject({ code: 'AMBIGUOUS_ARTIFACT_REF' });
+  });
+
+  test('update_card_artifact updates content and preserves URL', async () => {
+    const { linkId, url } = await createArtifact('Living Doc', '# v1');
+
+    const result = await toolHandlers.update_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      artifactRef: linkId,
+      content: '# v2\nUpdated content',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.link.url).toBe(url); // URL preserved
+    expect(result.artifact.hash).toMatch(/^sha256:/);
+  });
+
+  test('update_card_artifact updates label and kind', async () => {
+    const { linkId } = await createArtifact('Old Label', '# content');
+
+    const result = await toolHandlers.update_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      artifactRef: linkId,
+      label: 'New Label',
+      kind: 'spec',
+    });
+
+    expect(result.link.label).toBe('New Label');
+    expect(result.link.kind).toBe('spec');
+  });
+
+  test('update_card_artifact with correct expectedHash succeeds', async () => {
+    const { linkId } = await createArtifact('Hash Test', '# v1');
+    const readResult = await toolHandlers.read_card_artifact({
+      projectSlug, cardSlug: 'my-card', artifactRef: linkId,
+    });
+    const hash = readResult.artifact.hash;
+
+    const result = await toolHandlers.update_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      artifactRef: linkId,
+      content: '# v2',
+      expectedHash: hash,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  test('update_card_artifact with stale expectedHash throws ARTIFACT_CONFLICT', async () => {
+    const { linkId } = await createArtifact('Conflict Test', '# v1');
+    const staleHash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+
+    await expect(toolHandlers.update_card_artifact({
+      projectSlug,
+      cardSlug: 'my-card',
+      artifactRef: linkId,
+      content: '# v2',
+      expectedHash: staleHash,
+    })).rejects.toMatchObject({ code: 'ARTIFACT_CONFLICT' });
+  });
+
+  test('read_card_artifact after update returns new content', async () => {
+    const { linkId } = await createArtifact('Evolving Doc', '# v1\nInitial');
+
+    await toolHandlers.update_card_artifact({
+      projectSlug, cardSlug: 'my-card', artifactRef: linkId, content: '# v2\nRevised',
+    });
+
+    const result = await toolHandlers.read_card_artifact({
+      projectSlug, cardSlug: 'my-card', artifactRef: linkId,
+    });
+
+    expect(result.artifact.content).toContain('# v2');
+    expect(result.artifact.content).toContain('Revised');
+  });
+});

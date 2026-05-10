@@ -210,13 +210,13 @@ PATCH /projects/{slug}/cards/{card}
 { "status": "in-progress", "blockedReason": null }
 ```
 
-## Creating Vault Artifacts
+## Creating and Updating Card Artifacts
 
 Write Markdown files directly to the artifact vault. The API automatically writes the file and attaches a link to your card.
 
 **Requires** `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`.
 
-### Canonical Workflow
+### Create (write a new artifact file)
 
 ```
 POST /projects/{slug}/cards/{card}/artifacts
@@ -226,7 +226,36 @@ POST /projects/{slug}/cards/{card}/artifacts
   → Response: { "link": { ... }, "filePath": "..." }
 ```
 
-**Use the returned `link.url` for all portable references.** The `filePath` is the internal implementation detail and is not guaranteed to be accessible from other clients.
+**Use the returned `link.url` and `link.id` for all portable references.** The `filePath` is an internal implementation detail.
+
+### Read an existing artifact
+
+When you have a `link.url` or `link.id` from a prior create (or from `get_card_context`), use:
+
+```
+GET /projects/{slug}/cards/{card}/artifacts/{artifactRef}
+  → artifactRef: link ID (UUID, most stable), vault path, or unique label
+  → Response includes content, hash, sizeBytes, lineCount
+```
+
+Store the returned `artifact.hash` — pass it as `expectedHash` on update to detect conflicts.
+
+### Update an existing artifact (content or metadata)
+
+```
+PATCH /projects/{slug}/cards/{card}/artifacts/{artifactRef}
+  → {"content":"...", "expectedHash":"sha256:..."}   ← preserves the viewer URL
+  → {"label":"New Label", "kind":"spec"}              ← update link metadata only
+  → 409 ARTIFACT_CONFLICT if file changed since you read it; re-read and retry
+```
+
+The viewer URL **never changes** on update.
+
+**MCP equivalents:** `create_card_artifact`, `resolve_card_artifact`, `read_card_artifact`, `update_card_artifact`
+
+> `create_vault_artifact` is a deprecated MCP alias for `create_card_artifact`. Do not use it in new workflows.
+
+### Artifact lifecycle for implementation cards
 
 Attach artifacts at natural checkpoints — not only at completion:
 
@@ -293,6 +322,7 @@ The `link.url` is portable and shareable. Use it in references, messages, and cr
 | 400 INVALID_URL               | URL missing or not http/https      | Ensure URL starts with `http://` or `https://`                             |
 | 400 INVALID_LABEL             | Label is empty or whitespace       | Provide a meaningful display label                                         |
 | 400 ARTIFACT_NOT_CONFIGURED   | Missing env vars for artifact storage | Set `ARTIFACT_BASE_URL` and `ARTIFACT_BASE_PATH` in server `.env`       |
+| 409 ARTIFACT_CONFLICT         | Artifact content changed since last read | Re-read via `GET /artifacts/{ref}`, note new hash, retry PATCH with `expectedHash` |
 | API unreachable               | Server not running                 | Ask user to run `bun run dev` in DevPlanner directory                      |
 
 ## Lanes

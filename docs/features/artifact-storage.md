@@ -111,11 +111,63 @@ Creates a Markdown file in the artifact storage path and attaches a link to the 
 
 ---
 
-## MCP Tool
+## REST Endpoints (read/update)
 
-### create_vault_artifact
+### GET /api/projects/:projectSlug/cards/:cardRef/artifacts/:artifactRef
+
+Reads a card artifact. `cardRef` accepts either a card slug or card ID. `artifactRef` is matched by: link ID → vault path → URL → unique label.
+
+**Response:**
+```json
+{
+  "cardId": "HE-42",
+  "cardSlug": "my-feature-card",
+  "artifact": {
+    "id": "<link-uuid>",
+    "label": "Implementation Spec",
+    "kind": "spec",
+    "url": "http://tiny-tower:5173/viewer?path=...",
+    "path": "10-Projects/hex/my-feature-card/2026-03-05_IMPLEMENTATION-SPEC.md",
+    "hash": "sha256:...",
+    "sizeBytes": 1234,
+    "lineCount": 42,
+    "content": "# Implementation Spec\n...",
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+}
+```
+
+### PATCH /api/projects/:projectSlug/cards/:cardRef/artifacts/:artifactRef
+
+Updates a card artifact's content and/or link metadata. The viewer URL is preserved.
+
+**Body:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | No | New file content |
+| `label` | string | No | New link label |
+| `kind` | string | No | New link kind |
+| `expectedHash` | string | No | Conflict detection: current `sha256:...` hash |
+
+**Error responses:**
+- `409 ARTIFACT_CONFLICT` — File changed since last read; re-read and retry
+
+### POST /api/card-artifacts/resolve
+
+Cross-project artifact resolution endpoint. Does not require knowing which project/card a URL belongs to.
+
+**Body:** `{ url?, cardId?, projectSlug?, cardSlug?, artifactRef?, includeContent?: boolean }`
+
+---
+
+## MCP Tools
+
+### create_card_artifact (was: create_vault_artifact)
 
 Writes a Markdown file to the artifact storage path and attaches a link to the card.
+
+> `create_vault_artifact` is a deprecated alias and will remain registered for backward compatibility. Use `create_card_artifact` in new workflows.
 
 **Replaces:** `add_file_to_card`, `list_project_files`, `list_card_files`, `read_file_content`
 
@@ -130,6 +182,44 @@ Writes a Markdown file to the artifact storage path and attaches a link to the c
 | `kind` | string | No | `doc\|spec\|ticket\|repo\|reference\|other` (default: `doc`) |
 
 **Outputs:** `{ link: CardLink, filePath: string, message: string }`
+
+### resolve_card_artifact
+
+Resolves any artifact identifier to its full metadata (link ID, path, hash, size, line count). Does **not** fetch file content.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | No | Viewer/editor URL (most precise) |
+| `cardId` | string | No | Card identifier, e.g. `HE-42` |
+| `projectSlug` | string | No | Use with `cardSlug` |
+| `cardSlug` | string | No | Use with `projectSlug` |
+| `artifactRef` | string | No | Disambiguator: link ID > vault path > unique label |
+
+**Outputs:** `{ card: {…}, link: {id, label, kind, url, …}, artifact: {path, hash, sizeBytes, lineCount} }`
+
+### read_card_artifact
+
+Fetches artifact metadata **and** file content. Same inputs as `resolve_card_artifact`.
+
+**Outputs:** Same as `resolve_card_artifact` plus `artifact.content: string`.
+
+Record the returned `artifact.hash` and pass it as `expectedHash` when calling `update_card_artifact`.
+
+### update_card_artifact
+
+Updates a card artifact's content and/or link metadata. The viewer URL is preserved.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` / `cardId` / `projectSlug+cardSlug` | string | One required | Card/artifact locator |
+| `artifactRef` | string | No | Disambiguator (link ID preferred) |
+| `content` | string | No | New file content |
+| `label` | string | No | New link label |
+| `kind` | string | No | New link kind |
+| `expectedHash` | string | No | `sha256:...` from prior read — enables conflict detection |
+
+**Error codes:**
+- `ARTIFACT_CONFLICT` — File changed since last read; re-read and retry with current hash
 
 ---
 
