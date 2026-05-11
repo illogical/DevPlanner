@@ -131,7 +131,7 @@ export const artifactRoutes = (workspacePath: string) => {
       }
     )
     .get(
-      '/api/projects/:projectSlug/cards/:cardRef/artifacts/:artifactRef',
+      '/api/projects/:projectSlug/cards/:cardSlug/artifacts/:artifactRef',
       async ({ params, set }) => {
         const config = ConfigService.getInstance();
         const svc = makeArtifactService(config);
@@ -147,7 +147,7 @@ export const artifactRoutes = (workspacePath: string) => {
           const resolved = await svc.resolveCardArtifact(
             {
               projectSlug: params.projectSlug,
-              cardSlug: params.cardRef,
+              cardSlug: params.cardSlug,
               artifactRef: params.artifactRef,
             },
             true
@@ -191,7 +191,7 @@ export const artifactRoutes = (workspacePath: string) => {
       }
     )
     .patch(
-      '/api/projects/:projectSlug/cards/:cardRef/artifacts/:artifactRef',
+      '/api/projects/:projectSlug/cards/:cardSlug/artifacts/:artifactRef',
       async ({ params, body, set }) => {
         const config = ConfigService.getInstance();
         const svc = makeArtifactService(config);
@@ -216,7 +216,7 @@ export const artifactRoutes = (workspacePath: string) => {
           const resolved = await svc.resolveCardArtifact(
             {
               projectSlug: params.projectSlug,
-              cardSlug: params.cardRef,
+              cardSlug: params.cardSlug,
               artifactRef: params.artifactRef,
             },
             false
