@@ -39,6 +39,10 @@ const fileWatcher = FileWatcherService.getInstance();
 fileWatcher.start();
 
 const app = new Elysia()
+  .get('/health', () => ({
+    status: 'ok',
+    service: 'devplanner',
+  }))
   .use(openapi({
     path: '/swagger',
     documentation: {
